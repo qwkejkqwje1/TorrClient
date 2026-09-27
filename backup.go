@@ -50,11 +50,36 @@ func stripBackupSecrets(data []byte) ([]byte, bool) {
 	for _, k := range backupSecrets {
 		delete(m, k)
 	}
+	stripProfilePasswords(m)
 	out, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return nil, false
 	}
 	return out, true
+}
+
+// stripProfilePasswords убирает пароли серверов из копии настроек.
+//
+// Пароль лежит не на верхнем уровне, а внутри каждого профиля, и вырезание
+// только верхних полей оставляло его в архиве: архив отдают другому человеку
+// или прикладывают к сообщению о проблеме, а вместе с ним уезжал бы и пароль к
+// чужому TorrServer. Разбор идёт по элементам профиля, поэтому остальные поля
+// (адрес, имя, признак SSL) переносятся как есть.
+func stripProfilePasswords(m map[string]json.RawMessage) {
+	raw, ok := m["profiles"]
+	if !ok {
+		return
+	}
+	var arr []map[string]json.RawMessage
+	if json.Unmarshal(raw, &arr) != nil {
+		return
+	}
+	for _, p := range arr {
+		delete(p, "pass")
+	}
+	if out, err := json.Marshal(arr); err == nil {
+		m["profiles"] = out
+	}
 }
 
 // keepLocalSecrets переносит ключи метаданных из текущих настроек в возвращаемые
@@ -84,11 +109,58 @@ func keepLocalSecrets(incoming []byte) []byte {
 			m[key] = b
 		}
 	}
+	keepProfilePasswords(m, cur)
 	out, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return incoming
 	}
 	return out
+}
+
+// keepProfilePasswords возвращает пароль профиля из текущих настроек, если в
+// архиве его нет.
+//
+// Правило то же, что у ключа TMDB: пароль не ездит в архиве, но пропадать при
+// возврате не должен — иначе «восстановлено», а сервер недоступен. Пароль
+// подставляется по совпадению id: свой профиль с тем же id значит тот же
+// сервер. Пароль из самого архива (сделанного прежней сборкой) не трогается —
+// его выбрал не мы.
+func keepProfilePasswords(m map[string]json.RawMessage, cur *Config) {
+	if cur == nil {
+		return
+	}
+	raw, ok := m["profiles"]
+	if !ok {
+		return
+	}
+	var arr []map[string]json.RawMessage
+	if json.Unmarshal(raw, &arr) != nil {
+		return
+	}
+	for _, p := range arr {
+		if len(p["pass"]) > 0 {
+			continue
+		}
+		id := ""
+		if idRaw, ok := p["id"]; ok {
+			_ = json.Unmarshal(idRaw, &id)
+		}
+		if id == "" {
+			continue
+		}
+		for _, prof := range cur.Profiles {
+			if prof == nil || prof.ID != id || prof.Pass == "" {
+				continue
+			}
+			if b, err := json.Marshal(prof.Pass); err == nil {
+				p["pass"] = b
+			}
+			break
+		}
+	}
+	if out, err := json.Marshal(arr); err == nil {
+		m["profiles"] = out
+	}
 }
 
 // stateFilePath — где лежит файл состояния. Настройки остаются рядом с

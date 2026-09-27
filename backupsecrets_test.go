@@ -117,6 +117,97 @@ func TestBackupLeavesTheMetadataKeysBehind(t *testing.T) {
 	}
 }
 
+// Пароль к чужому серверу лежит внутри профиля, а не на верхнем уровне, и
+// вырезание одних верхних полей оставляло его в архиве.
+func TestBackupLeavesProfilePasswordsBehind(t *testing.T) {
+	keepConfigFile(t)
+	useStorageDirs(t)
+	settings := `{"active_profile_id":"home","profiles":[{"id":"home","name":"Домашний",` +
+		`"url":"http://192.168.1.5:8090","user":"vasya","pass":"ПАРОЛЬ-СЕКРЕТ"}]}`
+	if err := os.WriteFile(confPath(), []byte(settings), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	in := backupEntry(t, "torrclient.json")
+	if strings.Contains(in, "СЕКРЕТ") {
+		t.Errorf("секрет уехал в архиве: %s", in)
+	}
+	var m struct {
+		Profiles []map[string]any `json:"profiles"`
+	}
+	if err := json.Unmarshal([]byte(in), &m); err != nil {
+		t.Fatalf("настройки в архиве не разбираются: %v (%s)", err, in)
+	}
+	if len(m.Profiles) != 1 {
+		t.Fatalf("профилей в архиве: %d, ожидался 1 (%s)", len(m.Profiles), in)
+	}
+	if _, ok := m.Profiles[0]["pass"]; ok {
+		t.Error("в архиве осталось поле pass у профиля")
+	}
+	// Вместе с паролем не должен пропасть сам сервер: адрес и имя — не секрет.
+	if got, want := m.Profiles[0]["url"], "http://192.168.1.5:8090"; got != want {
+		t.Errorf("адрес сервера в архиве: %v, ожидался %q", got, want)
+	}
+	if got, want := m.Profiles[0]["name"], "Домашний"; got != want {
+		t.Errorf("имя профиля в архиве: %v, ожидалось %q", got, want)
+	}
+
+	// На диске пароль остаётся: вырезается копия для архива.
+	onDisk, err := os.ReadFile(confPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(onDisk), "ПАРОЛЬ-СЕКРЕТ") {
+		t.Errorf("пароль пропал из рабочих настроек: %s", onDisk)
+	}
+}
+
+// Пароль, как и ключ, принадлежит машине: возврат архива не должен оставлять
+// сервер без пароля — «восстановлено», а подключиться нельзя.
+func TestRestoreKeepsThePasswordThatIsNotInTheArchive(t *testing.T) {
+	keepConfigFile(t)
+	cache, data := useStorageDirs(t)
+	local, err := json.Marshal(map[string]any{
+		"active_profile_id": "home",
+		"cache_folder":      cache,
+		"data_folder":       data,
+		"profiles": []map[string]string{
+			{"id": "home", "url": "http://192.168.1.5:8090", "pass": "СВОЙ-ПАРОЛЬ"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(confPath(), local, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reloadConfigPaths()
+
+	fromArchive, err := json.Marshal(map[string]any{
+		"active_profile_id": "home",
+		"cache_folder":      cache,
+		"data_folder":       data,
+		"profiles": []map[string]string{
+			{"id": "home", "url": "http://192.168.1.5:8090"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := restore(t, archiveOf(t, map[string]string{"torrclient.json": string(fromArchive)}))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("код %d, ожидался 200: %s", rr.Code, rr.Body.String())
+	}
+
+	onDisk, err := os.ReadFile(confPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(onDisk), "СВОЙ-ПАРОЛЬ") {
+		t.Errorf("возврат архива стёр рабочий пароль: %s", onDisk)
+	}
+}
+
 // Ключ принадлежит машине, а не архиву: возврат архива на той же машине не
 // должен его стирать — иначе «восстановлено», а постеры пропали.
 func TestRestoreKeepsTheKeyThatIsNotInTheArchive(t *testing.T) {

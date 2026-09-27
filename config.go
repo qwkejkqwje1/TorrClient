@@ -122,6 +122,34 @@ func absToExe(p string) string {
 	return filepath.Join(filepath.Dir(exe), p)
 }
 
+// relToExe — обратное к absToExe преобразование: путь внутри каталога
+// программы записывается относительным.
+//
+// Без этого перенос переставал быть переносом: при первом запуске в файл
+// ложились абсолютные пути (`D:\TorrClient\watch`), и копия, переехавшая на
+// диск с другой буквой, указывала в никуда — README обещал обратное. Путь вне
+// каталога программы не трогается: намеренно указанная папка на другом диске
+// относительной быть не может, и молча переписать её значило бы увести данные
+// пользователя не туда. Пустой результат — то же, что отсутствующая настройка:
+// «рядом с программой».
+func relToExe(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" || !filepath.IsAbs(p) {
+		return p
+	}
+	rel, err := filepath.Rel(exeDir(), p)
+	if err != nil {
+		return p
+	}
+	if rel == "." {
+		return ""
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return p
+	}
+	return rel
+}
+
 // applyStoragePaths разрешает пути настроек от каталога программы и создаёт
 // сами папки. Отдельной функцией, потому что те же действия нужны при запуске,
 // после возврата архива и после смены папок, и расходиться им нельзя: путь,
@@ -256,8 +284,18 @@ func updateCfg(fn func(nc *Config)) error {
 }
 
 // saveConfigLocked пишет конфиг на диск. Вызывается под cfgMu из updateCfg.
+//
+// Пути пишутся относительными (relToExe), а в памяти остаются абсолютными:
+// файл настроек едет вместе с программой, а читающий его код работает с
+// настоящими адресами. Копия снимка делается ради записи — опубликованный
+// снимок править нельзя.
 func saveConfigLocked(c *Config) error {
-	b, _ := json.MarshalIndent(c, "", "  ")
+	out := *c
+	out.WatchFolder = relToExe(c.WatchFolder)
+	out.DownloadFolder = relToExe(c.DownloadFolder)
+	out.CacheFolder = relToExe(c.CacheFolder)
+	out.DataFolder = relToExe(c.DataFolder)
+	b, _ := json.MarshalIndent(&out, "", "  ")
 	return writeFileAtomic(confPath(), b, 0o600)
 }
 

@@ -122,6 +122,81 @@ func TestApplyStoragePathsResolvesRelativeToTheProgram(t *testing.T) {
 	}
 }
 
+// Настройки пишутся относительными путями: файл едет вместе с программой, и
+// копия, переехавшая на диск с другой буквой, остаётся рабочей. Прежде в файл
+// ложились абсолютные пути (`D:\TorrClient\watch`), и переезд ломал папки —
+// хотя README обещал, что папки считаются от программы.
+func TestConfigIsSavedWithPathsRelativeToTheProgram(t *testing.T) {
+	keepConfigFile(t)
+	saved := cfg.Load()
+	c := defaultConfig()
+	cfg.Store(c)
+	t.Cleanup(func() { cfg.Store(saved) })
+
+	if err := saveConfigLocked(c); err != nil {
+		t.Fatalf("настройки не записаны: %v", err)
+	}
+	b, err := os.ReadFile(confPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("записанные настройки не разбираются: %v (%s)", err, b)
+	}
+	if got, want := m["watch_folder"], "watch"; got != want {
+		t.Errorf("watch_folder в файле: %v, ожидалось %q", got, want)
+	}
+	if got, want := m["download_folder"], "downloads"; got != want {
+		t.Errorf("download_folder в файле: %v, ожидалось %q", got, want)
+	}
+	for _, key := range []string{"watch_folder", "download_folder", "cache_folder", "data_folder"} {
+		if s, ok := m[key].(string); ok && s != "" && filepath.IsAbs(s) {
+			t.Errorf("%s записан абсолютным: %q", key, s)
+		}
+	}
+
+	// Прочитанное назад указывает туда же, куда указывало в памяти: иначе
+	// переносимость была бы куплена ценой поломанных путей на этой машине.
+	// Разрешение путей — тот же шаг, что делает демон при запуске.
+	back := loadConfig()
+	applyStoragePaths(back)
+	if got, want := back.WatchFolder, filepath.Join(exeDir(), "watch"); got != want {
+		t.Errorf("прочитано: %q, ожидалось %q", got, want)
+	}
+	if got, want := back.DataFolder, exeDir(); got != want {
+		t.Errorf("прочитано: %q, ожидалось %q", got, want)
+	}
+}
+
+// Папка вне каталога программы остаётся абсолютной: намеренно указанный диск
+// с данными молча переписывать нельзя — это уводило бы отметки и избранное не
+// туда, и выглядело бы как «всё пропало».
+func TestConfigKeepsPathsOutsideTheProgramAbsolute(t *testing.T) {
+	keepConfigFile(t)
+	outside := t.TempDir()
+	c := defaultConfig()
+	c.DataFolder = outside
+	c.WatchFolder = outside
+
+	if err := saveConfigLocked(c); err != nil {
+		t.Fatalf("настройки не записаны: %v", err)
+	}
+	b, err := os.ReadFile(confPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("записанные настройки не разбираются: %v (%s)", err, b)
+	}
+	for _, key := range []string{"data_folder", "watch_folder"} {
+		if got, want := m[key], outside; got != want {
+			t.Errorf("%s в файле: %v, ожидалось %q", key, got, want)
+		}
+	}
+}
+
 // Смена папки постоянных данных переносит накопленное. Без переноса отметки и
 // избранное остались бы в прежней папке, а читались бы из новой — то есть
 // пустой, и смена настройки выглядела бы как «всё пропало».
