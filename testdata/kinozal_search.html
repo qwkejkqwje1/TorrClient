@@ -1,0 +1,694 @@
+<!DOCTYPE HTML>
+<html lang="ru">
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">
+<title>Раздачи :: Кинозал.МЕ</title>
+<meta name="description" content="Список и поиск раздач (торрентов), поиск по разделам кино, музыки, жанрам и персонам.">
+<meta name="Keywords" content="250 лучших фильмов, 100 лучших фильмов, лучшие комедии, лучшие фильмы ужасов, лучшие драмы, лучшие фильмы +всех времен, kinozal, скачать, торрент-трекер, торрент скачать бесплатно">
+<meta name="robots" content="index,follow">
+<link rel="shortcut icon" href="/pic/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/pic/0_kinozal.me.css?v=3.3" type="text/css">
+<script type="text/javascript" src="/pic/jquery-3.6.3.min.js?v=1"></script>
+<script type="text/javascript" src="/pic/use.js?v=3.7"></script>
+</head>
+<body>
+<div id="body_wrapper">
+<div id="header">
+	<div class="logo">
+		<a href="https://kinozaltv.life" title="Кинозал.МЕ"><img src="/pic/logo_kinozal_me_1.png?v=3" alt="Кинозал.МЕ"></a>
+	</div>
+
+	<div class="menu_cont">
+		<div class="search">
+			<form action="/browse.php" method="get" id="srchform">
+				<input type="text" class="inp" id="s" name="s" size="15" value=""><input class="s_submit" type="submit" title="Поиск раздач">
+			</form>
+		</div>
+		<div class="menu">
+			<ul>
+				<li><a href="/" title="Главная">Главная</a></li>
+				<li><a href="https://forum.kinozaltv.life" title="Форум">Форум</a></li>
+						<li><a href="/signup.php" title="Регистрация на трекере">Регистрация</a></li>
+				<li><a href="/browse.php" title="Каталог раздач">Раздачи</a></li>
+				<li><a href="/top.php" title="Топ раздач">Топ раздач</a></li>
+				<li><a href="/personsearch.php" title="Персоны">Персоны</a></li>
+				<li><a href="/novinki.php" title="Новинки кино">Новинки кино</a></li>
+				<li><a href="/groupexlist.php" title="Каталог групп">Группы</a></li>
+					</ul>
+		</div>
+	</div>
+	<div class="clr"></div>
+
+</div>
+<div class="clr"></div>
+
+<div id="main">
+ <div class="menu">
+
+<div class="bx2_0">
+<form method="post" action="/takelogin.php">
+<ul class="men">
+ <li class="tp2 center"><a href="/signup.php" class="sbab">Гость! ( Зарегистрируйтесь )</a></li>
+ <li class="right b">Логин: <input type="text" name="username" class="w90" value=""></li>
+ <li class="right b">Пароль: <input type="password" name="password" class="w90" value=""></li>
+ <li class="right b"><a href="/recover.php" class="sbab">Восстановление!</a> <input type="hidden" name="returnto" value=''><input class=buttonS type="submit" value="Вход">
+</ul>
+</form>
+</div>
+
+<div class="bx2_0">
+<ul class="men">
+ <li><span class='bulet'></span><a href='/browse.php'>Раздачи трекера</a></li> 
+ <li><span class='bulet'></span><a href='/top.php'>Топ раздач</a></li> 
+ <li><span class='bulet'></span><a href='/persons.php'>Персоны</a></li> 
+ <li><span class='bulet'></span><a href='/novinki.php'>Новинки кино</a></li>
+</ul>
+</div>
+
+<div class="bx2_0">
+<ul class="men">
+ <li class="tp2 center">Прочтите  рекомендации</li>
+ <li><span class='bulet'></span><a href='/doku.php'>Общие правила</a></li> 
+ <li><span class='bulet'></span><a href='/doku.php?type=1'>Правила пользователей</a></li> 
+ <li><span class='bulet'></span><a href='/doku.php?type=2'>Правила Кинооператоров</a></li> 
+ <li><span class='bulet'></span><a href='/doku.php?type=3'>Как скачать фильм</a></li>
+  <li><span class='bulet'></span><a href='/copyright.php'>Для правообладателей</a></li>
+</ul>
+</div>
+
+ </div>
+ <div class="content">
+<form method="get" action="/browse.php">
+<div class="bx1_0" style="padding: 3px 38px 3px 5px;">
+<table class="tables1">
+<tr><td colspan=3>Поиск раздач ( <a href='//forum.kinozaltv.life/showthread.php?t=63820' class=sba>Как пользоваться поиском?</a> )<td>Где именно<td>
+<tr>
+<td colspan=3><input type="text" name="s" value="матрица"  class="w98p">
+<td><span class=sw100><select name="g" class="w100 styled">
+<option value=0  selected>В названии</option>
+<option value=1 >Персона</option>
+<option value=2 >Жанры</option>
+<option value=3 >Формула</option>
+</select></span>
+
+
+<td class=center><input type="submit" value="Поиск раздач" class="buttonS w98p"></tr>
+<tr>
+ <td>Выбор раздела<td>Выбор формата<td>Год выхода<td>Фильтр поиска<td>Сортировка результата
+<tr>
+<td>
+<span class=sw190><select name="c" class="w190 styled">
+<option  value="0">Поиск по разделам</option>
+<option  value=1001 class="green">Все сериалы</option>
+<option  value=1002 class="green">Все фильмы</option>
+<option  value=1003 class="green">Все мульты</option>
+<option  value=1006 class="green">Шоу, концерты, спорт</option>
+<option  value=1004 class="green">Вся музыка</option>
+<option  value=45>Сериал - Русский</option>
+<option  value=46>Сериал - Буржуйский</option>
+<option  value=8>Кино - Комедия</option>
+<option  value=6>Кино - Боевик / Военный</option>
+<option  value=15>Кино - Триллер / Детектив</option>
+<option  value=17>Кино - Драма</option>
+<option  value=35>Кино - Мелодрама</option>
+<option  value=39>Кино - Индийское</option>
+<option  value=13>Кино - Фантастика</option>
+<option  value=14>Кино - Фэнтези</option>
+<option  value=24>Кино - Ужас / Мистика</option>
+<option  value=11>Кино - Приключения</option>
+<option  value=10>Кино - Наше Кино</option>
+<option  value=9>Кино - Исторический</option>
+<option  value=47>Кино - Азиатский</option>
+<option  value=18>Кино - Документальный</option>
+<option  value=37>Кино - Спорт</option>
+<option  value=12>Кино - Детский / Семейный</option>
+<option  value=7>Кино - Классика</option>
+<option  value=48>Кино - Концерт</option>
+<option  value=49>Кино - Передачи / ТВ-шоу</option>
+<option  value=50>Кино - ТВ-шоу Мир</option>
+<option  value=38>Кино - Театр, Опера, Балет</option>
+<option  value=16>Кино - Эротика</option>
+<option  value=21>Мульт - Буржуйский</option>
+<option  value=22>Мульт - Русский</option>
+<option  value=20>Мульт - Аниме</option>
+<option  value=3>Музыка - Буржуйская</option>
+<option  value=4>Музыка - Русская</option>
+<option  value=5>Музыка - Сборники</option>
+<option  value=42>Музыка - Классическая</option>
+<option  value=2>Другое - АудиоКниги</option>
+<option  value=1>Другое - Видеоклипы</option>
+<option  value=23>Другое - Игры</option>
+<option  value=32>Другое - Программы</option>
+<option  value=40>Другое - Дизайн / Графика</option>
+<option  value=41>Другое - Библиотека</option>
+
+</select></span>
+<td><span class=sw190><select name="v" class="w190 styled">
+<option value=0  selected>Все форматы</option>
+<option value=101 disabled>Форматы видео</option>
+<option value=3 >|- Рипы HD(1080|720)</option>
+<option value=3001 >|-- 1080</option>
+<option value=3002 >|-- 720</option>
+<option value=1 >|- Рипы DVD и BD(HD)</option>
+<option value=4 >|- HD Blu-Ray и Remux</option>
+<option value=2 >|- DVD-5 и DVD-9</option>
+<option value=5 >|- Рипы TV</option>
+<option value=6 >|- 3D</option>
+<option value=7 >|- 4K</option>
+<option value=201 disabled>Форматы аудио</option>
+<option value=51 >|- Lossless</option>
+<option value=52 >|- MP3 и AAC</option>
+<option value=301 disabled>Форматы игр и программ</option>
+<option value=61 >|- Компьютер</option>
+<option value=62 >|- Приставка</option>
+<option value=63 >|- Мобильные устройства</option>
+<option value=64 >|- Навигация</option>
+</select></span>
+<td><span class=sw90>
+<select name="d" class="w90 styled">
+<option value=0>все года</option>
+<option value=2026>2026</option>
+<option value=2025>2025</option>
+<option value=2024>2024</option>
+<option value=2023>2023</option>
+<option value=2022>2022</option>
+<option value=2021>2021</option>
+<option value=2020>2020</option>
+<option value=2019>2019</option>
+<option value=2018>2018</option>
+<option value=2017>2017</option>
+<option value=2016>2016</option>
+<option value=2015>2015</option>
+<option value=2014>2014</option>
+<option value=2013>2013</option>
+<option value=2012>2012</option>
+<option value=2011>2011</option>
+<option value=2010>2010</option>
+<option value=2009>2009</option>
+<option value=2008>2008</option>
+<option value=2007>2007</option>
+<option value=2006>2006</option>
+<option value=2005>2005</option>
+<option value=2004>2004</option>
+<option value=2003>2003</option>
+<option value=2002>2002</option>
+<option value=2001>2001</option>
+<option value=2000>2000</option>
+<option value=1999>1999</option>
+<option value=1998>1998</option>
+<option value=1997>1997</option>
+<option value=1996>1996</option>
+<option value=1995>1995</option>
+<option value=1994>1994</option>
+<option value=1993>1993</option>
+<option value=1992>1992</option>
+<option value=1991>1991</option>
+<option value=1990>1990</option>
+<option value=1989>1989</option>
+<option value=1988>1988</option>
+<option value=1987>1987</option>
+<option value=1986>1986</option>
+<option value=1985>1985</option>
+<option value=1984>1984</option>
+<option value=1983>1983</option>
+<option value=1982>1982</option>
+<option value=1981>1981</option>
+<option value=1980>1980</option>
+<option value=1979>1979</option>
+<option value=1978>1978</option>
+<option value=1977>1977</option>
+<option value=1976>1976</option>
+<option value=1975>1975</option>
+<option value=1974>1974</option>
+<option value=1973>1973</option>
+<option value=1972>1972</option>
+<option value=1971>1971</option>
+<option value=1970>1970</option>
+<option value=1969>1969</option>
+<option value=1968>1968</option>
+<option value=1967>1967</option>
+<option value=1966>1966</option>
+<option value=1965>1965</option>
+<option value=1964>1964</option>
+<option value=1963>1963</option>
+<option value=1962>1962</option>
+<option value=1961>1961</option>
+<option value=1960>1960</option>
+<option value=1959>1959</option>
+<option value=1958>1958</option>
+<option value=1957>1957</option>
+<option value=1956>1956</option>
+<option value=1955>1955</option>
+<option value=1954>1954</option>
+<option value=1953>1953</option>
+<option value=1952>1952</option>
+<option value=1951>1951</option>
+<option value=1950>1950</option>
+<option value=1949>1949</option>
+<option value=1948>1948</option>
+<option value=1947>1947</option>
+<option value=1946>1946</option>
+<option value=1945>1945</option>
+<option value=1944>1944</option>
+<option value=1943>1943</option>
+<option value=1942>1942</option>
+<option value=1941>1941</option>
+<option value=1940>1940</option>
+<option value=1939>1939</option>
+<option value=1938>1938</option>
+<option value=1937>1937</option>
+<option value=1936>1936</option>
+<option value=1935>1935</option>
+<option value=1934>1934</option>
+<option value=1933>1933</option>
+<option value=1932>1932</option>
+<option value=1931>1931</option>
+<option value=1930>1930</option>
+<option value=1929>1929</option>
+<option value=1928>1928</option>
+<option value=1927>1927</option>
+<option value=1926>1926</option>
+<option value=1925>1925</option>
+<option value=1924>1924</option>
+<option value=1923>1923</option>
+<option value=1922>1922</option>
+<option value=1921>1921</option>
+<option value=1920>1920</option>
+<option value=1919>1919</option>
+<option value=1918>1918</option>
+<option value=1917>1917</option>
+<option value=1916>1916</option>
+<option value=1915>1915</option>
+<option value=1914>1914</option>
+<option value=1913>1913</option>
+<option value=1912>1912</option>
+<option value=1911>1911</option>
+<option value=1910>1910</option>
+<option value=1909>1909</option>
+<option value=1908>1908</option>
+<option value=1907>1907</option>
+<option value=1906>1906</option>
+<option value=1905>1905</option>
+<option value=1904>1904</option>
+<option value=1903>1903</option>
+<option value=1902>1902</option>
+<option value=1901>1901</option>
+<option value=1900>1900</option>
+</select></span>
+<td><span class=sw100>
+<select name="w" class="w100 styled">
+<option value=0  selected>не выбран</option>
+<option value=1 >сегодня</option>
+<option value=2 >вчера</option>
+<option value=3 >за 3 дня</option>
+<option value=4 >за неделю</option>
+<option value=5 >за месяц</option>
+<option value=6 >менее 3ГБ</option>
+<option value=7 >3ГБ - 10ГБ</option>
+<option value=8 >10ГБ - 50ГБ</option>
+<option value=9 >50ГБ - 250ГБ</option>
+<option value=10 >250ГБ и выше</option>
+<option value=11 >золото</option>
+<option value=12 >серебро</option>
+</select></span>
+
+<td class=nw>
+<span class=sw70><select name="t" class="styled">
+<option value=0  selected>Залит</option>
+<option value=1 >Сидам</option>
+<option value=2 >Пирам</option>
+<option value=3 >Размер</option>
+<option value=4 >Коммент.</option>
+<option value=5 >Скачали</option>
+<option value=6 >Посл.комм.</option>
+</select></span>
+<span class=sw70><select name="f" class="styled">
+<option value=0  selected>Убыв.</option>
+<option value=1 >Возр.</option>
+</select></span>
+<tr><td colspan=5><span class='bulet'></span>Найдено 163  раздачи</td></tr></table></div>
+</form>
+<div class='pad0x0x5x0 center'><a href='/pay.php' title='Благодарим за поддержку!'><img src='/pic/banners/pay_bn2.png' style='display: inline-block;' alt=''></a></div>
+<div class="bx2_0"><table class="t_peer w100p"><tr class="mn"><td class="z w90"></td><td class="w90p"></td><td class="z">Комм.</td><td class="z">Размер</td><td class="z">Сидов</td><td class="z">Пиров</td><td class="z">Залит</td><td class='zl'>Раздает</td></tr>
+<tr class='first bg'><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2095997" class="r1">Матрица: Революция / The Matrix: Revolutions (Remastered) / 2003 / ДБ, 2 x ПМ, 2 x ПД, АП (Гаврилов, Живов, Есарев), СТ / Blu-Ray Remux (1080p)</a><td class='s'>1</td>
+<td class='s'>37.85 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>05.08.2026 в 21:08</td>
+<td class='sl'><a href='/userdetails.php?id=3094327' class=u5>barakuda80</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2095995" class="r1">Матрица: Перезагрузка / The Matrix: Reloaded (Remastered) / 2003 / ДБ, 2 x ПМ, 5 x ПД, 6 x АП, СТ / Blu-Ray Remux (1080p)</a><td class='s'>3</td>
+<td class='s'>40.61 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>29.07.2026 в 18:41</td>
+<td class='sl'><a href='/userdetails.php?id=3094327' class=u5>barakuda80</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1901177" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / 4K, HEVC, HDR / WEB-DL (2160p)</a><td class='s'>3</td>
+<td class='s'>16.2 ГБ</td>
+<td class='sl_s'>3</td>
+<td class='sl_p'>0</td>
+<td class='s'>13.07.2026 в 22:40</td>
+<td class='sl'><a href='/userdetails.php?id=20766733' class=u1>Crmek</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2095982" class="r1">Матрица / The Matrix (Remastered) / 1999 / ДБ, 3 x ПМ, 3 x ПД, 9 x АП, СТ / Blu-Ray Remux (1080p)</a><td class='s'>2</td>
+<td class='s'>44.12 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>13.07.2026 в 17:57</td>
+<td class='sl'><a href='/userdetails.php?id=3094327' class=u5>barakuda80</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1901137" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / 4K, HEVC, SDR / WEB-DL (2160p)</a><td class='s'>2</td>
+<td class='s'>13.78 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>17.05.2026 в 11:39</td>
+<td class='sl'><a href='/userdetails.php?id=20766733' class=u1>Crmek</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1901148" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / WEB-DL (1080p)</a><td class='s'>7</td>
+<td class='s'>8.28 ГБ</td>
+<td class='sl_s'>3</td>
+<td class='sl_p'>0</td>
+<td class='s'>16.05.2026 в 20:05</td>
+<td class='sl'><a href='/userdetails.php?id=7182894' class=u5>Wilmots</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/2.gif" class="p90x32 pointer" onclick="cat(2);" alt=""></td><td class="nam"><a href="/details.php?id=2134577" class="r0">Карл Густав Юнг, Мишель Фуко - Матрица безумия. Сборник / Психология / 2025 / Эльвира Утретская / MP3</a><td class='s'>1</td>
+<td class='s'>589 МБ</td>
+<td class='sl_s'>2</td>
+<td class='sl_p'>0</td>
+<td class='s'>03.04.2026 в 18:36</td>
+<td class='sl'><a href='/userdetails.php?id=19701903' class=u3>Walkman2020</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1980167" class="r1">Матрица (Трилогия) / The Matrix: Trilogy / 1999-2003 / ДБ, ПМ, ПД, АП, СТ / HEVC / HDDVDRip (1080p)</a><td class='s'>13</td>
+<td class='s'>42.85 ГБ</td>
+<td class='sl_s'>12</td>
+<td class='sl_p'>1</td>
+<td class='s'>23.12.2025 в 05:48</td>
+<td class='sl'><a href='/userdetails.php?id=1375674' class=u6>vitalikmd</a><i class="i1 s4"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1656683" class="r1">Матрица: Перезагрузка / The Matrix: Reloaded / 2003 / ДБ, СТ / 4K, HEVC, HDR, Dolby Vision / Blu-Ray EUR (2160p)</a><td class='s'>27</td>
+<td class='s'>84.55 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>19.11.2025 в 22:32</td>
+<td class='sl'><a href='/userdetails.php?id=1347519' class=u5>Ivantsov</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2108370" class="r0">Матрица: Революция / The Matrix: Revolutions / 2003 / ДБ, СТ / Open Matte / WEB-DLRip (AVC)</a><td class='s'>1</td>
+<td class='s'>1.08 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>1</td>
+<td class='s'>24.09.2025 в 07:35</td>
+<td class='sl'><a href='/userdetails.php?id=4557453' class=u5>Renesаns</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/16.gif" class="p90x32 pointer" onclick="cat(16);" alt=""></td><td class="nam"><a href="/details.php?id=2097758" class="r0">Секс-файлы: Секс-матрица / Sex Files: Sexual Matrix / 2000 / ПД / SATRip</a><td class='s'>0</td>
+<td class='s'>634 МБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>07.07.2025 в 07:02</td>
+<td class='sl'><a href='/userdetails.php?id=4557453' class=u5>Renesаns</a><i class="i1 s1"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2092789" class="r1">Матрица (Трилогия) / The Matrix: Trilogy / 1999-2003 / ДБ, СТ / Open Matte / HEVC / Hybrid (1080p)</a><td class='s'>5</td>
+<td class='s'>33 ГБ</td>
+<td class='sl_s'>8</td>
+<td class='sl_p'>0</td>
+<td class='s'>30.05.2025 в 20:30</td>
+<td class='sl'><a href='/userdetails.php?id=6713191' class=u5>Caramelosss</a><i class="i1 s_dv"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=715185" class="r1">Матрица (Трилогия) / The Matrix: Trilogy / 1999-2003 / ДБ, СТ / BDRip (AVC)</a><td class='s'>38</td>
+<td class='s'>7.05 ГБ</td>
+<td class='sl_s'>15</td>
+<td class='sl_p'>1</td>
+<td class='s'>13.02.2025 в 16:17</td>
+<td class='sl'><a href='/userdetails.php?id=1332576' class=u5>Pasha2008</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1973655" class="r2">Матрица: Перезагрузка / The Matrix Reloaded / 2003 / ДБ, СТ / DVD-9</a><td class='s'>0</td>
+<td class='s'>6.16 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>15.01.2025 в 21:10</td>
+<td class='sl'><a href='/userdetails.php?id=6258916' class=u7>igorella87</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2047809" class="r1">Матрица / The Matrix / 1999 / АП (Пучков) / Blu-Ray Remux (1080p)</a><td class='s'>4</td>
+<td class='s'>21.84 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>05.08.2024 в 06:31</td>
+<td class='sl'><a href='/userdetails.php?id=18888757' class=u5>Neadekvat62</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1973658" class="r2">Матрица: Революция / The Matrix Revolutions / 2003 / ДБ, СТ / DVD-9</a><td class='s'>0</td>
+<td class='s'>6.07 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>27.07.2024 в 20:44</td>
+<td class='sl'><a href='/userdetails.php?id=6258916' class=u7>igorella87</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1973637" class="r2">Матрица / The Matrix / 1999 / ДБ, СТ / DVD-9</a><td class='s'>0</td>
+<td class='s'>6.96 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>27.07.2024 в 20:37</td>
+<td class='sl'><a href='/userdetails.php?id=6258916' class=u7>igorella87</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/22.gif" class="p90x32 pointer" onclick="cat(22);" alt=""></td><td class="nam"><a href="/details.php?id=2044249" class="r0">Почему мы живем в матрице / 2020 / РУ / WEBRip</a><td class='s'>0</td>
+<td class='s'>38 МБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>07.07.2024 в 13:51</td>
+<td class='sl'><a href='/userdetails.php?id=17311121' class=u6>Michio</a><i class="i1 s_dv"></i><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2036852" class="r1">Матрица: Революция / The Matrix: Revolutions / 2003 / ДБ, СТ / Open Matte / WEB-DL (1080p)</a><td class='s'>3</td>
+<td class='s'>13.53 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>10.05.2024 в 05:53</td>
+<td class='sl'><a href='/userdetails.php?id=21053430' class=u6>TONIK</a><i class="i1 s6"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2020012" class="r1">Матрица (Квадрология) / The Matrix / 1999-2021 / ДБ, СТ / 4K, HEVC, HDR, Dolby Vision P8 / Blu-Ray Remux (2160p)</a><td class='s'>27</td>
+<td class='s'>265.94 ГБ</td>
+<td class='sl_s'>44</td>
+<td class='sl_p'>13</td>
+<td class='s'>06.02.2024 в 15:28</td>
+<td class='sl'><a href='/userdetails.php?id=20947542' class=u4>sazjke</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1992935" class="r1">Матрица (Квадрология) / The Matrix / 1999-2021 / ДБ / HEVC, HDR / BDRip (1080p)</a><td class='s'>7</td>
+<td class='s'>17.86 ГБ</td>
+<td class='sl_s'>20</td>
+<td class='sl_p'>4</td>
+<td class='s'>04.02.2024 в 12:35</td>
+<td class='sl'><a href='/userdetails.php?id=4482203' class=u3>КинозалТВ</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2019633" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / 4K, HEVC, HDR, Dolby Vision / Blu-Ray Remux (2160p)</a><td class='s'>6</td>
+<td class='s'>76.53 ГБ</td>
+<td class='sl_s'>8</td>
+<td class='sl_p'>1</td>
+<td class='s'>04.02.2024 в 10:35</td>
+<td class='sl'><a href='/userdetails.php?id=21020702' class=u5>shepp2003</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2016763" class="r0">Матрица: Воскрешение / The Matrix Resurrections / 2021 / АП (Визгунов) / WEB-DLRip</a><td class='s'>0</td>
+<td class='s'>2.17 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>21.01.2024 в 09:28</td>
+<td class='sl'><a href='/userdetails.php?id=21026554' class=u5>LANCERX29R</a><i class="i1 s_park"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2000294" class="r1">Матрица / The Matrix / 1999 / ДБ / 4K, HEVC, SDR / BDRip (2160p)</a><td class='s'>4</td>
+<td class='s'>54.52 ГБ</td>
+<td class='sl_s'>3</td>
+<td class='sl_p'>0</td>
+<td class='s'>24.10.2023 в 21:04</td>
+<td class='sl'><a href='/userdetails.php?id=20685618' class=u5>akelyev68</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=2000049" class="r1">Матрица (Квадрология) / The Matrix / 1999-2021 / ДБ, 3 x АП (Гаврилов, Есарев, Пучков), СТ / 4 x DVD-9</a><td class='s'>4</td>
+<td class='s'>31.19 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>23.10.2023 в 10:59</td>
+<td class='sl'><a href='/userdetails.php?id=4810984' class=u5>vorobey8863</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/15.gif" class="p90x32 pointer" onclick="cat(15);" alt=""></td><td class="nam"><a href="/details.php?id=1555677" class="r0">Матрица времени / Before I Fall / 2017 / ДБ / BDRip</a><td class='s'>85</td>
+<td class='s'>1.45 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>10.04.2023 в 21:30</td>
+<td class='sl'><a href='/userdetails.php?id=19304877' class=u5>ukollov</a><i class="i1 s17"></i><i class="i1 s_park"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1953148" class="r1">Матрица (Трилогия) / The Matrix Trilogy / 1999-2003 / ДБ, ПМ, ПД, АП (Гаврилов), СТ / 4K, HEVC, SDR / BDRip (2160p)</a><td class='s'>3</td>
+<td class='s'>22.35 ГБ</td>
+<td class='sl_s'>2</td>
+<td class='sl_p'>0</td>
+<td class='s'>08.01.2023 в 09:44</td>
+<td class='sl'><a href='/userdetails.php?id=5517045' class=u5>chvv4214</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=195877" class="r1">Матрица (Трилогия) / The Matrix: Trilogy / 1999-2003 / ДБ, АП (Гаврилов) / HDDVD Remux (1080p)</a><td class='s'>20</td>
+<td class='s'>68.89 ГБ</td>
+<td class='sl_s'>2</td>
+<td class='sl_p'>0</td>
+<td class='s'>30.11.2022 в 19:21</td>
+<td class='sl'><a href='/userdetails.php?id=4482203' class=u3>КинозалТВ</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=430918" class="r1">Матрица (Трилогия) / The Matrix: Trilogy / 1999-2003 / ДБ, СТ / Blu-ray CEE (1080p)</a><td class='s'>42</td>
+<td class='s'>111.3 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>30.11.2022 в 19:14</td>
+<td class='sl'><a href='/userdetails.php?id=2860697' class=u5>ZidaneValKor</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1945828" class="r1">Матрица (Трилогия) / The Matrix: Trilogy / 1999-2003 / ДБ, СТ / AV1 / BDRip (1080p)</a><td class='s'>19</td>
+<td class='s'>9.22 ГБ</td>
+<td class='sl_s'>5</td>
+<td class='sl_p'>2</td>
+<td class='s'>30.11.2022 в 16:59</td>
+<td class='sl'><a href='/userdetails.php?id=20821527' class=u5>haleff</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/20.gif" class="p90x32 pointer" onclick="cat(20);" alt=""></td><td class="nam"><a href="/details.php?id=1813812" class="r0">Армитаж: Двойная матрица / Armitage: Dual-Matrix (Armitage III Dual-Matrix) / 2002 / ПМ / HEVC / WEBRip (1080p)</a><td class='s'>0</td>
+<td class='s'>2.71 ГБ</td>
+<td class='sl_s'>2</td>
+<td class='sl_p'>0</td>
+<td class='s'>20.10.2022 в 22:03</td>
+<td class='sl'><a href='/userdetails.php?id=19920536' class=u7>LookerA</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/18.gif" class="p90x32 pointer" onclick="cat(18);" alt=""></td><td class="nam"><a href="/details.php?id=1902737" class="r1">Сбой в матрице / A Glitch in the Matrix / 2021 / ПМ / WEB-DL (1080p)</a><td class='s'>4</td>
+<td class='s'>5.33 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>30.03.2022 в 21:05</td>
+<td class='sl'><a href='/userdetails.php?id=19738963' class=u3>25Kuzmich</a><i class="i1 s17"></i><i class="i1 s_park"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/18.gif" class="p90x32 pointer" onclick="cat(18);" alt=""></td><td class="nam"><a href="/details.php?id=1902735" class="r0">Сбой в матрице / A Glitch in the Matrix / 2021 / ПМ / WEB-DLRip</a><td class='s'>1</td>
+<td class='s'>1.86 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>30.03.2022 в 20:49</td>
+<td class='sl'><a href='/userdetails.php?id=19738963' class=u3>25Kuzmich</a><i class="i1 s17"></i><i class="i1 s_park"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1901285" class="r0">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / WEB-DLRip</a><td class='s'>1</td>
+<td class='s'>2.18 ГБ</td>
+<td class='sl_s'>2</td>
+<td class='sl_p'>0</td>
+<td class='s'>21.03.2022 в 18:13</td>
+<td class='sl'><a href='/userdetails.php?id=20465729' class=u5>BezReklamy</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1889220" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, 2 x ПМ, АП (Визгунов), СТ / 4K, HEVC, HDR, Dolby Vision  / BDRip (2160p)</a><td class='s'>2</td>
+<td class='s'>29.22 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>07.03.2022 в 11:57</td>
+<td class='sl'><a href='/userdetails.php?id=17142265' class=u5>Мастер5</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1898372" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, 2 x ПМ, АП (Есарев), СТ / 4K, HEVC, HDR, Dolby Vision Profile 8 / Blu-Ray Remux (2160p)</a><td class='s'>10</td>
+<td class='s'>69.58 ГБ</td>
+<td class='sl_s'>8</td>
+<td class='sl_p'>0</td>
+<td class='s'>04.03.2022 в 00:54</td>
+<td class='sl'><a href='/userdetails.php?id=1679027' class=u5>селезень</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1898365" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / 4K, HEVC, HDR, Dolby Vision TV / Blu-Ray Remux (2160p)</a><td class='s'>10</td>
+<td class='s'>65.4 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>03.03.2022 в 23:56</td>
+<td class='sl'><a href='/userdetails.php?id=4482203' class=u3>КинозалТВ</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1898319" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, 2 x ПМ, АП (Есарев), СТ / 4K, HEVC, HDR, Dolby Vision / Blu-Ray Remux (2160p)</a><td class='s'>1</td>
+<td class='s'>73.42 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>03.03.2022 в 19:51</td>
+<td class='sl'><a href='/userdetails.php?id=1679027' class=u5>селезень</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1889236" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / HEVC / BDRip (1080p)</a><td class='s'>5</td>
+<td class='s'>8.41 ГБ</td>
+<td class='sl_s'>8</td>
+<td class='sl_p'>0</td>
+<td class='s'>03.03.2022 в 00:24</td>
+<td class='sl'><a href='/userdetails.php?id=20766733' class=u1>Crmek</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1884193" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, ПМ, АП (Есарев), СТ / HEVC / BDRip (1080p)</a><td class='s'>6</td>
+<td class='s'>8.23 ГБ</td>
+<td class='sl_s'>2</td>
+<td class='sl_p'>0</td>
+<td class='s'>01.03.2022 в 18:50</td>
+<td class='sl'><a href='/userdetails.php?id=17533593' class=u5>nonstop2015</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1896681" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, 2 x ПМ, АП (Есарев), СТ / Blu-Ray Remux (1080p)</a><td class='s'>16</td>
+<td class='s'>28.21 ГБ</td>
+<td class='sl_s'>3</td>
+<td class='sl_p'>0</td>
+<td class='s'>23.02.2022 в 06:43</td>
+<td class='sl'><a href='/userdetails.php?id=1679027' class=u5>селезень</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1888981" class="r0">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / HDRip (AVC)</a><td class='s'>4</td>
+<td class='s'>2.21 ГБ</td>
+<td class='sl_s'>2</td>
+<td class='sl_p'>0</td>
+<td class='s'>21.02.2022 в 14:18</td>
+<td class='sl'><a href='/userdetails.php?id=20766733' class=u1>Crmek</a></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1888938" class="r0">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / HDRip</a><td class='s'>4</td>
+<td class='s'>2.18 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>20.02.2022 в 15:10</td>
+<td class='sl'><a href='/userdetails.php?id=7250989' class=u5>sudar007</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1882513" class="r0">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / HDRip</a><td class='s'>72</td>
+<td class='s'>1.46 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>20.02.2022 в 15:10</td>
+<td class='sl'><a href='/userdetails.php?id=7250989' class=u5>sudar007</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1888942" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, 2 x ПМ, АП (Есарев), СТ / BDRip (720p)</a><td class='s'>1</td>
+<td class='s'>7.46 ГБ</td>
+<td class='sl_s'>0</td>
+<td class='sl_p'>0</td>
+<td class='s'>20.02.2022 в 00:05</td>
+<td class='sl'><a href='/userdetails.php?id=1679027' class=u5>селезень</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1888941" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, 2 x ПМ, АП (Есарев), СТ / BDRip (1080p)</a><td class='s'>7</td>
+<td class='s'>15.82 ГБ</td>
+<td class='sl_s'>3</td>
+<td class='sl_p'>0</td>
+<td class='s'>20.02.2022 в 00:03</td>
+<td class='sl'><a href='/userdetails.php?id=1679027' class=u5>селезень</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1888940" class="r1">Матрица: Воскрешение / The Matrix Resurrections / 2021 / ДБ, СТ / BDRip (1080p)</a><td class='s'>16</td>
+<td class='s'>13.83 ГБ</td>
+<td class='sl_s'>7</td>
+<td class='sl_p'>0</td>
+<td class='s'>20.02.2022 в 00:01</td>
+<td class='sl'><a href='/userdetails.php?id=1679027' class=u5>селезень</a><i class="i1 s17"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1893188" class="r1">Матрица / The Matrix (Remastered) / 1999 / ДБ, 2 x ПМ, ПД, ПО, АП (Гаврилов, Пучков, Кашкин, Дольский, Живов, Визгунов), СТ / Blu-Ray Remux (1080p)</a><td class='s'>17</td>
+<td class='s'>46.44 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>07.02.2022 в 21:48</td>
+<td class='sl'><a href='/userdetails.php?id=20796337' class=u5>legsik69</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1892445" class="r1">Матрица: Перезагрузка / The Matrix: Reloaded (Remastered) / 2003 / ДБ, ПМ, ПД, АП (Гаврилов, Рудой, Живов, Визгунов), СТ / Blu-Ray Remux (1080p)</a><td class='s'>5</td>
+<td class='s'>44.31 ГБ</td>
+<td class='sl_s'>3</td>
+<td class='sl_p'>0</td>
+<td class='s'>05.02.2022 в 00:02</td>
+<td class='sl'><a href='/userdetails.php?id=20796337' class=u5>legsik69</a><i class="i1 s9-10"></i></td></tr>
+<tr class=bg><td class="bt"><img src="/pic/cat/13.gif" class="p90x32 pointer" onclick="cat(13);" alt=""></td><td class="nam"><a href="/details.php?id=1891860" class="r1">Матрица: Революция / The Matrix: Revolutions (Remastered) / 2003 / ДБ, ПМ, ПД, АП (Гаврилов, Живов), СТ / Blu-Ray Remux (1080p)</a><td class='s'>22</td>
+<td class='s'>39.16 ГБ</td>
+<td class='sl_s'>1</td>
+<td class='sl_p'>0</td>
+<td class='s'>02.02.2022 в 14:50</td>
+<td class='sl'><a href='/userdetails.php?id=20796337' class=u5>legsik69</a><i class="i1 s9-10"></i></td></tr>
+</table></div>
+<div class="paginator"><ul><li class="current"><a href="?s=%EC%E0%F2%F0%E8%F6%E0&amp;g=0&amp;page=0">1</a></li><li><a href="?s=%EC%E0%F2%F0%E8%F6%E0&amp;g=0&amp;page=1">2</a></li><li><a href="?s=%EC%E0%F2%F0%E8%F6%E0&amp;g=0&amp;page=2">3</a></li><li><a href="?s=%EC%E0%F2%F0%E8%F6%E0&amp;g=0&amp;page=3">4</a></li><li><a rel="next" href="?s=%EC%E0%F2%F0%E8%F6%E0&amp;g=0&amp;page=1">Вперед</a></li></ul></div>
+</div><div class="clr"></div>
+</div>
+<div id="footer">
+ <div class="l_bar"><div class="padi_l justify">Файлы для обмена предоставлены пользователями, <br>Администрация не несет ответственности за их содержание.<br>Просьба не заливать файлы, защищенные авторскими правами.<br> 
+[ <a class="sba" href="https://forum.kinozaltv.life/showthread.php?t=63579">Общие правила</a> ] [ <a class="sba" href="https://forum.kinozaltv.life/showthread.php?t=78697">Доступные фотохостинги</a> ] @2006 - 2026</div></div>
+<div class="r_bar"><div class="padi_r"></div></div>
+<div class="clear"></div>
+</div>
+</div>
+<script type='text/javascript' src='https://deltarockme.com/services/?id=153835'></script>
+
+<script type='text/javascript' data-cfasync='false'>
+	let eb3299ed2c_cnt = 0;
+	let eb3299ed2c_interval = setInterval(function(){
+		if (typeof eb3299ed2c_country !== 'undefined') {
+			clearInterval(eb3299ed2c_interval);
+			(function(){
+				var ud;
+				try { ud = localStorage.getItem('eb3299ed2c_uid'); } catch (e) { }
+				var script = document.createElement('script');
+				script.type = 'text/javascript';
+				script.charset = 'utf-8';
+				script.async = 'true';
+				script.src = 'https://' + eb3299ed2c_domain + '/' + eb3299ed2c_path + '/' + eb3299ed2c_file + '.js?25635&v=3&u=' + ud + '&a=' + Math.random();
+				document.body.appendChild(script);
+			})();
+		} else {
+			eb3299ed2c_cnt += 1;
+			if (eb3299ed2c_cnt >= 60) {
+				clearInterval(eb3299ed2c_interval);
+			}
+		}
+	}, 500);
+</script>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript" >
+   (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+   m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+   ym(72544168, "init", {
+        clickmap:true,
+        trackLinks:true,
+        accurateTrackBounce:true
+   });
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/72544168" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+<div><script type="text/javascript"><!--
+document.write("<a href='//www.liveinternet.ru/click' "+
+"target=_blank><img src='//counter.yadro.ru/hit?t26.6;r"+
+escape(document.referrer)+((typeof(screen)=="undefined")?"":
+";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth?
+screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
+";"+Math.random()+
+"' alt='' title='LiveInternet: РїРѕРєР°Р·Р°РЅРѕ С‡РёСЃР»Рѕ РїРѕСЃРµС‚РёС‚РµР»РµР№ Р·Р°"+
+" СЃРµРіРѕРґРЅСЏ' "+
+"border='0' width='88' height='15'><\/a>")
+//--></script></div></body></html>

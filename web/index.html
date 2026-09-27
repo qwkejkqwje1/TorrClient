@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TorrClient</title>
+<!-- Постеры приходят пачками с image.tmdb.org: тёплое соединение экономит
+     рукопожатие TLS на первой же волне картинок. -->
+<link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Torr<b>Client</b></div>
+  <span class="spacer"></span>
+  <select id="activeselect" class="tb-select hidden"></select>
+  <!-- Причина, по которой постеры и оценки не приходят (ключ TMDB не задан или
+       отклонён сервисом). Скрыта, пока причина не названа: пустая полоса
+       «предупреждения» на исправных настройках только путала бы. -->
+  <button id="metaWarn" class="tb-warn hidden"></button>
+  <div id="serverStatus" class="tb-status"></div>
+</header>
+<nav id="nav"></nav>
+<main>Загрузка...</main>
+<div id="toast"></div>
+<button id="toTop" title="Наверх">▲</button>
+<script src="/app.js"></script>
+</body>
+</html>

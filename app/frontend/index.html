@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>TorrClient</title>
+    <style>
+        html, body {
+            margin: 0;
+            height: 100%;
+            background: #0e131a;
+            color: #c9d4e0;
+            font: 15px system-ui, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #box {
+            max-width: 640px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        #hint {
+            margin-top: 12px;
+            color: #8b9bb0;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+<div id="box">
+    <div id="status">Запуск TorrClient...</div>
+    <div id="hint" hidden></div>
+</div>
+<script>
+    (function () {
+        var started = Date.now();
+        // Сколько ждать демон, прежде чем сказать, что он не поднялся. Демон
+        // отвечает за секунды; двадцать — это уже заведомо беда, а не
+        // медленный старт.
+        var patientSeconds = 20;
+        var problem = "";
+        var status = document.getElementById("status");
+        var hint = document.getElementById("hint");
+
+        function paint() {
+            var waited = Math.round((Date.now() - started) / 1000);
+            if (problem) {
+                status.textContent = "TorrClient не удалось запустить";
+                hint.textContent = problem;
+                hint.hidden = false;
+                return;
+            }
+            if (waited >= patientSeconds) {
+                status.textContent = "Демон не отвечает — " + waited + " с";
+                hint.textContent =
+                    "Порт 8099 не отвечает. Проверьте, что torrclient.exe лежит " +
+                    "рядом с программой и что порт не занят другой программой.";
+                hint.hidden = false;
+                return;
+            }
+            status.textContent = "Запуск TorrClient... " + waited + " с";
+        }
+
+        // Оболочка сообщает, что именно не удалось поднять. Без этого сообщения
+        // беда остаётся невидимой: на экране бесконечное «Запуск TorrClient...»,
+        // и связать молчание поиска и раздач с упавшим процессом нечем.
+        if (window.runtime && window.runtime.EventsOn) {
+            window.runtime.EventsOn("torrclient:problem", function (msg) {
+                problem = String(msg || "");
+                paint();
+            });
+        }
+
+        setInterval(paint, 1000);
+        paint();
+
+        (function retry() {
+            fetch("http://127.0.0.1:8099/net", {mode: "no-cors", cache: "no-store"})
+                .then(function () {
+                    location.replace("http://127.0.0.1:8099/");
+                })
+                .catch(function () {
+                    setTimeout(retry, 250);
+                });
+        })();
+    })();
+</script>
+</body>
+</html>

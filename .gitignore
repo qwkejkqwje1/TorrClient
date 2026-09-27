@@ -1,0 +1,31 @@
+# Состояние программы: секреты и данные, которые не должны покидать машину.
+# torrclient.json — ключ TMDB и пароли профилей лежат в нём открытым текстом.
+torrclient.json
+torrclient.log
+tmdb-cache.json
+userdata.json
+viewed.json
+config.db
+settings.json
+
+# Что программа создаёт сама при работе
+/downloads/
+/watch/
+app/build/bin/.webview/
+
+# Сборки и движок: собираются или скачиваются, в истории им не место
+*.exe
+*.exe~
+release/
+
+# Окружение сборки Go (склад зависимостей 144 МБ, кэш, GOPATH)
+.go/
+.gomods/
+.gocache/
+
+# Зависимости оболочки
+app/frontend/node_modules/
+
+# Память проекта и прочий мусор
+.workbuddy-ai/
+_tmp_check.go.disabled
