@@ -434,3 +434,5 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .best-row.best-top{border-color:var(--acc); border-width:2px}
 .best-title{font-weight:600; margin-bottom:4px}
 .best-meta{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12px}
+.upd-btn{margin-left:6px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:var(--acc);color:#fff;border:0;cursor:pointer}
+.upd-notes{white-space:pre-wrap;max-height:240px;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:10px 0;font-size:12px}

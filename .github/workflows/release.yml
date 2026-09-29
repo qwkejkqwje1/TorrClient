@@ -1,7 +1,8 @@
 name: Release
 
-# Когда в main меняется файл VERSION, собирается демон и публикуется релиз
-# vX.Y.Z с архивами для Windows и Linux. Тег уже есть — релиз не повторяется.
+# Когда в main меняется файл VERSION, собираются демон и окно Wails и
+# публикуется релиз vX.Y.Z с архивами для Windows и Linux и SHA256SUMS.txt
+# (по нему автообновление проверяет архив). Тег уже есть — релиз не повторяется.
 on:
   push:
     branches: [main]
@@ -12,41 +13,98 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  prep:
     runs-on: ubuntu-latest
+    outputs:
+      ver: ${{ steps.v.outputs.ver }}
+      exists: ${{ steps.v.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
       - name: Версия
         id: v
         run: |
           V=$(tr -d ' \r\n' < VERSION)
           echo "ver=$V" >> "$GITHUB_OUTPUT"
           if git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then echo "exists=1" >> "$GITHUB_OUTPUT"; fi
+
+  desktop:
+    needs: prep
+    if: needs.prep.outputs.exists != '1'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+      - name: Сборка окна
+        working-directory: app
+        run: wails build -clean -trimpath -ldflags "-s -w"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop
+          path: app/build/bin/TorrClient.exe
+
+  release:
+    needs: [prep, desktop]
+    # Окно не собралось — релиз всё равно выходит, с демоном и веб-интерфейсом.
+    if: always() && needs.prep.outputs.exists != '1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Тесты
-        if: steps.v.outputs.exists != '1'
         run: go test ./...
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: desktop
+          path: dist/win
       - name: Сборка
-        if: steps.v.outputs.exists != '1'
         run: |
-          V=${{ steps.v.outputs.ver }}
+          V=${{ needs.prep.outputs.ver }}
           REV=$(git rev-parse --short HEAD)
           D=$(date +%Y-%m-%d)
           mkdir -p dist/win dist/linux
-          GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=TorrClient $V ($REV $D)'" -o dist/win/torrclient.exe .
-          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=TorrClient $V ($REV $D)'" -o dist/linux/torrclient .
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -X 'main.version=TorrClient $V ($REV $D)'" -o dist/win/torrclient.exe .
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X 'main.version=TorrClient $V ($REV $D)'" -o dist/linux/torrclient .
           cp README.md VERSION dist/win/; cp README.md VERSION dist/linux/
           for f in start_web.bat stop_all.bat; do [ -f "$f" ] && cp "$f" dist/win/; done
           (cd dist/win && zip -qr "../TorrClient-$V-windows-amd64.zip" .)
           tar -czf "dist/TorrClient-$V-linux-amd64.tar.gz" -C dist/linux .
+          (cd dist && sha256sum TorrClient-$V-*.zip TorrClient-$V-*.tar.gz > SHA256SUMS.txt)
+          ls -la dist dist/win
+      - name: Описание
+        run: |
+          V=${{ needs.prep.outputs.ver }}
+          node -e '
+            const fs=require("fs"); const v=process.argv[1];
+            const src=fs.readFileSync("web/src/00-core.js","utf8");
+            const m=src.match(/const WHATSNEW = (\[[\s\S]*?\n\]);/);
+            const list=m ? Function("return "+m[1])() : [];
+            const it=(list.find(x=>x[0]===v)||[v,[]])[1];
+            const win=fs.existsSync("dist/win/TorrClient.exe");
+            let s="## Что нового\n"+it.map(x=>"- "+x).join("\n")+"\n\n## Установка\n";
+            s+= win ? "- **Windows:** распакуйте архив и запустите `TorrClient.exe` (окно) или `start_web.bat` (браузер). Нужен TorrServer рядом (TorrServer-windows-amd64.exe).\n"
+                    : "- **Windows:** распакуйте архив и запустите `torrclient.exe` или `start_web.bat`.\n";
+            s+="- **Linux:** `./torrclient --open=false`, затем откройте http://127.0.0.1:8099\n- Уже установлено 1.11+? Обновление приходит само: кнопка ⬆ рядом с версией в шапке.\n";
+            fs.writeFileSync("dist/notes.md", s);
+          ' "$V"
+          cat dist/notes.md
       - name: Релиз
-        if: steps.v.outputs.exists != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          V=${{ steps.v.outputs.ver }}
-          gh release create "v$V" dist/TorrClient-$V-*.zip dist/TorrClient-$V-*.tar.gz \
-            --title "TorrClient $V" --target "$GITHUB_SHA" \
-            --notes "Демон TorrClient $V (веб-интерфейс, без окна Wails). Windows: распакуйте и запустите torrclient.exe или start_web.bat. Linux: ./torrclient --open=false. Что нового — значок версии в шапке программы."
+          V=${{ needs.prep.outputs.ver }}
+          gh release create "v$V" dist/TorrClient-$V-*.zip dist/TorrClient-$V-*.tar.gz dist/SHA256SUMS.txt \
+            --title "TorrClient $V" --target "$GITHUB_SHA" --notes-file dist/notes.md

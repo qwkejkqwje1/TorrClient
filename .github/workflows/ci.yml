@@ -33,3 +33,28 @@ jobs:
         run: node --check web/app.js
       - name: оценка качества — образцы
         run: node tools/check-quality.cjs
+
+  # Окно Wails (app/): собирается так же, как в релизе, — чтобы поломка
+  # оболочки была видна в PR, а не в день выпуска.
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+      - name: Сборка окна
+        working-directory: app
+        run: wails build -clean -trimpath -ldflags "-s -w"
+      - name: go vet (app)
+        working-directory: app
+        run: go vet .
+      - name: go test (app)
+        working-directory: app
+        run: go test .
