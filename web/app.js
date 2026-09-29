@@ -107,7 +107,7 @@ function skeleton(label, n = 6, grid = false) {
 const NAV_KEYS = ['library', 'search', 'favorites', 'bookmarks', 'players', 'series', 'subs', 'downloads', 'settings', 'server'];
 const NAV_LABELS = { library: 'Библиотека', search: 'Поиск', favorites: 'Избранное', bookmarks: 'Закладки', players: 'Плееры', series: 'Сериалы', subs: 'Подписки', downloads: 'Загрузки', settings: 'Настройки', server: 'Сервер' };
 function showKeys() {
-  const rows = [['/ или Ctrl+K', 'перейти к поиску'], ['T', 'сменить тему'], ['Alt+1 … Alt+0', 'разделы по порядку'], ['Esc', 'закрыть окно'], ['?', 'этот список']];
+  const rows = [['/ или Ctrl+K', 'перейти к поиску'], ['T', 'сменить тему'], ['R', 'обновить раздел'], ['Esc в поле', 'очистить поле'], ['Alt+1 … Alt+0', 'разделы по порядку'], ['Esc', 'закрыть окно'], ['?', 'этот список']];
   const nav = NAV_KEYS.map((k, i) => `Alt+${(i + 1) % 10} — ${NAV_LABELS[k]}`).join(' · ');
   const ov = document.createElement('div'); ov.className = 'overlay';
   ov.innerHTML = `<div class="modal" style="max-width:520px"><h3>Горячие клавиши</h3><table class="keys-table">${rows.map(([k, d]) => `<tr><td><span class="kbd">${k}</span></td><td>${d}</td></tr>`).join('')}</table><p class="page-sub">${nav}</p><div class="row"><button class="primary" id="keysOk">Понятно</button></div></div>`;
@@ -131,7 +131,46 @@ document.addEventListener('keydown', e => {
   if (e.key === '/') { e.preventDefault(); focusSearch(); }
   else if (e.key === '?') { e.preventDefault(); showKeys(); }
   else if (e.key === 't' || e.key === 'T' || e.key === 'е' || e.key === 'Е') cycleTheme();
+  else if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') refreshView();
 });
+
+// addClear — крестик «×» в поле ввода: одним щелчком (или Esc) очищает поле и
+// возвращает в него курсор. Слушатели поля узнают об очистке событием input —
+// фильтры перерисовываются сами, как при ручном стирании.
+function addClear(input) {
+  if (!input || input.dataset.clear) return;
+  input.dataset.clear = '1';
+  const w = document.createElement('span'); w.className = 'clear-wrap';
+  input.before(w); w.appendChild(input);
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'clear-x'; b.textContent = '×';
+  b.title = 'Очистить (Esc)'; b.setAttribute('aria-label', 'Очистить');
+  w.appendChild(b);
+  const sync = () => w.classList.toggle('has', !!input.value);
+  const clear = () => {
+    input.value = ''; sync(); input.focus();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  input.addEventListener('input', sync);
+  input.addEventListener('keydown', e => { if (e.key === 'Escape' && input.value) { e.preventDefault(); e.stopPropagation(); clear(); } });
+  b.addEventListener('mousedown', e => e.preventDefault());
+  b.addEventListener('click', clear);
+  sync();
+}
+function addClears(root) { (root || document).querySelectorAll('input.search-input, input[type=search]').forEach(addClear); }
+
+// refreshView — кнопка ⟳ и клавиша R: перечитать текущий раздел. Поиск
+// повторяется с тем же запросом, библиотека запрашивается у сервера заново.
+async function refreshView() {
+  const b = document.getElementById('refreshBtn');
+  if (b) { if (b.classList.contains('spin')) return; b.classList.add('spin'); }
+  try {
+    if (state.view === 'search' && state.searchState.q) await doSearch();
+    else if (state.view === 'library' || !state.view) await refreshLibrary();
+    else route();
+  } catch (e) { toast(e.message, true); }
+  finally { if (b) setTimeout(() => b.classList.remove('spin'), 400); }
+}
 
 // Настройки зеркал Кинозала: свой список, запрет неофициальных, проверка всех
 // зеркал параллельно — видно, какое сейчас отдаёт выдачу.
@@ -169,6 +208,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.12.0', ['Крестик «×» в полях поиска и фильтра (или Esc) — очистить одним щелчком', 'Кнопка ⟳ в шапке (клавиша R) — обновить раздел или повторить поиск', 'Лоток: «Выход» в меню теперь действительно закрывает программу; щелчок по иконке открывает окно (меню раньше не работало)']],
   ['1.11.1', ['Окно в релизе называется TorrClientDesktop.exe: на Windows TorrClient.exe затирал демон torrclient.exe при распаковке', 'Автообновление без окна: программа перезапускается сама уже новой версией (раньше просто закрывалась)', 'Доступ с телефона сохраняется после перезапуска при обновлении']],
   ['1.11.0', ['Автообновление: кнопка ⬆ рядом с версией, установка в один клик (архив сверяется с SHA256)', 'В релизе есть окно программы (Wails)', 'Настройки → О программе: «Проверить обновления» и автопроверка']],
   ['1.10.0', ['Доступ с телефона: QR-код и PIN в Настройках', '★ Лучшая раздача: rutor, Кинозал и Torznab разом, одна кнопка «Смотреть» (и по клику на постер)', 'Автонастройка буфера по скорости канала (Сервер → Настройки)', 'Установка и запуск Jackett/Prowlarr из Настроек (Windows, winget)', 'Метка «Сериал» с сезоном и числом серий', 'Исправлено «Популярное» (rutor отдавал пустую страницу)', 'Исправлено: индексаторы Torznab и зеркала Кинозала пропадали после перезапуска', 'MPC-HC тоже продолжает с места остановки']],
@@ -183,6 +223,7 @@ const WHATSNEW = [
 ];
 function paintVersion() {
   const tb = document.getElementById('themeBtn'); if (tb && !tb.onclick) tb.onclick = cycleTheme;
+  const rb = document.getElementById('refreshBtn'); if (rb && !rb.onclick) rb.onclick = refreshView;
   const el = document.getElementById('appVer'); if (!el || !state.hello) return;
   const v = state.hello.app_version || '';
   el.textContent = v ? 'v' + v : '';
@@ -500,7 +541,9 @@ function route() {
   const pages = { library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderLibrary;
   const main = $('main'); main.innerHTML = '';
-  fn(main);
+  // Крестики в полях ставятся и сразу, и после асинхронной отрисовки.
+  Promise.resolve(fn(main)).finally(() => addClears(main));
+  addClears(main);
 }
 function hookNav() {
   $('#nav').innerHTML = [

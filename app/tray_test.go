@@ -79,3 +79,13 @@ func TestTrayIconPathFindsTheIconNextToTheProgram(t *testing.T) {
 func utf16ToString(buf []uint16) string {
 	return syscall.UTF16ToString(buf)
 }
+
+// «Выход» из лотка идёт через runtime.Quit, и Wails снова спрашивает
+// OnBeforeClose: при выходе окно не должно прятаться в лоток.
+func TestBeforeCloseLetsQuitThrough(t *testing.T) {
+	a := &App{tray: &trayIcon{started: true}}
+	a.quitting.Store(true)
+	if a.beforeClose(context.Background()) {
+		t.Fatal("выход из лотка отменён: окно спряталось вместо закрытия")
+	}
+}

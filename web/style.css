@@ -436,3 +436,13 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .best-meta{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12px}
 .upd-btn{margin-left:6px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:var(--acc);color:#fff;border:0;cursor:pointer}
 .upd-notes{white-space:pre-wrap;max-height:240px;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:10px 0;font-size:12px}
+
+.clear-wrap{position:relative;display:inline-flex;align-items:center;max-width:280px;width:100%;flex:0 1 280px}
+.clear-wrap > .search-input{max-width:none;padding-right:30px}
+.clear-x{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:none;background:transparent;border:0;color:var(--mut);font-size:18px;line-height:1;padding:2px 6px;cursor:pointer;border-radius:6px}
+.clear-x:hover{color:var(--fg);background:var(--bg3)}
+.clear-wrap.has > .clear-x{display:block}
+.tb-refresh{color:var(--fg);display:inline-flex;align-items:center}
+.tb-refresh svg{display:block}
+.tb-refresh.spin svg{animation:tcspin .6s linear infinite}
+@keyframes tcspin{to{transform:rotate(360deg)}}

@@ -10,8 +10,16 @@ package main
 // Иконке нужен получатель сообщений, поэтому заводится невидимое окно со своей
 // обработкой сообщений в отдельной горутине. Окно не появляется на экране:
 // оно создаётся с родителем HWND_MESSAGE.
+//
+// Окно Win32 принадлежит потоку, который его создал: только этот поток получает
+// его сообщения из GetMessage и только из него можно показать меню. Поэтому
+// создание окна, очередь сообщений и меню живут в одной горутине, закреплённой
+// за потоком (LockOSThread). Раньше окно создавалось в одном потоке, а очередь
+// крутилась в другом — щелчки по иконке никуда не приходили, и выйти из
+// программы через лоток было нельзя.
 
 import (
+	goruntime "runtime"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -23,10 +31,13 @@ const (
 	wmTrayCallback = 0x0400 + 1 // WM_USER + 1: сообщение от иконки
 	wmCommand      = 0x0111
 	wmDestroy      = 0x0002
+	wmClose        = 0x0010
+	wmNull         = 0x0000
 
 	// Клик мышью приходит в lParam сообщения от иконки.
 	wmRbuttonUp     = 0x0205
 	wmLbuttonDblclk = 0x0203
+	wmLbuttonUp     = 0x0202
 
 	nimAdd    = 0
 	nimDelete = 2
@@ -86,6 +97,7 @@ var (
 	procTrackPopupMenu   = user32.NewProc("TrackPopupMenu")
 	procSetForeground    = user32.NewProc("SetForegroundWindow")
 	procGetCursorPos     = user32.NewProc("GetCursorPos")
+	procPostMessage      = user32.NewProc("PostMessageW")
 )
 
 // notifyIconData — NOTIFYICONDATAW. Поля идут в том же порядке, что в Windows:
@@ -235,10 +247,12 @@ func trayWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 			break
 		}
 		switch uint32(lparam) {
-		case wmLbuttonDblclk:
+		case wmLbuttonUp, wmLbuttonDblclk:
 			cur.fire(cur.onOpen)
 		case wmRbuttonUp:
-			cur.fire(func() { cur.runMenu() })
+			// Меню — здесь же, в потоке окна: из другого потока
+			// TrackPopupMenu не показывается.
+			cur.runMenu()
 		}
 		return 0
 	case wmCommand:
@@ -303,29 +317,46 @@ func (t *trayIcon) runMenu() {
 	id, _, _ := procTrackPopupMenu.Call(hMenu,
 		tpmLeftAlign|tpmRightButton|tpmReturnCmd,
 		uintptr(int(pt.X)), uintptr(int(pt.Y)), 0, uintptr(t.hwnd), 0)
+	// Рекомендация Windows: пустое сообщение после меню, иначе повторное меню
+	// иногда закрывается сразу же.
+	procPostMessage.Call(uintptr(t.hwnd), wmNull, 0, 0)
 	t.handle(trayAction(uint32(id)))
 }
 
 // start показывает иконку. Ошибка не фатальна: без иконки программа работает
 // как прежде, просто закрытие окна означает выход.
 func (t *trayIcon) start(title, iconPath string) error {
+	var err error
 	t.once.Do(func() {
-		if err := t.createWindow(); err != nil {
-			return
-		}
-		t.hicon = loadTrayIcon(iconPath)
-		if t.add(title) {
+		errc := make(chan error, 1)
+		go func() {
+			// Весь век окна — в одном потоке: создание, очередь, меню, уход.
+			goruntime.LockOSThread()
+			defer goruntime.UnlockOSThread()
+			if e := t.createWindow(); e != nil {
+				errc <- e
+				return
+			}
+			t.hicon = loadTrayIcon(iconPath)
+			if !t.add(title) {
+				// Иконка не добавилась — окно без неё не нужно.
+				procDestroyWindow.Call(uintptr(t.hwnd))
+				t.hwnd = 0
+				errc <- syscall.EINVAL
+				return
+			}
 			t.started = true
-			return
-		}
-		// Иконка не добавилась — окно без неё не нужно.
-		procDestroyWindow.Call(uintptr(t.hwnd))
-		t.hwnd = 0
+			errc <- nil
+			t.loop()
+		}()
+		err = <-errc
 	})
-	if t.hwnd == 0 || !t.started {
-		return syscall.EINVAL
+	if err != nil || t.hwnd == 0 || !t.started {
+		if err == nil {
+			err = syscall.EINVAL
+		}
+		return err
 	}
-	go t.loop()
 	return nil
 }
 
@@ -384,12 +415,13 @@ func (t *trayIcon) add(title string) bool {
 	return ret != 0
 }
 
-// loop крутит очередь сообщений окна. Ждёт на GetMessage, поэтому живёт в
-// своей горутине: она не мешает ни окну программы, ни сторожу процессов.
+// loop крутит очередь сообщений окна в потоке, создавшем окно. Ждёт на
+// GetMessage, поэтому живёт в своей горутине: она не мешает ни окну
+// программы, ни сторожу процессов. Выходит по WM_QUIT после WM_DESTROY.
 func (t *trayIcon) loop() {
 	var m trayMsg
 	for {
-		ret, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&m)), uintptr(t.hwnd), 0, 0)
+		ret, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
 		if ret == 0 || int(ret) == -1 {
 			return
 		}
@@ -410,7 +442,9 @@ func (t *trayIcon) stop() {
 		UID:    trayUID,
 	}
 	procShellNotifyIcon.Call(nimDelete, uintptr(unsafe.Pointer(&nid)))
-	procDestroyWindow.Call(uintptr(t.hwnd))
+	// DestroyWindow работает только из потока окна, поэтому окну посылается
+	// WM_CLOSE: его обработка по умолчанию и разрушит окно, и закончит очередь.
+	procPostMessage.Call(uintptr(t.hwnd), wmClose, 0, 0)
 	t.hwnd = 0
 	t.started = false
 	trayMu.Lock()

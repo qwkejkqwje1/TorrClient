@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -65,6 +66,9 @@ const (
 type App struct {
 	ctx context.Context
 	mu  sync.Mutex
+	// quitting — пользователь выбрал «Выход»: окно закрывается по-настоящему,
+	// а не прячется в лоток.
+	quitting atomic.Bool
 
 	cmd   *exec.Cmd
 	tsCmd *exec.Cmd
@@ -144,7 +148,10 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	a.mu.Lock()
 	tray := a.tray
 	a.mu.Unlock()
-	if tray == nil || !tray.started {
+	// Выход из лотка идёт через runtime.Quit, а Wails перед выходом снова
+	// спрашивает OnBeforeClose. Без отметки «выходим» окно пряталось и тут,
+	// и «Выход» в меню лотка ничего не завершал.
+	if tray == nil || !tray.started || a.quitting.Load() {
 		return false
 	}
 	runtime.WindowHide(ctx)
@@ -166,6 +173,7 @@ func (a *App) quitApp() {
 	if a.ctx == nil {
 		return
 	}
+	a.quitting.Store(true)
 	runtime.Quit(a.ctx)
 }
 

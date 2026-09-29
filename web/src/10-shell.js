@@ -238,7 +238,9 @@ function route() {
   const pages = { library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderLibrary;
   const main = $('main'); main.innerHTML = '';
-  fn(main);
+  // Крестики в полях ставятся и сразу, и после асинхронной отрисовки.
+  Promise.resolve(fn(main)).finally(() => addClears(main));
+  addClears(main);
 }
 function hookNav() {
   $('#nav').innerHTML = [
