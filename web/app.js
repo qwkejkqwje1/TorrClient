@@ -824,7 +824,6 @@ function tile(t) {
 function fmtSpeed(s) { return s >= 1 << 20 ? (s / (1 << 20)).toFixed(1) + ' МБ/с' : (s / 1024).toFixed(0) + ' КБ/с'; }
 function isVideo(p) { return /\.(mp4|mkv|avi|mov|webm|m4v|ts|wmv|flv|mpg|mpeg|m2ts|3gp)$/i.test(p || ''); }
 function isAudio(p) { return /\.(mp3|flac|wav|m4a|aac|ogg|opus|ac3|dts)$/i.test(p || ''); }
-function isSub(p) { return /\.(srt|ass|ssa|sub|vtt|idx)$/i.test(p || ''); }
 function isPlayable(p) { return isVideo(p) || isAudio(p); }
 function isSeries(name) { return /(s\d{1,2}e\d{1,2}|sezon|сезон|\d{1,2}\s*листа|\d+\.{1,2}05|\bx0|\bread|\bсерия)/i.test(name || ''); }
 function qTag(name) {
@@ -1577,7 +1576,7 @@ let searchAbort = null;
 // Раньше клиент брал первые 40 строк из 100 и следующую страницу не давал вовсе,
 // поэтому нужная раздача могла быть просто не видна.
 let moreSources = {};
-const SRC_PAGE = { rutor: 100, kinozal: 50, torznab: 100 };
+const SRC_PAGE = { rutor: 100, kinozal: 50, torznab: 100, popular: 1 };
 function hasMore() {
   return Object.entries(moreSources).some(([p, s]) => s.count >= (SRC_PAGE[p] || 0));
 }
@@ -1604,6 +1603,7 @@ async function renderSearch(root) {
         <option value="both">Все источники</option>
       </select>
       <button id="top24Btn" class="top24btn">ТОП-24</button>
+      <button id="popBtn" class="top24btn" title="Раздачи выбранной категории rutor за всё время, по числу сидов">Популярное</button>
       <span class="spacer"></span>
       <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
     </div>
@@ -1641,6 +1641,7 @@ async function renderSearch(root) {
   }));
   $$('[data-hq]').forEach(b => b.addEventListener('click', () => { $('#searchInput').value = b.dataset.hq; doSearch(); }));
   $('#top24Btn').addEventListener('click', onTopClick);
+  $('#popBtn').addEventListener('click', () => fetchPopular());
   $('[data-open="add"]').addEventListener('click', openAddModal);
   updateTopBtnLabel();
   paintResults($('#searchResults'));
@@ -1951,7 +1952,7 @@ async function doSearch() {
     else if (p !== 'torznab') errs.push(p + ': 0 результатов');
   }));
   if (moreSources.rutor) add('rutor', searchRutor(q, 0, cat).then(r => { moreSources.rutor.count = r.length; return r; }));
-  if (prov === 'torznab' || prov === 'both') add('torznab', searchTorznab(q, 0).then(r => { moreSources.torznab.count = r.length; return r; }));
+  if (prov === 'torznab' || prov === 'both') add('torznab', searchTorznabStream(q, el).then(n => { moreSources.torznab.count = n; return []; }));
   if (moreSources.kinozal) add('kinozal', searchKinozal(q, 0).then(r => { moreSources.kinozal.count = r.length; return r; }));
   await Promise.all(jobs);
   state.searchState.status = errs;
@@ -2005,6 +2006,9 @@ async function apiGetJSON(url) {
 async function searchRutor(q, page, cat) {
   const arr = await apiGetJSON('/api/rutor/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0) + '&cat=' + (cat | 0));
   if (!Array.isArray(arr)) throw new Error((arr && arr.error) || 'пустой ответ rutor');
+  return mapRutorItems(arr);
+}
+function mapRutorItems(arr) {
   return (arr || []).map(it => {
     const g = (a, b) => (it[a] != null ? it[a] : it[b]);
     return {
@@ -2030,6 +2034,15 @@ async function loadMore() {
   for (const [p, s] of targets) {
     try {
       let next;
+      if (p === 'popular') {
+        const resp = await apiGetJSON('/api/popular?page=' + (s.page + 1) + '&cat=' + (s.cat | 0));
+        next = mapRutorItems(resp && resp.items);
+        s.page += 1;
+        s.count = resp && resp.has_more ? 1 : 0;
+        if (next.length) state.searchState.results = mergeResults(state.searchState.results, next);
+        else s.count = 0;
+        continue;
+      }
       if (p === 'kinozal') next = await searchKinozal(s.query, s.page + 1);
       else if (p === 'torznab') next = await searchTorznab(s.query, s.page + 1);
       else next = await searchRutor(s.query, s.page + 1, s.cat);
@@ -2042,6 +2055,87 @@ async function loadMore() {
     }
   }
   paintResults($('#searchResults'));
+}
+
+// searchTorznabStream ищет по всем индексаторам сразу и рисует выдачу по мере
+// ответов: медленный индексатор больше не задерживает быстрые. Возвращает число
+// полученных раздач (нужно для «Показать ещё»). Поток читается вручную:
+// EventSource не умеет обрывать запрос при смене вкладки.
+async function searchTorznabStream(q, el) {
+  const ss = state.searchState;
+  const r = await fetch('/api/torznab/stream?query=' + encodeURIComponent(q));
+  if (!r.ok || !r.body) {
+    let body = null;
+    try { body = await r.json(); } catch { /* не JSON */ }
+    ss.tznabOff = 'Torznab: ' + ((body && body.error) || ('HTTP ' + r.status));
+    return 0;
+  }
+  const bad = [];
+  let total = 0;
+  const onEvent = (name, data) => {
+    if (name !== 'source' || !data) return;
+    const rep = data.source || {};
+    if (!rep.ok && rep.error) bad.push((rep.name || '?') + ' — ' + rep.error);
+    const items = (data.items || []).map(mapTorznab);
+    if (!items.length) return;
+    total += items.length;
+    ss.results = mergeResults(ss.results, items);
+    ss.tznabOff = bad.length ? 'Индексатор не ответил: ' + bad.join('; ') : null;
+    paintResults(el);
+  };
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      let name = 'message', dataLine = '';
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) name = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLine += line.slice(5).trim();
+      }
+      if (!dataLine) continue;
+      try { onEvent(name, JSON.parse(dataLine)); } catch { /* битый кадр пропускаем */ }
+    }
+  }
+  if (bad.length) ss.tznabOff = 'Индексатор не ответил: ' + bad.join('; ');
+  else if (!total) ss.tznabOff = null;
+  return total;
+}
+
+// «Популярное за всё время»: раздачи категории rutor по числу сидов, страница
+// за страницей. Догрузка идёт через общую кнопку «Показать ещё».
+const POP_LABEL = 'Популярное за всё время';
+async function fetchPopular() {
+  const el = $('#searchResults');
+  const btn = $('#popBtn');
+  if (!el) return;
+  const cat = rutorCat();
+  if (btn) btn.disabled = true;
+  el.innerHTML = '<div class="empty">Собираю популярное за всё время...</div>';
+  try {
+    const resp = await apiGetJSON('/api/popular?page=0&cat=' + (cat | 0));
+    if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
+    const items = mapRutorItems(resp.items);
+    const ss = state.searchState;
+    ss.results = items;
+    ss.q = '';
+    ss.topLabel = POP_LABEL;
+    ss.showAnyQual = false;
+    state.top24Hash = '';
+    moreSources = { popular: { query: '', page: 0, count: resp.has_more ? 1 : 0, cat } };
+  } catch (e) {
+    el.innerHTML = html`<div class="empty">Не удалось получить популярное: ${e.message}</div>`;
+    if (btn) btn.disabled = false;
+    return;
+  }
+  if (btn) btn.disabled = false;
+  paintResults(el);
 }
 
 async function searchTorznab(q, page) {
@@ -2058,7 +2152,10 @@ async function searchTorznab(q, page) {
       state.searchState.tznabOff = 'Индексатор не ответил: ' + names;
     }
   }
-  return (arr || []).map(it => {
+  return (arr || []).map(mapTorznab);
+}
+
+function mapTorznab(it) {
     const g = (a, b) => (it[a] != null ? it[a] : it[b]);
     return {
       _p: 'torznab', title: g('title', 'Title') || g('name', 'Name'), name: g('title', 'Title') || g('name', 'Name'),
@@ -2069,7 +2166,6 @@ async function searchTorznab(q, page) {
       categories: g('categories', 'Categories'),
       data: it,
     };
-  });
 }
 
 function paintResults(el) {
@@ -2138,7 +2234,7 @@ function paintResults(el) {
   // одно, а показано другое — пишем оба, иначе отсев остаётся невидимым.
   const shown = rows2.length + (hidden || 0) + hiddenEx;
   const cnt = hiddenQual ? shown + ' из ' + qualTotal : '' + shown;
-  const head = topLabel ? 'ТОП раздела: ' + topLabel + ' (' + sortLabel + ')' : (isTop ? 'ТОП-24 за последние 24 часа (' + cnt + ')' : 'Результаты (' + cnt + ')' + fhdNote);
+  const head = topLabel === POP_LABEL ? POP_LABEL + ' (' + cnt + ')' : topLabel ? 'ТОП раздела: ' + topLabel + ' (' + sortLabel + ')' : (isTop ? 'ТОП-24 за последние 24 часа (' + cnt + ')' : 'Результаты (' + cnt + ')' + fhdNote);
   // Индекс строки в полной выдаче: по нему карточка находит свой data-ix.
   // Прежде он искался через rows.indexOf внутри map — проход по всей выдаче на
   // каждую показанную строку, то есть квадрат на больших выдачах.
@@ -2559,11 +2655,6 @@ function forgetPoster(c) {
   if (!posterStore.delete(k)) return false;
   savePosterStoreSoon();
   return true;
-}
-function forgetPosters() {
-  posterStore.clear();
-  posterStoreLoaded = true;
-  savePosterStoreSoon();
 }
 function ratingFor(t) {
   return ratingStore.get(posterKey(cleanSearchTitle(t.title || t.name || ''))) || null;
