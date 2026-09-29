@@ -59,21 +59,42 @@ function toast(msg, isErr) {
   setTimeout(() => el.remove(), 4000);
 }
 // ── Этап 6: тема, горячие клавиши, скелетоны ──
-const THEMES = ['dark', 'light', 'system'];
-const THEME_NAMES = { dark: 'тёмная', light: 'светлая', system: 'как в системе' };
+// Темы — только наборы цветов (переменные CSS), переключение мгновенное.
+// sw — образец для выбора в настройках: фон, панель, акцент, второй акцент.
+const THEME_LIST = [
+  { id: 'dark', name: 'Тёмная', tone: 'dark', sw: ['#0e131a', '#1c2532', '#4f8cff', '#7ce08a'] },
+  { id: 'light', name: 'Светлая', tone: 'light', sw: ['#f3f5f9', '#ffffff', '#2f6fe6', '#1f9d45'] },
+  { id: 'system', name: 'Как в системе', tone: 'auto', sw: ['#0e131a', '#f3f5f9', '#4f8cff', '#2f6fe6'] },
+  { id: 'oled', name: 'Чёрная (OLED)', tone: 'dark', sw: ['#000000', '#161616', '#4f8cff', '#7ce08a'] },
+  { id: 'nord', name: 'Северная', tone: 'dark', sw: ['#2e3440', '#434c5e', '#88c0d0', '#a3be8c'] },
+  { id: 'dracula', name: 'Дракула', tone: 'dark', sw: ['#1e1f29', '#343746', '#bd93f9', '#50fa7b'] },
+  { id: 'forest', name: 'Лес', tone: 'dark', sw: ['#0f1712', '#1e2d23', '#4caf7a', '#b5e06a'] },
+  { id: 'sepia', name: 'Сепия', tone: 'light', sw: ['#f4ecdc', '#eadfc8', '#a0602a', '#5f8a3a'] },
+];
+const THEMES = THEME_LIST.map(t => t.id);
+const THEME_NAMES = Object.fromEntries(THEME_LIST.map(t => [t.id, t.name.toLowerCase()]));
 function themeMode() { const t = localStorage.getItem('tc_theme'); return THEMES.includes(t) ? t : 'dark'; }
 function applyTheme() {
   const m = themeMode();
-  const light = m === 'light' || (m === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
-  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  let id = m;
+  if (m === 'system') id = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  const t = THEME_LIST.find(x => x.id === id) || THEME_LIST[0];
+  document.documentElement.dataset.theme = t.id;
+  document.documentElement.dataset.tone = t.tone;
   const b = document.getElementById('themeBtn');
-  if (b) b.title = 'Тема: ' + THEME_NAMES[m] + ' — нажмите, чтобы сменить (клавиша T)';
+  if (b) b.title = 'Тема: ' + THEME_NAMES[m] + ' — нажмите, чтобы сменить (клавиша T). Все темы — в Настройках';
+  $$('.theme-sw').forEach(x => x.classList.toggle('on', x.dataset.theme === m));
 }
-function cycleTheme() {
-  const next = THEMES[(THEMES.indexOf(themeMode()) + 1) % THEMES.length];
-  try { localStorage.setItem('tc_theme', next); } catch {}
-  applyTheme(); toast('Тема: ' + THEME_NAMES[next]);
+function setTheme(id) {
+  try { localStorage.setItem('tc_theme', id); } catch {}
+  applyTheme(); toast('Тема: ' + THEME_NAMES[id]);
 }
+function cycleTheme() { setTheme(THEMES[(THEMES.indexOf(themeMode()) + 1) % THEMES.length]); }
+function themePickerHtml() {
+  const m = themeMode();
+  return `<div class="theme-grid">${THEME_LIST.map(t => `<button class="theme-sw${t.id === m ? ' on' : ''}" data-theme="${t.id}"><span class="sw">${t.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span>${t.name}</button>`).join('')}</div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.theme-sw'); if (b) setTheme(b.dataset.theme); });
 applyTheme();
 if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
 
@@ -115,6 +136,7 @@ document.addEventListener('keydown', e => {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.7.0', ['5 новых тем: Чёрная (OLED), Северная, Дракула, Лес, Сепия — выбор в Настройках → Оформление', 'Кнопки «Быстро» больше не повторяются', 'Метки качества и рейтинга читаются в светлых темах', 'Список «Что нового» в «О программе» показывался с HTML-тегами', 'В «О программе» видна настоящая система (была всегда windows)']],
   ['1.6.0', ['Светлая тема и «как в системе» (кнопка 🌓 или T)', 'Горячие клавиши: / — поиск, Alt+1…0 — разделы, ? — список', 'Скелетоны вместо «Загрузка…»', 'Автодополнение из истории поиска, удаление записей']],
   ['1.5.0', ['Сборка под Linux и macOS, режим без окна', 'Автозапуск при входе в систему', 'magnet: и .torrent на Linux', 'Поиск плееров без реестра']],
   ['1.4.0', ['Помощник Torznab: поиск Jackett и Prowlarr на компьютере и в сети']],
@@ -1795,7 +1817,7 @@ async function renderSearch(root) {
     </div>
     <div class="quick">
       <span class="qlabel">Быстро:</span>
-      ${raw(CATS.filter(c => c.v).slice(0, 5).map(c => html`<button data-cat="${c.v}">${c.label.split(' ').pop()}</button>`).join(''))}
+      ${raw(CATS.filter(c => c.v).slice(0, 5).map(c => html`<button data-cat="${c.v}">${c.label}</button>`).join(''))}
       <span class="spacer"></span>
       <label style="margin:0;display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:12px"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
     </div>
@@ -4473,6 +4495,10 @@ function renderSettings(root) {
         <input type="file" id="restoreInput" accept=".zip" hidden>
       </div>
     </div>
+    <div class="card"><h3>Оформление</h3>
+      ${raw(themePickerHtml())}
+      <p class="page-sub">Кнопка 🌓 в шапке и клавиша T перебирают темы по кругу.</p>
+    </div>
     <div class="card"><h3>Автооткрытие и встроенные</h3>
       <label style="margin:0"><input type="checkbox" id="autoOpen" ${localStorage.getItem('tc_autoopen') !== '0' ? 'checked' : ''}> Автоматически открывать UI после добавления торрента</label>
     </div>
@@ -4482,7 +4508,7 @@ function renderSettings(root) {
         <div><b>Система:</b> ${state.hello.os || ''}</div>
         <div><b>Папка программы:</b> <span class="mono">${state.hello.exe || '—'}</span></div>
       </div>
-      <ul class="whatsnew">${WHATSNEW.map(([v, items]) => `<li><b>${v}</b>: ${items.join('; ')}</li>`).join('')}</ul>
+      <ul class="whatsnew">${raw(WHATSNEW.map(([v, items]) => html`<li><b>${v}</b>: ${items.join('; ')}</li>`).join(''))}</ul>
       <p class="page-sub">Версия подставляется при сборке. По ней видно, какая копия запущена, когда на диске лежит несколько сборок.</p>
       <div class="row wrap">
         <button id="diagBtn" class="primary">Собрать отчёт о состоянии</button>
