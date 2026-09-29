@@ -60,6 +60,7 @@ STEPS = [
     ("gofmt: разметка исходников оболочки", [GOFMT, "-l"] + sorted(glob.glob(os.path.join(ROOT, "app", "*.go"))), ROOT),
     ("go vet: демон", [GO, "vet", "."], ROOT),
     ("go test: демон", [GO, "test", "."], ROOT),
+    ("web/app.js собран из web/src", [NODE, os.path.join("tools", "build-web.cjs"), "--check"], ROOT),
     ("node --check: интерфейс", [NODE, "--check", os.path.join("web", "app.js")], ROOT),
     ("проверки интерфейса на образцах", [NODE, os.path.join("tools", "check-series.js")], ROOT),
     ("оценка качества раздач и вердикт ffprobe", [NODE, os.path.join("tools", "check-quality.cjs")], ROOT),
