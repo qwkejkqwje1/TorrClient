@@ -3,12 +3,17 @@ package main
 // Статика интерфейса, прокси к TorrServer и защита запросов.
 
 import (
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -150,6 +155,51 @@ var webAssets = func() map[string][]byte {
 	return out
 }()
 
+// webAssetInfo — то, что считается один раз на каждый файл статики: ETag и
+// сжатая копия. Файлы вшиты в exe и между запусками не меняются, поэтому
+// хеш содержимого — надёжный признак версии, а сжимать на каждый запрос
+// (256 КБ app.js) незачем.
+type webAssetInfo struct {
+	etag string
+	gz   []byte
+}
+
+var webAssetMeta = func() map[string]webAssetInfo {
+	out := map[string]webAssetInfo{}
+	for name, b := range webAssets {
+		sum := sha256.Sum256(b)
+		info := webAssetInfo{etag: `"` + hex.EncodeToString(sum[:8]) + `"`}
+		var buf bytes.Buffer
+		zw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+		if err == nil {
+			_, werr := zw.Write(b)
+			cerr := zw.Close()
+			// Сжатая копия нужна только если получилась и стала меньше.
+			if werr == nil && cerr == nil && buf.Len() < len(b) {
+				info.gz = buf.Bytes()
+			}
+		}
+		out[name] = info
+	}
+	return out
+}()
+
+// etagMatches сообщает, подходит ли заголовок If-None-Match к текущему ETag.
+// Слабый префикс W/ отбрасывается: для GET сравнение слабое по определению.
+func etagMatches(header, etag string) bool {
+	for _, part := range strings.Split(header, ",") {
+		p := strings.TrimSpace(part)
+		if p == "*" {
+			return true
+		}
+		p = strings.TrimPrefix(p, "W/")
+		if p != "" && p == etag {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Comp) handleRoot(w http.ResponseWriter, r *http.Request) {
 	var name, ctype string
 	switch r.URL.Path {
@@ -168,9 +218,44 @@ func (c *Comp) handleRoot(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", ctype)
-	w.Header().Set("Cache-Control", "no-store")
-	w.Write(b)
+	meta := webAssetMeta[name]
+	h := w.Header()
+	h.Set("Content-Type", ctype)
+	// no-cache — не «не кэшировать», а «спрашивать каждый раз»: браузер
+	// присылает If-None-Match и получает 304 без тела, пока exe тот же. После
+	// обновления программы ETag меняется, и устаревшей копии интерфейса нет.
+	h.Set("Cache-Control", "no-cache")
+	h.Set("Vary", "Accept-Encoding")
+	if meta.etag != "" {
+		h.Set("ETag", meta.etag)
+		if etagMatches(r.Header.Get("If-None-Match"), meta.etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+	body := b
+	if len(meta.gz) > 0 && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		h.Set("Content-Encoding", "gzip")
+		body = meta.gz
+	}
+	h.Set("Content-Length", itoaLen(len(body)))
+	w.Write(body)
+}
+
+// itoaLen превращает длину в строку для заголовка Content-Length.
+func itoaLen(n int) string {
+	const digits = "0123456789"
+	if n == 0 {
+		return "0"
+	}
+	var buf [20]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = digits[n%10]
+		n /= 10
+	}
+	return string(buf[i:])
 }
 
 // ---------- proxy ----------
@@ -194,6 +279,52 @@ var streamClient = &http.Client{
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		return nil
 	},
+}
+
+// streamBufSize — размер куска при перекладывании потока. 32 КБ по умолчанию у
+// io.Copy — это тысячи системных вызовов на гигабайтный файл; 256 КБ снижает их
+// на порядок и не занимает заметной памяти: буферы берутся из пула.
+const streamBufSize = 256 << 10
+
+var streamBufPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, streamBufSize)
+		return &b
+	},
+}
+
+// copyStream перекладывает поток крупными кусками и после каждого сбрасывает
+// его клиенту (flusher может быть nil). Сброс нужен, чтобы плеер получал байты
+// сразу, а не по заполнению внутреннего буфера сервера: это ускоряет старт и
+// снижает задержку перемотки. Стандартный io.Copy тут не годится: у
+// http.ResponseWriter есть ReadFrom, и заданный буфер он игнорирует.
+func copyStream(dst io.Writer, src io.Reader, flusher http.Flusher) (int64, error) {
+	bp := streamBufPool.Get().(*[]byte)
+	defer streamBufPool.Put(bp)
+	buf := *bp
+	var written int64
+	for {
+		n, rerr := src.Read(buf)
+		if n > 0 {
+			nw, werr := dst.Write(buf[:n])
+			written += int64(nw)
+			if flusher != nil {
+				flusher.Flush()
+			}
+			if werr != nil {
+				return written, werr
+			}
+			if nw < n {
+				return written, io.ErrShortWrite
+			}
+		}
+		if rerr != nil {
+			if rerr == io.EOF {
+				rerr = nil
+			}
+			return written, rerr
+		}
+	}
 }
 
 func (c *Comp) handleProxy(w http.ResponseWriter, r *http.Request) {
@@ -262,6 +393,11 @@ func (c *Comp) handleProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// Content-Length теперь сохраняется. Раньше он отбрасывался для всех
+	// ответов, и браузер получал 206 без длины: длительность и перемотка
+	// зависели от Content-Range и от везения. Заголовок можно пробрасывать
+	// как есть: Accept-Encoding клиента уходит серверу без изменений, поэтому
+	// Go не распаковывает тело сам, и длина совпадает с тем, что будет записано.
 	for k, v := range resp.Header {
 		skip := false
 		for _, h := range hopHeaders {
@@ -270,24 +406,22 @@ func (c *Comp) handleProxy(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		if k == "Content-Length" {
-			continue
-		}
 		if skip {
 			continue
 		}
 		w.Header()[k] = v
 	}
 	w.WriteHeader(resp.StatusCode)
+	flusher, _ := w.(http.Flusher)
 	// Сколько байт файла ушло клиенту, видно только здесь. По этому счёту
 	// отмечается просмотренное у плеера, о позиции не сообщающего.
 	readHash, readFile := readTarget(path, r.URL.Query().Get)
 	if readHash == "" || readFile <= 0 {
-		io.Copy(w, resp.Body)
+		copyStream(w, resp.Body, flusher)
 		return
 	}
 	cw := &countingWriter{w: w}
-	io.Copy(cw, resp.Body)
+	copyStream(cw, resp.Body, flusher)
 	viewedReads.add(readHash, readFile, cw.n)
 	// Отметка ставится отдельно: ответ клиенту она задерживать не должна.
 	// Уже просмотренному файлу горутина с запросом статуса не нужна.
