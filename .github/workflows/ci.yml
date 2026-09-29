@@ -1,0 +1,33 @@
+name: CI
+
+# Сборка и тесты на каждый пуш и PR: сломанная сборка не должна попасть в main.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: gofmt
+        if: runner.os == 'Linux'
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test ./...
+      - name: web/app.js — синтаксис
+        run: node --check web/app.js
+      - name: оценка качества — образцы
+        run: node tools/check-quality.cjs

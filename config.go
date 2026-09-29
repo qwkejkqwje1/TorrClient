@@ -53,6 +53,9 @@ type Config struct {
 	// обновления программы, и человек, знающий рабочее зеркало, не должен
 	// ждать, пока перебор дойдёт до него через мёртвые.
 	KinozalHosts []string `json:"kinozal_hosts,omitempty"`
+	// KinozalOfficialOnly — искать только на официальных зеркалах
+	// (kinozal.tv, kinozal.me, kinozal.guru) и своих из KinozalHosts.
+	KinozalOfficialOnly bool `json:"kinozal_official_only,omitempty"`
 	// TorznabSources — индексаторы для поиска раздач: Jackett, Prowlarr,
 	// NZBhydra2. Их поиск ведём сами, а не через TorrServer: у сервера он
 	// отдаёт только первую страницу и не отличает «не настроен» от «упал».

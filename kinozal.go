@@ -14,39 +14,75 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // ---------- Kinozal search (kinozaltv.life + зеркала) ----------
 
-// kinozalHosts — хосты в порядке приоритета. Домены Кинозала живут недолго и
-// меняются; при недоступности одного перебираем следующий.
+// Зеркала Кинозала.
 //
-// Проверено 27.09.2026 перебором вживую (см. tools/check-kinozal.js: повторяет
-// тот же список, печатает отчёт). Отдают выдачу — kinozaltv.life и
-// kinozal.cloudns.nz, по 100 ссылок на страницу. Остальные либо не резолвятся,
-// либо отвечают 403/404, либо открываются, но страницы выдачи не содержат.
+// Официальные — по сообщениям канала Кинозала и теме на его форуме
+// (forum.kinozal.tv, t=360702): kinozal.tv, kinozal.me, kinozal.guru. Они идут
+// первыми. Там же прямо названы неофициальными kinozal.jumpingcrab.com и
+// kinozaltv.appspot.com — их в списке нет вовсе.
 //
-// Мёртвые хосты оставлены не по недосмотру, а намеренно: список перебирается
-// по порядку и обрыв недолговечного зеркала переживает без правки кода. Хост,
-// который однажды оживёт, будет работать сам. Начинать же с них нельзя —
-// каждая мёртвая попытка стоит времени ожидания до ответа.
-var kinozalHosts = [...]string{
-	// Живые, проверены 27.09.2026.
-	"kinozaltv.life",
-	"kinozal.cloudns.nz",
-	// Не отвечают: 403 (защита от ботов) либо домен не резолвится. Если
-	// зеркало оживёт, перебор дойдёт до него сам.
+// Неофициальные ниже — запасной путь: при проверке 27.09.2026 выдачу отдавали
+// только kinozaltv.life и kinozal.cloudns.nz, официальные отвечали 403 (защита
+// от ботов). Программа на Кинозал не входит и пароль туда не передаёт, только
+// читает выдачу, поэтому запасной путь включён по умолчанию; выключается
+// галочкой «Только официальные зеркала» (kinozal_official_only).
+var kinozalOfficialHosts = [...]string{
+	"kinozal.tv",
 	"kinozal.me",
 	"kinozal.guru",
-	"kinozal.tv",
+}
+
+var kinozalUnofficialHosts = [...]string{
+	"kinozaltv.life",
+	"kinozal.cloudns.nz",
 	"tv.kinozal.app",
-	"kinozal.jumpingcrab.com",
 	"kinozal.club",
 	"kinozal.bz",
 	"kinozal.ist",
 	"kinozal.shop",
 	"kinozal.today",
+}
+
+// kinozalHosts — встроенный список целиком (официальные, затем запасные).
+var kinozalHosts = func() []string {
+	out := append([]string{}, kinozalOfficialHosts[:]...)
+	return append(out, kinozalUnofficialHosts[:]...)
+}()
+
+func kinozalIsOfficial(host string) bool {
+	host = strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://")
+	for _, h := range kinozalOfficialHosts {
+		if h == host {
+			return true
+		}
+	}
+	return false
+}
+
+// kinozalLastGood — зеркало, которое ответило последним. Следующий поиск
+// начинается с него: иначе каждый запрос заново ждал бы отказов мёртвых.
+var kinozalLastGood atomic.Value // string: "https://host"
+
+// kinozalOrder — порядок перебора: последнее рабочее, свои зеркала из
+// настроек, официальные, затем запасные (если не запрещены).
+func kinozalOrder(extra []string, lastGood string, officialOnly bool) []string {
+	hosts := make([]string, 0, len(extra)+len(kinozalHosts)+1)
+	if lastGood != "" && (!officialOnly || kinozalIsOfficial(lastGood)) {
+		hosts = append(hosts, lastGood)
+	}
+	hosts = append(hosts, extra...)
+	hosts = append(hosts, kinozalOfficialHosts[:]...)
+	if !officialOnly {
+		hosts = append(hosts, kinozalUnofficialHosts[:]...)
+	}
+	return kinozalBases(hosts)
 }
 
 // Адрес выдачи Кинозала: g=0 — все разделы, страницы считаются с нуля
@@ -147,10 +183,12 @@ func (c *Comp) apiKinozalSearch(w http.ResponseWriter, r *http.Request) {
 func (c *Comp) fetchKinozal(q string, page int) ([]rutorItem, error) {
 	// Свой список из настроек идёт первым: человек, который знает рабочее
 	// зеркало, не должен ждать, пока перебор дойдёт до него через мёртвые.
-	hosts := make([]string, 0, len(kinozalExtraHosts())+len(kinozalHosts))
-	hosts = append(hosts, kinozalExtraHosts()...)
-	hosts = append(hosts, kinozalHosts[:]...)
-	return c.fetchKinozalFrom(q, page, kinozalBases(hosts))
+	last, _ := kinozalLastGood.Load().(string)
+	officialOnly := false
+	if cur := curCfg(); cur != nil {
+		officialOnly = cur.KinozalOfficialOnly
+	}
+	return c.fetchKinozalFrom(q, page, kinozalOrder(kinozalExtraHosts(), last, officialOnly))
 }
 
 // kinozalExtraHosts — добавленные пользователем зеркала. Домены Кинозала
@@ -189,6 +227,7 @@ func (c *Comp) fetchKinozalFrom(q string, page int, bases []string) ([]rutorItem
 		if len(out) > rutorPageSize {
 			out = out[:rutorPageSize]
 		}
+		kinozalLastGood.Store(base)
 		return out, nil
 	}
 	if lastErr == nil {
@@ -293,4 +332,109 @@ func (c *Comp) downloadTorrent(u string) ([]byte, error) {
 		return nil, fmt.Errorf("http %d", resp.StatusCode)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+}
+
+// apiKinozalMirrors — GET: настройки зеркал; POST {"hosts":[...],"official_only":bool}
+// сохраняет их; POST с {"probe":true} проверяет все зеркала параллельно и
+// возвращает, какое отдаёт выдачу. Проверка — только POST: страница в чужой
+// вкладке не должна гонять программу по сети.
+func (c *Comp) apiKinozalMirrors(w http.ResponseWriter, r *http.Request) {
+	state := func() map[string]any {
+		cur := curCfg()
+		last, _ := kinozalLastGood.Load().(string)
+		return map[string]any{"hosts": cur.KinozalHosts, "official_only": cur.KinozalOfficialOnly,
+			"official": kinozalOfficialHosts, "unofficial": kinozalUnofficialHosts, "last_good": last}
+	}
+	switch r.Method {
+	case http.MethodGet:
+		jj(w, state())
+	case http.MethodPost:
+		var in struct {
+			Probe        bool     `json:"probe"`
+			Hosts        []string `json:"hosts"`
+			OfficialOnly *bool    `json:"official_only"`
+		}
+		if err := decodeTorznabBody(w, r, &in); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "тело запроса не разобрано")
+			return
+		}
+		if in.Probe {
+			jj(w, map[string]any{"results": c.probeKinozal(kinozalOrder(kinozalExtraHosts(), "", false))})
+			return
+		}
+		hosts := make([]string, 0, len(in.Hosts))
+		for _, b := range kinozalBases(in.Hosts) {
+			hosts = append(hosts, strings.TrimPrefix(b, "https://"))
+		}
+		if err := updateCfg(func(nc *Config) {
+			nc.KinozalHosts = hosts
+			if in.OfficialOnly != nil {
+				nc.KinozalOfficialOnly = *in.OfficialOnly
+			}
+		}); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		kinozalLastGood.Store("")
+		kinozalSearch.clear()
+		jj(w, state())
+	default:
+		writeJSONError(w, http.StatusMethodNotAllowed, "метод не поддерживается")
+	}
+}
+
+type kinozalProbe struct {
+	Host     string `json:"host"`
+	Official bool   `json:"official"`
+	OK       bool   `json:"ok"`
+	Reason   string `json:"reason,omitempty"`
+	Ms       int64  `json:"ms"`
+}
+
+// probeKinozal проверяет зеркала параллельно одним и тем же запросом.
+func (c *Comp) probeKinozal(bases []string) []kinozalProbe {
+	out := make([]kinozalProbe, len(bases))
+	var wg sync.WaitGroup
+	for i, b := range bases {
+		wg.Add(1)
+		go func(i int, b string) {
+			defer wg.Done()
+			t := time.Now()
+			_, err := c.fetchKinozalFrom("2024", 0, []string{b})
+			p := kinozalProbe{Host: strings.TrimPrefix(b, "https://"), OK: err == nil, Ms: time.Since(t).Milliseconds()}
+			p.Official = kinozalIsOfficial(p.Host)
+			if err != nil {
+				p.Reason = err.Error()
+				p.Reason = kinozalReason(p.Reason)
+			}
+			out[i] = p
+		}(i, b)
+	}
+	wg.Wait()
+	return out
+}
+
+// kinozalReason переводит сетевую ошибку в короткую причину для человека.
+func kinozalReason(e string) string {
+	switch {
+	case strings.Contains(e, "no such host"):
+		return "домен не найден"
+	case strings.Contains(e, "connection refused"):
+		return "соединение отклонено (домен заблокирован провайдером?)"
+	case strings.Contains(e, "код ответа 403"):
+		return "403: защита от ботов"
+	case strings.Contains(e, "код ответа 404"):
+		return "404: страницы поиска нет"
+	case strings.Contains(e, "Timeout") || strings.Contains(e, "deadline exceeded"):
+		return "нет ответа (тайм-аут)"
+	case strings.Contains(e, "certificate"):
+		return "ошибка сертификата HTTPS"
+	}
+	if i := strings.Index(e, "последняя причина: "); i >= 0 {
+		e = strings.TrimSuffix(e[i+len("последняя причина: "):], ")")
+	}
+	if i := strings.Index(e, ": "); i >= 0 && strings.HasPrefix(e, "https://") {
+		e = e[i+2:]
+	}
+	return e
 }

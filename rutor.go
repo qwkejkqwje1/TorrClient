@@ -241,6 +241,13 @@ func (c *searchCacheStore) get(key string) ([]rutorItem, bool) {
 	return e.items, true
 }
 
+// clear сбрасывает кэш: после смены зеркал старая выдача не должна жить до TTL.
+func (c *searchCacheStore) clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = nil
+}
+
 func (c *searchCacheStore) put(key string, items []rutorItem) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

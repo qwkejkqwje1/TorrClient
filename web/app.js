@@ -133,9 +133,43 @@ document.addEventListener('keydown', e => {
   else if (e.key === 't' || e.key === 'T' || e.key === 'е' || e.key === 'Е') cycleTheme();
 });
 
+// Настройки зеркал Кинозала: свой список, запрет неофициальных, проверка всех
+// зеркал параллельно — видно, какое сейчас отдаёт выдачу.
+async function initKinozalMirrors() {
+  const box = $('#kzHosts'); if (!box) return;
+  const show = j => {
+    box.value = (j.hosts || []).join('\n');
+    $('#kzOfficial').checked = !!j.official_only;
+    $('#kzLast').textContent = j.last_good ? 'Последнее рабочее: ' + j.last_good.replace('https://', '') : '';
+  };
+  try { show(await apiGetJSON('/api/kinozal/mirrors')); } catch (e) { $('#kzLast').textContent = 'Не загружено: ' + e.message; }
+  const post = body => fetch('/api/kinozal/mirrors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(async r => { const j = await r.json().catch(() => null); if (!r.ok) throw new Error((j && j.error) || 'HTTP ' + r.status); return j; });
+  const save = async () => {
+    try {
+      show(await post({ hosts: box.value.split(/[\s,;]+/).filter(Boolean), official_only: $('#kzOfficial').checked }));
+      toast('Зеркала Кинозала сохранены');
+    } catch (e) { toast('Не сохранено: ' + e.message, true); }
+  };
+  $('#kzSave').addEventListener('click', save);
+  $('#kzOfficial').addEventListener('change', save);
+  $('#kzProbe').addEventListener('click', async () => {
+    const btn = $('#kzProbe'), out = $('#kzProbeOut');
+    btn.disabled = true; btn.textContent = 'Проверяю…'; out.innerHTML = skeleton('Опрашиваю зеркала параллельно…', 3);
+    try {
+      const j = await post({ probe: true });
+      const rows = (j.results || []).sort((a, b) => (b.ok - a.ok) || (b.official - a.official) || (a.ms - b.ms));
+      out.innerHTML = html`<table style="width:100%;margin-top:8px"><tr><th align="left">Зеркало</th><th align="left">Статус</th><th align="right">мс</th></tr>${raw(rows.map(r => html`<tr><td>${r.host}${raw(r.official ? ' <span class="chip q1080">официальное</span>' : '')}</td><td style="color:${r.ok ? 'var(--acc2)' : 'var(--red)'}">${r.ok ? 'отдаёт выдачу' : (r.reason || 'нет ответа')}</td><td align="right">${r.ms}</td></tr>`).join(''))}</table>`;
+      if (!rows.some(r => r.ok)) out.insertAdjacentHTML('beforeend', '<div class="hint">Ни одно зеркало не отдало выдачу. Если сайт открывается у вас в браузере, добавьте рабочий адрес в «Свои зеркала».</div>');
+    } catch (e) { out.innerHTML = html`<div class="hint">Проверка не удалась: ${e.message}</div>`; }
+    btn.disabled = false; btn.textContent = 'Проверить зеркала';
+  });
+}
+
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.8.0', ['Кинозал: сначала официальные зеркала (kinozal.tv, .me, .guru), поддельные убраны', 'Кинозал: следующий поиск начинается с зеркала, ответившего последним', 'Настройки → Кинозал: свои зеркала, «только официальные», проверка всех зеркал', 'Автопроверка сборки и тестов на GitHub, готовый архив для Windows в релизах']],
   ['1.7.0', ['5 новых тем: Чёрная (OLED), Северная, Дракула, Лес, Сепия — выбор в Настройках → Оформление', 'Кнопки «Быстро» больше не повторяются', 'Метки качества и рейтинга читаются в светлых темах', 'Список «Что нового» в «О программе» показывался с HTML-тегами', 'В «О программе» видна настоящая система (была всегда windows)']],
   ['1.6.0', ['Светлая тема и «как в системе» (кнопка 🌓 или T)', 'Горячие клавиши: / — поиск, Alt+1…0 — разделы, ? — список', 'Скелетоны вместо «Загрузка…»', 'Автодополнение из истории поиска, удаление записей']],
   ['1.5.0', ['Сборка под Linux и macOS, режим без окна', 'Автозапуск при входе в систему', 'magnet: и .torrent на Linux', 'Поиск плееров без реестра']],
@@ -4495,6 +4529,14 @@ function renderSettings(root) {
         <input type="file" id="restoreInput" accept=".zip" hidden>
       </div>
     </div>
+    <div class="card"><h3>Кинозал: зеркала</h3>
+      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу. Программа на Кинозал не входит и пароль туда не передаёт.</p>
+      <label style="margin:0"><input type="checkbox" id="kzOfficial"> Только официальные зеркала (и свои из списка ниже)</label>
+      <label>Свои зеркала (через запятую или с новой строки), проверяются первыми</label>
+      <textarea id="kzHosts" rows="2" placeholder="kinozal.tv"></textarea>
+      <div class="row wrap" style="margin-top:8px"><button id="kzSave">Сохранить</button><button id="kzProbe" class="primary">Проверить зеркала</button><span id="kzLast" class="page-sub"></span></div>
+      <div id="kzProbeOut"></div>
+    </div>
     <div class="card"><h3>Оформление</h3>
       ${raw(themePickerHtml())}
       <p class="page-sub">Кнопка 🌓 в шапке и клавиша T перебирают темы по кругу.</p>
@@ -4566,6 +4608,7 @@ function renderSettings(root) {
   // показывает сохранение файла.
   if (bd) bd.addEventListener('click', () => { window.location.href = '/api/backup'; });
   $('#autoOpen').addEventListener('change', e => localStorage.setItem('tc_autoopen', e.target.checked ? '1' : '0'));
+  initKinozalMirrors();
   const diagBtn = $('#diagBtn');
   if (diagBtn) diagBtn.addEventListener('click', () => showDiagnostics(diagBtn));
   // Папки меняются одним и тем же диалогом: различаются только подпись и поле
