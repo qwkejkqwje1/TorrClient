@@ -353,3 +353,12 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .tname .tlabel{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1}
 .tname .tstat{flex:0 0 auto; font-size:11px; padding:2px 7px}
 .tcell{color:#c3d2e6; white-space:nowrap; font-variant-numeric:tabular-nums}
+/* Подборки TMDB */
+.disc-head { margin: 10px 0 8px; font-weight: 600; }
+.disc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.disc-card { cursor: pointer; }
+.disc-card:hover .disc-title { text-decoration: underline; }
+.disc-poster { aspect-ratio: 2 / 3; background: rgba(128,128,128,.15); border-radius: 6px; overflow: hidden; }
+.disc-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.disc-title { margin-top: 6px; font-size: 13px; line-height: 1.25; }
+.disc-meta { color: var(--mut); font-size: 12px; }

@@ -1614,8 +1614,16 @@ async function renderSearch(root) {
       <label style="margin:0;display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:12px"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
     </div>
     ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<button data-hq="${h}">${h}</button>`).join(''))}</div>` : '')}
+    <div class="quick" id="discBar">
+      <span class="qlabel">Топ за всё время:</span>
+      <select id="dKind" style="width:auto"><option value="movie">Фильмы</option><option value="tv">Сериалы</option></select>
+      <select id="dOrigin" style="width:auto"><option value="foreign">Зарубежное</option><option value="any">Любое</option><option value="ru">Русское</option></select>
+      <select id="dGenre" style="width:auto"></select>
+      <button id="dGo" title="Самое популярное по числу голосов TMDB. Нужен ключ TMDB">Показать</button>
+    </div>
     <div id="searchResults"></div>`;
 
+  initDiscoverBar();
   $('#searchProv').value = sd.provider;
   $('#searchCat').value = sd.cat || '';
   $('#searchQual').value = qualOn();
@@ -2106,6 +2114,74 @@ async function searchTorznabStream(q, el) {
   if (bad.length) ss.tznabOff = 'Индексатор не ответил: ' + bad.join('; ');
   else if (!total) ss.tznabOff = null;
   return total;
+}
+
+// ---- Подборки TMDB: «самое популярное за всё время» по виду, жанру и происхождению ----
+const DISC_GENRES = {
+  movie: [['', 'Любой жанр'], [28, 'Боевик'], [12, 'Приключения'], [16, 'Мультфильм'], [35, 'Комедия'], [80, 'Криминал'], [99, 'Документальный'], [18, 'Драма'], [10751, 'Семейный'], [14, 'Фэнтези'], [36, 'История'], [27, 'Ужасы'], [10402, 'Музыка'], [9648, 'Детектив'], [10749, 'Мелодрама'], [878, 'Фантастика'], [53, 'Триллер'], [10752, 'Военный'], [37, 'Вестерн']],
+  tv: [['', 'Любой жанр'], [10759, 'Боевик и приключения'], [16, 'Мультсериал'], [35, 'Комедия'], [80, 'Криминал'], [99, 'Документальный'], [18, 'Драма'], [10751, 'Семейный'], [10762, 'Детский'], [9648, 'Детектив'], [10765, 'Фантастика и фэнтези'], [10768, 'Война и политика'], [37, 'Вестерн'], [10764, 'Реалити']],
+};
+const discState = { items: [], page: 0, hasMore: false, params: null, busy: false };
+
+function fillDiscGenres() {
+  const kind = $('#dKind').value;
+  $('#dGenre').innerHTML = DISC_GENRES[kind].map(g => html`<option value="${g[0]}">${g[1]}</option>`).join('');
+}
+function initDiscoverBar() {
+  if (!$('#dKind')) return;
+  fillDiscGenres();
+  $('#dKind').addEventListener('change', fillDiscGenres);
+  $('#dGo').addEventListener('click', () => fetchDiscover(true));
+}
+async function fetchDiscover(reset) {
+  const el = $('#searchResults');
+  if (!el || discState.busy) return;
+  if (reset) {
+    discState.params = { kind: $('#dKind').value, origin: $('#dOrigin').value, genre: $('#dGenre').value };
+    discState.items = []; discState.page = 0; discState.hasMore = false;
+    el.innerHTML = '<div class="empty">Собираю подборку...</div>';
+  }
+  const p = discState.params;
+  if (!p) return;
+  discState.busy = true;
+  try {
+    const url = '/api/discover?kind=' + p.kind + '&origin=' + p.origin + '&genre=' + encodeURIComponent(p.genre) + '&page=' + (discState.page + 1);
+    const resp = await apiGetJSON(url);
+    if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
+    discState.page = resp.page;
+    discState.hasMore = !!resp.has_more;
+    const seen = new Set(discState.items.map(x => x.id));
+    for (const it of resp.items || []) if (!seen.has(it.id)) discState.items.push(it);
+    // Зарубежный фильтр может опустошить страницу целиком — идём дальше сами.
+    if (!(resp.items || []).length && discState.hasMore) { discState.busy = false; return fetchDiscover(false); }
+  } catch (e) {
+    discState.busy = false;
+    if (reset) el.innerHTML = html`<div class="empty">Не удалось получить подборку: ${e.message}</div>`;
+    else toast(e.message, true);
+    return;
+  }
+  discState.busy = false;
+  paintDiscover(el);
+}
+function paintDiscover(el) {
+  if (!discState.items.length) { el.innerHTML = '<div class="empty">В подборке пусто</div>'; return; }
+  const cards = discState.items.map((it, i) => html`
+    <div class="disc-card" data-di="${i}" title="Найти раздачи">
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}</div>
+      <div class="disc-title">${it.title}</div>
+      <div class="disc-meta">${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
+    </div>`).join('');
+  el.innerHTML = html`<div class="disc-head">Популярное за всё время (${discState.items.length})</div>
+    <div class="disc-grid">${raw(cards)}</div>
+    ${raw(discState.hasMore ? '<div style="text-align:center;margin:14px"><button id="discMore" class="primary">Показать ещё</button></div>' : '')}`;
+  $$('.disc-card').forEach(c => c.addEventListener('click', () => {
+    const it = discState.items[+c.dataset.di];
+    if (!it) return;
+    $('#searchInput').value = it.title;
+    doSearch();
+  }));
+  const more = $('#discMore');
+  if (more) more.addEventListener('click', () => { more.disabled = true; more.textContent = 'Загрузка...'; fetchDiscover(false); });
 }
 
 // «Популярное за всё время»: раздачи категории rutor по числу сидов, страница

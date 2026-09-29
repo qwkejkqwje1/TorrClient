@@ -145,6 +145,7 @@ func main() {
 	// Этап 2: потоковый параллельный поиск и «популярное за всё время».
 	mux.HandleFunc("/api/torznab/stream", limitSearch(c.apiTorznabStream))
 	mux.HandleFunc("/api/popular", limitSearch(c.apiPopular))
+	mux.HandleFunc("/api/discover", limitSearch(c.apiDiscover))
 	mux.HandleFunc("/api/torznab/test", c.apiTorznabTest)
 	mux.HandleFunc("/api/torznab/sources", c.apiTorznabSources)
 	mux.HandleFunc("/api/kinozal/add", c.apiKinozalAdd)
