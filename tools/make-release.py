@@ -148,7 +148,7 @@ def shell_is_stale():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--version", default="1.1")
+    ap.add_argument("--version", default=open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "VERSION"), encoding="utf-8").read().strip())
     ap.add_argument("--skip-tests", action="store_true")
     args = ap.parse_args()
 

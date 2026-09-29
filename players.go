@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -51,6 +52,8 @@ var playerOrder = []string{"vlc", "pot", "mpc", "mpcbe", "mpv", "km"}
 // playerRel — где плеер обычно лежит относительно корня поиска.
 var playerRel = map[string][]string{
 	"vlc": {
+		`VLC.app/Contents/MacOS/VLC`, // macOS: корень /Applications
+
 		`VideoLAN\VLC\vlc.exe`,
 		`VideoLAN\x64\vlc.exe`,
 		`VLC\vlc.exe`,
@@ -101,11 +104,11 @@ var playerRel = map[string][]string{
 // playerNames — имена файлов: ими плеер опознаётся в папке без подкаталогов,
 // рядом с самой программой и в `PATH`.
 var playerNames = map[string][]string{
-	"vlc":   {"vlc.exe"},
+	"vlc":   {"vlc.exe", "vlc"},
 	"pot":   {"PotPlayerMini64.exe", "PotPlayerMini.exe", "PotPlayer64.exe", "PotPlayer.exe"},
 	"mpc":   {"mpc-hc64.exe", "mpc-hc.exe"},
 	"mpcbe": {"mpc-be64.exe", "mpc-be.exe", "MPC-BE.exe"},
-	"mpv":   {"mpv.exe", "mpvnet.exe"},
+	"mpv":   {"mpv.exe", "mpvnet.exe", "mpv"},
 	"km":    {"KMPlayer64.exe", "KMPlayer.exe"},
 }
 
@@ -151,10 +154,16 @@ func playerRoots() []string {
 		add(filepath.Join(d, "tools"))
 		add(filepath.Join(d, "players"))
 	}
+	// Linux и macOS: каталоги, куда пакетные менеджеры кладут исполняемые файлы.
+	for _, d := range unixPlayerDirs() {
+		add(d)
+	}
 	// Флоппи и `Z:` не трогаем: `A:` отвечает по несколько секунд, а сетевые диски
 	// подвешивают поиск.
-	for _, d := range "CDEFGHIJ" {
-		add(string(d) + `:\`)
+	if runtime.GOOS == "windows" {
+		for _, d := range "CDEFGHIJ" {
+			add(string(d) + `:\`)
+		}
 	}
 	return roots
 }
@@ -167,7 +176,7 @@ func detectPlayersIn(roots []string) map[string]string {
 	for _, key := range playerOrder {
 		for _, r := range roots {
 			for _, rel := range playerRel[key] {
-				if p := filepath.Join(r, rel); findExe(p) {
+				if p := filepath.Join(r, strings.ReplaceAll(rel, `\`, string(filepath.Separator))); findExe(p) {
 					found[key] = p
 					break
 				}
@@ -258,18 +267,6 @@ func scanPlayersInto(cfg *Config) []*Player {
 		cfg.Players = append(cfg.Players, d)
 	}
 	return cfg.Players
-}
-
-func regQueryString(key, val string) string {
-	args := []string{"query", key}
-	if val != "" {
-		args = append(args, "/v", val)
-	}
-	out, err := exec.Command(`reg.exe`, args...).CombinedOutput()
-	if err != nil {
-		return ""
-	}
-	return parseRegQuery(string(out), val)
 }
 
 // parseRegQuery вынимает значение из вывода `reg query`. Строка выглядит так:
