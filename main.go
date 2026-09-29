@@ -164,6 +164,8 @@ func main() {
 	mux.HandleFunc("/api/torznab/sources", c.apiTorznabSources)
 	mux.HandleFunc("/api/torznab/discover", c.apiTorznabDiscover)
 	mux.HandleFunc("/api/torznab/discover/add", c.apiTorznabDiscoverAdd)
+	mux.HandleFunc("/api/torznab/apps", c.apiTorznabApps)
+	mux.HandleFunc("/api/autobuffer", c.apiAutoBuffer)
 	mux.HandleFunc("/api/kinozal/add", c.apiKinozalAdd)
 	mux.HandleFunc("/api/kinozal/mirrors", c.apiKinozalMirrors)
 	mux.HandleFunc("/api/userdata", c.apiUserData)
@@ -182,6 +184,11 @@ func main() {
 	mux.HandleFunc("/api/restore", c.apiRestore)
 	// Отчёт о состоянии установки: версии, папки, серверы и файлы данных разом.
 	mux.HandleFunc("/api/diagnostics", c.apiDiagnostics)
+	// Доступ с телефона по QR и PIN: ручка настройки и второй слушатель.
+	mux.HandleFunc("/api/remote", c.apiRemote)
+	mux.HandleFunc("/remote-login", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/", http.StatusSeeOther) })
+	remote.handler = mux
+	remote.apply()
 
 	c.httpSrv = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", *flagHost, *flagPort),

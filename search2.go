@@ -157,7 +157,14 @@ loop:
 // rutorPopularPath строит адрес выдачи rutor, отсортированной по сидам.
 // Нумерация страниц с нуля, как и у обычного поиска. Пустой запрос даёт
 // «всё в категории»: cat=0 — любая категория.
+//
+// Без запроса используется каталог /browse/<стр>/<кат>/0/<сорт>: поиск с пустым
+// запросом rutor отвечает пустой страницей (проверено 30.09.2026), и
+// «Популярное» падало с «ни один адрес не отдал выдачу».
 func rutorPopularPath(page, cat int, q string) string {
+	if strings.TrimSpace(q) == "" {
+		return fmt.Sprintf("/browse/%d/%d/0/%d", page, cat, rutorSortSeeders)
+	}
 	return fmt.Sprintf("/search/%d/%d/000/%d/", page, cat, rutorSortSeeders) + url.QueryEscape(q)
 }
 

@@ -19,7 +19,7 @@ function resultRow(r, ix) {
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
-        ${raw(isSer ? '<span class="chip series">Сериал</span>' : '')}
+        ${raw(isSer ? html`<span class="chip series">${seriesTag(title)}</span>` : '')}
         <span class="chip rq rq-${rq.tier}" title="${rateTip(rq)}">${rq.score}${rq.ru ? ' · RU' : ''}</span>
         <span class="chip grey">${r._p || ''}</span>
       </div>

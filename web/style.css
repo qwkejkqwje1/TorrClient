@@ -27,6 +27,8 @@ input,select,textarea{
 }
 input:focus,select:focus{border-color:var(--acc); outline:none; box-shadow:0 0 0 2px rgba(79,140,255,.15)}
 label{display:block; margin:10px 0 4px; font-size:12px; color:var(--mut)}
+label:not([class]):has(> input[type=checkbox]){display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fg)}
+label > input[type=checkbox]{width:auto;flex:none;margin:0}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:#2a3950;border-radius:6px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -428,3 +430,7 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .theme-sw.on{border-color:var(--acc)}
 .theme-sw .sw{height:34px; border-radius:6px; display:flex; overflow:hidden}
 .theme-sw .sw i{flex:1}
+.best-row{padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-top:6px; background:var(--bg2)}
+.best-row.best-top{border-color:var(--acc); border-width:2px}
+.best-title{font-weight:600; margin-bottom:4px}
+.best-meta{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12px}

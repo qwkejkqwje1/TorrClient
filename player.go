@@ -404,7 +404,13 @@ func channelFor(key string) playerChannel {
 			url:   "http://127.0.0.1:13579/variables.html",
 			parse: parseMPCVariables,
 		}
-		return playerChannel{poll: asker.poll}
+		return playerChannel{
+			poll: asker.poll,
+			// MPC-HC и MPC-BE: «/start <мс>» — начать с позиции.
+			resumeArgs: func(pos float64) []string {
+				return []string{"/start", strconv.Itoa(int(pos * 1000))}
+			},
+		}
 	}
 	return playerChannel{}
 }

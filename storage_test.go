@@ -456,3 +456,31 @@ func TestRestorePutsStateFilesWhereTheConfigPoints(t *testing.T) {
 		t.Errorf("папка постоянных данных после возврата архива: %q, ожидалась %q", got, newData)
 	}
 }
+
+// Индексаторы, зеркала Кинозала и доступ с телефона переживают перезапуск:
+// раньше loadConfig переносил из файла только часть полей, и эти настройки
+// молча пропадали при следующем запуске.
+func TestConfigKeepsSourcesAndRemoteAfterReload(t *testing.T) {
+	keepConfigFile(t)
+	saved := cfg.Load()
+	c := defaultConfig()
+	c.KinozalHosts = []string{"kinozal.example"}
+	c.KinozalOfficialOnly = true
+	c.TorznabSources = []TorznabSource{{Name: "Jackett", URL: "http://127.0.0.1:9117/api", APIKey: "k"}}
+	c.RemoteEnabled, c.RemotePIN, c.RemotePort = true, "123456", 8123
+	cfg.Store(c)
+	t.Cleanup(func() { cfg.Store(saved) })
+	if err := saveConfigLocked(c); err != nil {
+		t.Fatal(err)
+	}
+	back := loadConfig()
+	if len(back.KinozalHosts) != 1 || !back.KinozalOfficialOnly {
+		t.Errorf("зеркала Кинозала потеряны: %v %v", back.KinozalHosts, back.KinozalOfficialOnly)
+	}
+	if len(back.TorznabSources) != 1 || back.TorznabSources[0].APIKey != "k" {
+		t.Errorf("индексаторы потеряны: %+v", back.TorznabSources)
+	}
+	if !back.RemoteEnabled || back.RemotePIN != "123456" || back.RemotePort != 8123 {
+		t.Errorf("доступ с телефона потерян: %v %q %d", back.RemoteEnabled, back.RemotePIN, back.RemotePort)
+	}
+}

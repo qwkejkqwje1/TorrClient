@@ -137,6 +137,7 @@ async function renderServerPane(tab) {
   const mb = n => Math.round(Number(n || 0) / 1048576);
   pane.innerHTML = html`
     <div class="row wrap" style="align-items:center;gap:10px;margin-bottom:6px">
+      <button id="ssAuto" class="primary" title="Замерит скорость интернета и подберёт кэш, предзагрузку и число соединений">Автонастройка буфера</button>
       <button id="ssPreset">Только оперативная память, без следов</button>
       <span class="page-sub" style="margin:0">Кэш живёт в RAM и освобождается при снятии раздачи, на диск не пишется ничего, отдача выключена.</span>
     </div>
@@ -169,6 +170,22 @@ async function renderServerPane(tab) {
       toast('Настройки сохранены');
       await refreshLibrary();
     } catch (e) { toast('Ошибка сохранения: ' + e.message, true); }
+  });
+
+  const auto = $('#ssAuto');
+  if (auto) auto.addEventListener('click', async () => {
+    auto.disabled = true; auto.textContent = 'Замеряю скорость…';
+    try {
+      const p = await api('/api/autobuffer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const txt = `Скорость ≈ ${Math.round(p.mbps)} Мбит/с — ${p.why}.\n\nКэш ${Math.round(p.CacheSize / 1048576)} МБ, предзагрузка ${p.PreloadCache}%, чтение вперёд ${p.ReaderReadAHead}%, соединений ${p.ConnectionsLimit}.\n\nПрименить?`;
+      if (confirm(txt)) {
+        await saveServerSets({ CacheSize: p.CacheSize, PreloadCache: p.PreloadCache, ReaderReadAHead: p.ReaderReadAHead, ConnectionsLimit: p.ConnectionsLimit });
+        toast('Буфер настроен под ' + Math.round(p.mbps) + ' Мбит/с');
+        renderServerPane(tab);
+        return;
+      }
+    } catch (e) { toast(e.message, true); }
+    auto.disabled = false; auto.textContent = 'Автонастройка буфера';
   });
 
   const preset = $('#ssPreset');

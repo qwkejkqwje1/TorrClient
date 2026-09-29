@@ -335,7 +335,7 @@ function tile(t) {
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
-        ${raw(ser ? '<span class="chip series">Сериал</span>' : '')}
+        ${raw(ser ? html`<span class="chip series">${seriesTag(t.title || t.name || '')}</span>` : '')}
         <span class="statusdot ${scls}" title="${st || 'статус'}"></span>
       </div>
       <div class="rate-stack">
@@ -378,4 +378,18 @@ function fmtSpeed(s) { return s >= 1 << 20 ? (s / (1 << 20)).toFixed(1) + ' МБ
 function isVideo(p) { return /\.(mp4|mkv|avi|mov|webm|m4v|ts|wmv|flv|mpg|mpeg|m2ts|3gp)$/i.test(p || ''); }
 function isAudio(p) { return /\.(mp3|flac|wav|m4a|aac|ogg|opus|ac3|dts)$/i.test(p || ''); }
 function isPlayable(p) { return isVideo(p) || isAudio(p); }
-function isSeries(name) { return /(s\d{1,2}e\d{1,2}|sezon|сезон|\d{1,2}\s*листа|\d+\.{1,2}05|\bx0|\bread|\bсерия)/i.test(name || ''); }
+// Сериал по названию раздачи. Трекеры пишут по-разному: [S02], S01E01-08,
+// [02x01-02 из 10], «1 сезон: 1-8 серии из 8», «Сезон 3». Прежняя проверка
+// ловила только S01E01 и «сезон» — раздачи вида [S02] шли как фильмы.
+const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,3}\s*(?:-\s*\d{1,3}\s*)?из\s*\d{1,3}/i;
+function isSeries(name) { return SERIES_RE.test(name || ''); }
+// seriesTag — короткая метка «Сериал · S02» / «Сериал · S02, 1–2 из 10».
+function seriesTag(name) {
+  const t = name || ''; if (!isSeries(t)) return '';
+  let season = (t.match(/\b[sс](\d{1,2})(?:\s*[eе]\d{1,3})?\b/i) || t.match(/\b(\d{1,2})x\d{1,3}\b/i) || t.match(/(\d{1,2})\s*сезон/i) || t.match(/сезон\s*(\d{1,2})/i) || [])[1];
+  const eps = t.match(/(\d{1,3})\s*(?:-\s*(\d{1,3})\s*)?из\s*(\d{1,3})/i);
+  const parts = [];
+  if (season) parts.push('S' + String(+season).padStart(2, '0'));
+  if (eps) parts.push((eps[2] ? (+eps[1]) + '–' + (+eps[2]) : +eps[1]) + ' из ' + (+eps[3]));
+  return 'Сериал' + (parts.length ? ' · ' + parts.join(', ') : '');
+}

@@ -450,26 +450,27 @@ func rutorBases() []string {
 // ответить живое зеркало. Если не ответил ни один — ошибка с причиной
 // последней попытки и числом проверенных адресов.
 func (c *Comp) fetchRutorFrom(path string, docParse func(doc string) []rutorItem) ([]rutorItem, error) {
-	var lastErr error
-	tried := 0
+	// Причины собираются по всем адресам: раньше показывалась только
+	// последняя («rutor.top: 403»), а отказ основного rutor.info терялся.
+	var reasons []string
 	for _, base := range rutorBases() {
-		tried++
+		host := strings.TrimPrefix(base, "https://")
 		doc, err := c.fetchHTML(base + path)
 		if err != nil {
-			lastErr = fmt.Errorf("%s: %v", base, err)
+			reasons = append(reasons, host+": "+kinozalReason(err.Error()))
 			continue
 		}
 		items := docParse(doc)
 		if len(items) == 0 {
-			lastErr = fmt.Errorf("%s: выдача не разобрана (капча или изменившаяся разметка)", base)
+			reasons = append(reasons, host+": пустая страница (капча, изменившаяся разметка или ничего не найдено)")
 			continue
 		}
 		return items, nil
 	}
-	if lastErr == nil {
-		lastErr = errors.New("список адресов пуст")
+	if len(reasons) == 0 {
+		return nil, errors.New("rutor: список адресов пуст")
 	}
-	return nil, fmt.Errorf("rutor: ни один адрес не отдал выдачу (проверено адресов: %d; последняя причина: %v)", tried, lastErr)
+	return nil, fmt.Errorf("rutor: ни один адрес не отдал выдачу — %s", strings.Join(reasons, "; "))
 }
 
 // fetchHTML забирает страницу, переводит её в UTF-8 и нормализует неразрывные
