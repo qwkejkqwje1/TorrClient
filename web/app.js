@@ -58,15 +58,71 @@ function toast(msg, isErr) {
   $('#toast').appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }
+// ── Этап 6: тема, горячие клавиши, скелетоны ──
+const THEMES = ['dark', 'light', 'system'];
+const THEME_NAMES = { dark: 'тёмная', light: 'светлая', system: 'как в системе' };
+function themeMode() { const t = localStorage.getItem('tc_theme'); return THEMES.includes(t) ? t : 'dark'; }
+function applyTheme() {
+  const m = themeMode();
+  const light = m === 'light' || (m === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  const b = document.getElementById('themeBtn');
+  if (b) b.title = 'Тема: ' + THEME_NAMES[m] + ' — нажмите, чтобы сменить (клавиша T)';
+}
+function cycleTheme() {
+  const next = THEMES[(THEMES.indexOf(themeMode()) + 1) % THEMES.length];
+  try { localStorage.setItem('tc_theme', next); } catch {}
+  applyTheme(); toast('Тема: ' + THEME_NAMES[next]);
+}
+applyTheme();
+if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
+
+// Скелетон вместо текста «Загрузка…»: видно форму будущей выдачи.
+function skeleton(label, n = 6, grid = false) {
+  const rows = '<div class="skel-row"></div>'.repeat(n);
+  return `<div class="skel-label">${label}</div><div class="skel${grid ? ' skel-grid' : ''}">${rows}</div>`;
+}
+
+const NAV_KEYS = ['library', 'search', 'favorites', 'bookmarks', 'players', 'series', 'subs', 'downloads', 'settings', 'server'];
+const NAV_LABELS = { library: 'Библиотека', search: 'Поиск', favorites: 'Избранное', bookmarks: 'Закладки', players: 'Плееры', series: 'Сериалы', subs: 'Подписки', downloads: 'Загрузки', settings: 'Настройки', server: 'Сервер' };
+function showKeys() {
+  const rows = [['/ или Ctrl+K', 'перейти к поиску'], ['T', 'сменить тему'], ['Alt+1 … Alt+0', 'разделы по порядку'], ['Esc', 'закрыть окно'], ['?', 'этот список']];
+  const nav = NAV_KEYS.map((k, i) => `Alt+${(i + 1) % 10} — ${NAV_LABELS[k]}`).join(' · ');
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  ov.innerHTML = `<div class="modal" style="max-width:520px"><h3>Горячие клавиши</h3><table class="keys-table">${rows.map(([k, d]) => `<tr><td><span class="kbd">${k}</span></td><td>${d}</td></tr>`).join('')}</table><p class="page-sub">${nav}</p><div class="row"><button class="primary" id="keysOk">Понятно</button></div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelector('#keysOk').addEventListener('click', close);
+}
+function focusSearch() {
+  if (state.view !== 'search') setView('search');
+  setTimeout(() => { const i = document.getElementById('searchInput'); if (i) { i.focus(); i.select(); } }, 30);
+}
+document.addEventListener('keydown', e => {
+  const t = e.target; const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); focusSearch(); return; }
+  if (e.altKey && !e.ctrlKey && /^[0-9]$/.test(e.key)) {
+    const k = NAV_KEYS[(+e.key + 9) % 10]; if (k) { e.preventDefault(); setView(k); } return;
+  }
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (document.querySelector('body > .overlay')) return;
+  if (e.key === '/') { e.preventDefault(); focusSearch(); }
+  else if (e.key === '?') { e.preventDefault(); showKeys(); }
+  else if (e.key === 't' || e.key === 'T' || e.key === 'е' || e.key === 'Е') cycleTheme();
+});
+
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.6.0', ['Светлая тема и «как в системе» (кнопка 🌓 или T)', 'Горячие клавиши: / — поиск, Alt+1…0 — разделы, ? — список', 'Скелетоны вместо «Загрузка…»', 'Автодополнение из истории поиска, удаление записей']],
   ['1.5.0', ['Сборка под Linux и macOS, режим без окна', 'Автозапуск при входе в систему', 'magnet: и .torrent на Linux', 'Поиск плееров без реестра']],
   ['1.4.0', ['Помощник Torznab: поиск Jackett и Prowlarr на компьютере и в сети']],
   ['1.3.0', ['Оценка качества раздачи 0–100 и сортировка «по качеству»', 'Вердикт ffprobe: сыграет ли в окне программы']],
   ['1.2.0', ['Топ за всё время по жанрам (TMDB)', 'Потоковый поиск Torznab, «Популярное», «Показать ещё»']],
 ];
 function paintVersion() {
+  const tb = document.getElementById('themeBtn'); if (tb && !tb.onclick) tb.onclick = cycleTheme;
   const el = document.getElementById('appVer'); if (!el || !state.hello) return;
   const v = state.hello.app_version || '';
   el.textContent = v ? 'v' + v : '';
@@ -1716,7 +1772,8 @@ async function renderSearch(root) {
   root.innerHTML = html`
     <div class="toolbar">
       <h1 class="page-title">Поиск</h1>
-      <input class="search-input" id="searchInput" placeholder="Название фильма или сериала..." value="${sd.q}">
+      <input class="search-input" id="searchInput" list="searchHistList" autocomplete="off" placeholder="Название фильма или сериала..." title="/ или Ctrl+K — сюда, ? — все клавиши" value="${sd.q}">
+      <datalist id="searchHistList">${raw(searchHistoryAll().map(h => html`<option value="${h}">`).join(''))}</datalist>
       <button id="searchBtn" class="primary">Найти</button>
       <select id="searchCat" title="Категория" style="width:auto">
         ${raw(CATS.map(c => html`<option value="${c.v}">${c.label}</option>`).join(''))}
@@ -1742,7 +1799,7 @@ async function renderSearch(root) {
       <span class="spacer"></span>
       <label style="margin:0;display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:12px"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
     </div>
-    ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<button data-hq="${h}">${h}</button>`).join(''))}</div>` : '')}
+    ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<span class="hq-chip"><button data-hq="${h}">${h}</button><button class="hq-x" data-hqx="${h}" title="Удалить из истории">×</button></span>`).join(''))}<button id="hqClear" class="hq-x" title="Очистить историю">очистить</button></div>` : '')}
     <div class="quick" id="discBar">
       <span class="qlabel">Топ за всё время:</span>
       <select id="dKind" style="width:auto"><option value="movie">Фильмы</option><option value="tv">Сериалы</option></select>
@@ -1777,6 +1834,8 @@ async function renderSearch(root) {
     doSearch();
   }));
   $$('[data-hq]').forEach(b => b.addEventListener('click', () => { $('#searchInput').value = b.dataset.hq; doSearch(); }));
+  $$('[data-hqx]').forEach(b => b.addEventListener('click', () => { dropSearchHistory(b.dataset.hqx); const c = b.closest('.hq-chip'); if (c) c.remove(); }));
+  { const c = $('#hqClear'); if (c) c.addEventListener('click', () => { saveSearchHistory([]); const q = c.closest('.quick'); if (q) q.remove(); }); }
   $('#top24Btn').addEventListener('click', onTopClick);
   $('#popBtn').addEventListener('click', () => fetchPopular());
   $('[data-open="add"]').addEventListener('click', openAddModal);
@@ -1927,22 +1986,26 @@ async function onTopClick() {
   return t.sec ? fetchTopCat(t.sec, t.label) : fetchTop24();
 }
 
-function searchHistory() {
-  try { const h = JSON.parse(localStorage.getItem('tc_sq') || '[]'); return Array.isArray(h) ? h.slice(0, 8) : []; } catch { return []; }
+// История поиска: хранится 30 запросов (для автодополнения), кнопками
+// показываются последние 8. Запись можно удалить крестиком.
+function searchHistoryAll() {
+  try { const h = JSON.parse(localStorage.getItem('tc_sq') || '[]'); return Array.isArray(h) ? h.filter(x => typeof x === 'string').slice(0, 30) : []; } catch { return []; }
 }
+function searchHistory() { return searchHistoryAll().slice(0, 8); }
+function saveSearchHistory(h) { try { localStorage.setItem('tc_sq', JSON.stringify(h.slice(0, 30))); } catch {} }
 function pushSearchHistory(q) {
   if (!q) return;
-  let h = searchHistory().filter(x => x.toLowerCase() !== q.toLowerCase());
-  h.unshift(q);
-  try { localStorage.setItem('tc_sq', JSON.stringify(h.slice(0, 8))); } catch {}
+  const h = searchHistoryAll().filter(x => x.toLowerCase() !== q.toLowerCase());
+  h.unshift(q); saveSearchHistory(h);
 }
+function dropSearchHistory(q) { saveSearchHistory(searchHistoryAll().filter(x => x !== q)); }
 
 async function fetchTop24() {
   const button = $('#top24Btn');
   const el = $('#searchResults');
   if (!button) return;
   button.disabled = true; button.textContent = 'Загрузка...';
-  el.innerHTML = '<div class="empty">Сбор ТОП-24 за последние 24 часа...</div>';
+  el.innerHTML = skeleton('Сбор ТОП-24 за последние 24 часа…');
   let resp = null;
   try {
     const rr = await fetch('/api/top24');
@@ -2073,7 +2136,7 @@ async function doSearch() {
   if (prov === 'kinozal' || prov === 'both') moreSources.kinozal = { query: q, page: 0, count: 0, cat: 0 };
   paintResults($('#searchResults'));
   const el = $('#searchResults');
-  el.innerHTML = '<div class="empty">Поиск...</div>';
+  el.innerHTML = skeleton('Поиск…');
   state.searchState.tznabOff = null;
   const jobs = [];
   const errs = [];
@@ -2268,7 +2331,7 @@ async function fetchDiscover(reset) {
   if (reset) {
     discState.params = { kind: $('#dKind').value, origin: $('#dOrigin').value, genre: $('#dGenre').value };
     discState.items = []; discState.page = 0; discState.hasMore = false;
-    el.innerHTML = '<div class="empty">Собираю подборку...</div>';
+    el.innerHTML = skeleton('Собираю подборку…', 12, true);
   }
   const p = discState.params;
   if (!p) return;
@@ -2322,7 +2385,7 @@ async function fetchPopular() {
   if (!el) return;
   const cat = rutorCat();
   if (btn) btn.disabled = true;
-  el.innerHTML = '<div class="empty">Собираю популярное за всё время...</div>';
+  el.innerHTML = skeleton('Собираю популярное за всё время…');
   try {
     const resp = await apiGetJSON('/api/popular?page=0&cat=' + (cat | 0));
     if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
