@@ -36,6 +36,9 @@ label{display:block; margin:10px 0 4px; font-size:12px; color:var(--mut)}
   padding:10px 16px; background:rgba(20,28,40,.86); backdrop-filter:blur(8px); border-bottom:1px solid var(--line)}
 .brand{font-weight:700; font-size:16px; letter-spacing:.5px; user-select:none}
 .brand b{color:var(--acc2)}
+.ver-badge{font-size:11px; font-weight:600; letter-spacing:0; padding:1px 6px; margin-left:6px; border-radius:8px; background:var(--acc2); color:#fff; cursor:pointer; vertical-align:middle}
+.ver-badge:empty{display:none}
+.whatsnew li{margin:2px 0}
 .spacer{flex:1}
 .tb-status{display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:#aebdd2; cursor:default}
 /* Предупреждение в верхней строке: причина, по которой не приходят постеры и

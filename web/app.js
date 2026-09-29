@@ -58,6 +58,29 @@ function toast(msg, isErr) {
   $('#toast').appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }
+// Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
+// (ответ /api/hello → app_version); при каждом этапе он повышается.
+const WHATSNEW = [
+  ['1.5.0', ['Сборка под Linux и macOS, режим без окна', 'Автозапуск при входе в систему', 'magnet: и .torrent на Linux', 'Поиск плееров без реестра']],
+  ['1.4.0', ['Помощник Torznab: поиск Jackett и Prowlarr на компьютере и в сети']],
+  ['1.3.0', ['Оценка качества раздачи 0–100 и сортировка «по качеству»', 'Вердикт ffprobe: сыграет ли в окне программы']],
+  ['1.2.0', ['Топ за всё время по жанрам (TMDB)', 'Потоковый поиск Torznab, «Популярное», «Показать ещё»']],
+];
+function paintVersion() {
+  const el = document.getElementById('appVer'); if (!el || !state.hello) return;
+  const v = state.hello.app_version || '';
+  el.textContent = v ? 'v' + v : '';
+  el.title = (state.hello.version || '') + ' — нажмите, чтобы увидеть, что нового';
+  el.onclick = () => {
+    const seen = WHATSNEW.map(([ver, items]) => ver + (ver === v ? ' (установлена)' : '') + '\n' + items.map(i => '  • ' + i).join('\n')).join('\n\n');
+    alert('Что нового\n\n' + seen);
+  };
+  if (v && localStorage.getItem('tc_seen_ver') !== v) {
+    localStorage.setItem('tc_seen_ver', v);
+    if (typeof toast === 'function') toast('Обновлено до версии ' + v);
+  }
+}
+
 async function api(path, opts) {
   const r = await fetch(path, opts);
   if (!r.ok) { try { const j = await r.json(); throw new Error(j.error || j.message || r.status); } catch (e) { if (e.message) throw e; throw new Error('HTTP ' + r.status); } }
@@ -76,6 +99,7 @@ function streamBase(fname) { return fname ? `/stream/${encodeURIComponent(fname)
   catch (e) { toast('Не удалось подключиться к демону: ' + e.message, true); return; }
   await loadUserData();
   state.profiles = state.hello.profiles || [];
+  paintVersion();
   state.players = state.hello.players || [];
   state.active = state.hello.active_profile_id;
   // Состояние папок нужно до первой отрисовки: иначе предупреждение о
@@ -4391,10 +4415,11 @@ function renderSettings(root) {
     </div>
     <div class="card"><h3>О программе</h3>
       <div class="stat-line">
-        <div><b>TorrClient</b> ${state.hello.version || 'версия неизвестна'}</div>
+        <div><b>Версия:</b> ${state.hello.app_version || '?'} <span class="mono">${(state.hello.version || '').replace(/^TorrClient\s*/, '')}</span></div>
         <div><b>Система:</b> ${state.hello.os || ''}</div>
         <div><b>Папка программы:</b> <span class="mono">${state.hello.exe || '—'}</span></div>
       </div>
+      <ul class="whatsnew">${WHATSNEW.map(([v, items]) => `<li><b>${v}</b>: ${items.join('; ')}</li>`).join('')}</ul>
       <p class="page-sub">Версия подставляется при сборке. По ней видно, какая копия запущена, когда на диске лежит несколько сборок.</p>
       <div class="row wrap">
         <button id="diagBtn" class="primary">Собрать отчёт о состоянии</button>
@@ -4669,6 +4694,7 @@ async function restoreBackup(file) {
     toast('Состояние восстановлено: ' + (j.files || []).join(', '));
     state.hello = await api('/api/hello');
     state.profiles = state.hello.profiles || [];
+  paintVersion();
     state.players = state.hello.players || [];
     state.active = state.hello.active_profile_id;
     await loadUserData();

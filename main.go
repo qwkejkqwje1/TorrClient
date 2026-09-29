@@ -20,9 +20,23 @@ import (
 //go:embed web
 var webFS embed.FS
 
+// appVersion — номер версии из файла VERSION (одно место правды: его же
+// читают build_daemon.bat и tools/make-release.py).
+//
+//go:embed VERSION
+var appVersionRaw string
+
+func appVersion() string { return strings.TrimSpace(appVersionRaw) }
+
 // version подставляется при сборке: build_daemon.bat передаёт
-// -ldflags "-X main.version=...". Значение ниже — для сборки без флагов.
-var version = "TorrClient 1.1-dev (MatriX/1.1.x)"
+// -ldflags "-X main.version=...". Без флагов — номер из VERSION с пометкой dev.
+var version string
+
+func init() {
+	if version == "" {
+		version = "TorrClient " + appVersion() + "-dev"
+	}
+}
 
 var (
 	flagPort    = flag.Int("port", 8099, "daemon http port")

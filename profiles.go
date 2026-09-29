@@ -24,6 +24,7 @@ func (c *Comp) apiHello(w http.ResponseWriter, r *http.Request) {
 	}
 	jj(w, map[string]any{
 		"version":           version,
+		"app_version":       appVersion(),
 		"active_profile_id": cfg.ActiveProfileID,
 		"profiles":          cfg.Profiles,
 		"players":           players,

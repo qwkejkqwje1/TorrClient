@@ -37,7 +37,9 @@ if errorlevel 1 goto :fail
 rem --- версия: хэш коммита, если каталог под git; иначе local ---
 set "GITREV=local"
 for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set "GITREV=%%i"
-set "VER=TorrClient 1.1 (%GITREV% %DATE%)"
+set "APPVER=dev"
+if exist VERSION set /p APPVER=<VERSION
+set "VER=TorrClient %APPVER% (%GITREV% %DATE%)"
 
 echo [3/4] go build - version: %VER%
 rem Значение версии содержит пробелы: внутри -ldflags его надо взять в
