@@ -824,7 +824,6 @@ function tile(t) {
 function fmtSpeed(s) { return s >= 1 << 20 ? (s / (1 << 20)).toFixed(1) + ' МБ/с' : (s / 1024).toFixed(0) + ' КБ/с'; }
 function isVideo(p) { return /\.(mp4|mkv|avi|mov|webm|m4v|ts|wmv|flv|mpg|mpeg|m2ts|3gp)$/i.test(p || ''); }
 function isAudio(p) { return /\.(mp3|flac|wav|m4a|aac|ogg|opus|ac3|dts)$/i.test(p || ''); }
-function isSub(p) { return /\.(srt|ass|ssa|sub|vtt|idx)$/i.test(p || ''); }
 function isPlayable(p) { return isVideo(p) || isAudio(p); }
 function isSeries(name) { return /(s\d{1,2}e\d{1,2}|sezon|сезон|\d{1,2}\s*листа|\d+\.{1,2}05|\bx0|\bread|\bсерия)/i.test(name || ''); }
 function qTag(name) {
@@ -2656,11 +2655,6 @@ function forgetPoster(c) {
   if (!posterStore.delete(k)) return false;
   savePosterStoreSoon();
   return true;
-}
-function forgetPosters() {
-  posterStore.clear();
-  posterStoreLoaded = true;
-  savePosterStoreSoon();
 }
 function ratingFor(t) {
   return ratingStore.get(posterKey(cleanSearchTitle(t.title || t.name || ''))) || null;
