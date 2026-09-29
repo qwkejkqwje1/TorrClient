@@ -186,6 +186,9 @@ func main() {
 	mux.HandleFunc("/api/diagnostics", c.apiDiagnostics)
 	// Доступ с телефона по QR и PIN: ручка настройки и второй слушатель.
 	mux.HandleFunc("/api/remote", c.apiRemote)
+	// Проверка и установка обновлений из GitHub Releases.
+	mux.HandleFunc("/api/update", c.apiUpdate)
+	cleanupOld(exeDir())
 	mux.HandleFunc("/remote-login", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/", http.StatusSeeOther) })
 	remote.handler = mux
 	remote.apply()
@@ -199,6 +202,11 @@ func main() {
 	}
 
 	listener, err := net.Listen("tcp", c.httpSrv.Addr)
+	// После обновления новая копия стартует, пока старая ещё отпускает порт.
+	for i := 0; err != nil && i < 20 && os.Getenv("TC_UPDATE_RESTART") == "1"; i++ {
+		time.Sleep(250 * time.Millisecond)
+		listener, err = net.Listen("tcp", c.httpSrv.Addr)
+	}
 	if err != nil {
 		logAlways("Ошибка запуска: %v", err)
 		os.Exit(1)

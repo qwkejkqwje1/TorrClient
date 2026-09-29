@@ -581,6 +581,9 @@ func (a *App) startDaemon() (restartOutcome, string) {
 	}
 	cmd := exec.Command(path, "--port", "8099", "--host", "127.0.0.1", "--open=false", "--quiet")
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	// Демон под присмотром окна: после автообновления ему достаточно выйти —
+	// сторож поднимет его заново уже из нового файла.
+	cmd.Env = append(os.Environ(), "TC_SUPERVISED=1")
 	if err := cmd.Start(); err != nil {
 		return restartFailed, "запуск: " + err.Error()
 	}

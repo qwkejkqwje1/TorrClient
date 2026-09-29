@@ -71,7 +71,7 @@ func remoteBlocked(r *http.Request) bool {
 	switch p {
 	case "/api/remote", "/api/backup", "/api/restore", "/api/reg", "/api/autostart":
 		return true
-	case "/api/torznab/apps":
+	case "/api/torznab/apps", "/api/update":
 		return r.Method != http.MethodGet
 	}
 	return false

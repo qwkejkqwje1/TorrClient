@@ -169,6 +169,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.11.0', ['Автообновление: кнопка ⬆ рядом с версией, установка в один клик (архив сверяется с SHA256)', 'В релизе есть окно программы TorrClient.exe (Wails)', 'Настройки → О программе: «Проверить обновления» и автопроверка']],
   ['1.10.0', ['Доступ с телефона: QR-код и PIN в Настройках', '★ Лучшая раздача: rutor, Кинозал и Torznab разом, одна кнопка «Смотреть» (и по клику на постер)', 'Автонастройка буфера по скорости канала (Сервер → Настройки)', 'Установка и запуск Jackett/Prowlarr из Настроек (Windows, winget)', 'Метка «Сериал» с сезоном и числом серий', 'Исправлено «Популярное» (rutor отдавал пустую страницу)', 'Исправлено: индексаторы Torznab и зеркала Кинозала пропадали после перезапуска', 'MPC-HC тоже продолжает с места остановки']],
   ['1.9.0', ['Интерфейс разбит на части (web/src), app.js собирается из них', 'Проверено: сортировка rutor по сидам (код 2) и формат Prowlarr — по его исходникам', 'Тесты реестра Windows (своя ветка, ассоциации не трогаются); ошибки регистрации magnet больше не теряются', 'Окно «Что нового» один раз после обновления', 'Поиск по настройкам']],
   ['1.8.0', ['Кинозал: сначала официальные зеркала (kinozal.tv, .me, .guru), поддельные убраны', 'Кинозал: следующий поиск начинается с зеркала, ответившего последним', 'Настройки → Кинозал: свои зеркала, «только официальные», проверка всех зеркал', 'Автопроверка сборки и тестов на GitHub, готовый архив для Windows в релизах']],
@@ -192,6 +193,8 @@ function paintVersion() {
     // Первый запуск — без окна: «что нового» относительно ничего не нужно.
     if (seen) showWhatsNew(v, seen);
   }
+  if (typeof autoCheckUpdate === 'function') autoCheckUpdate();
+  if (typeof paintUpdateBadge === 'function') paintUpdateBadge();
 }
 
 // cmpVer сравнивает номера вида 1.2.3.
@@ -4696,6 +4699,10 @@ function renderSettings(root) {
       </div>
       <ul class="whatsnew">${raw(WHATSNEW.map(([v, items]) => html`<li><b>${v}</b>: ${items.join('; ')}</li>`).join(''))}</ul>
       <p class="page-sub">Версия подставляется при сборке. По ней видно, какая копия запущена, когда на диске лежит несколько сборок.</p>
+      <div class="row wrap" style="margin-bottom:8px">
+        <button id="updCheck">Проверить обновления</button>
+        <label style="margin:0"><input type="checkbox" id="updAuto" ${localStorage.getItem('tc_autoupd') !== '0' ? 'checked' : ''}> Проверять автоматически</label>
+      </div>
       <div class="row wrap">
         <button id="diagBtn" class="primary">Собрать отчёт о состоянии</button>
         <span class="page-sub" style="margin:0">Версии, папки, серверы и файлы данных разом. Ключ TMDB и пароли в отчёт не попадают.</span>
@@ -4840,6 +4847,13 @@ function renderSettings(root) {
   });
   initTorznabApps();
   initRemote();
+  $('#updCheck').addEventListener('click', async e => {
+    e.target.disabled = true;
+    const u = await checkUpdate(true);
+    e.target.disabled = false;
+    if (u && u.error) toast(u.error, true); else if (u) showUpdate();
+  });
+  $('#updAuto').addEventListener('change', e => { localStorage.setItem('tc_autoupd', e.target.checked ? '1' : '0'); });
   $('#tzFind').addEventListener('click', async () => {
     const btn = $('#tzFind'), note = $('#tzFindNote'), box = $('#tzFound');
     btn.disabled = true; btn.textContent = 'Ищу...'; note.textContent = ''; box.innerHTML = '';
@@ -5074,6 +5088,81 @@ function initTorznabApps() {
   });
   $('#tzHelp').addEventListener('toggle', () => { if ($('#tzHelp').open) load(); });
   load();
+}
+// ── Автообновление ──
+// Демон спрашивает GitHub Releases; интерфейс показывает кнопку «⬆ версия»
+// рядом со значком версии и окно с установкой в один клик.
+
+let updInfo = null;
+
+async function checkUpdate(force) {
+  try { updInfo = await api('/api/update' + (force ? '?force=1' : '')); }
+  catch (e) { if (force) toast(e.message, true); return null; }
+  paintUpdateBadge();
+  return updInfo;
+}
+
+function paintUpdateBadge() {
+  const ver = document.getElementById('appVer'); if (!ver) return;
+  let b = document.getElementById('updBtn');
+  if (!updInfo || !updInfo.newer) { if (b) b.remove(); return; }
+  if (!b) {
+    b = document.createElement('button'); b.id = 'updBtn'; b.className = 'upd-btn';
+    b.addEventListener('click', showUpdate);
+    ver.after(b);
+  }
+  b.textContent = '⬆ ' + updInfo.latest;
+  b.title = 'Доступна версия ' + updInfo.latest + ' — нажмите, чтобы обновить';
+}
+
+function showUpdate() {
+  if (!updInfo) return;
+  $$('body > .overlay.upd-ov').forEach(o => o.remove());
+  const ov = document.createElement('div'); ov.className = 'overlay upd-ov';
+  const notes = String(updInfo.notes || '').replace(/^#+\s*/gm, '').replace(/\*\*|`/g, '').trim();
+  ov.innerHTML = html`<div class="modal" style="max-width:560px">
+    <h3>${updInfo.newer ? 'Доступна версия ' + updInfo.latest : 'Установлена последняя версия'}</h3>
+    <div class="page-sub">Сейчас: ${updInfo.current}${updInfo.latest ? ' · последняя: ' + updInfo.latest : ''}</div>
+    ${raw(notes ? html`<div class="upd-notes">${notes}</div>` : '')}
+    <div id="updState" class="page-sub"></div>
+    <div class="row wrap">
+      ${raw(updInfo.newer && updInfo.installable ? '<button class="primary" id="updGo">Обновить сейчас</button>' : '')}
+      ${raw(updInfo.page ? '<button id="updPage">Страница релиза</button>' : '')}
+      <button id="updClose">${updInfo.newer ? 'Не сейчас' : 'Закрыть'}</button>
+    </div>
+    <p class="page-sub" style="margin:8px 0 0">Архив скачивается с GitHub и сверяется с контрольной суммой. Настройки, избранное и отметки просмотра не затрагиваются. Окно программы обновится при следующем запуске.</p></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelector('#updClose').addEventListener('click', close);
+  const pg = ov.querySelector('#updPage'); if (pg) pg.addEventListener('click', () => openExternal(updInfo.page));
+  const go = ov.querySelector('#updGo');
+  if (go) go.addEventListener('click', async () => {
+    go.disabled = true; go.textContent = 'Обновляю…';
+    const st = ov.querySelector('#updState');
+    try { await api('/api/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'install' }) }); }
+    catch (e) { st.textContent = e.message; go.disabled = false; go.textContent = 'Повторить'; return; }
+    const target = updInfo.latest;
+    const poll = async () => {
+      let s = null;
+      try { s = await api('/api/update'); } catch {}
+      if (s && s.state === 'failed') { st.textContent = 'Не удалось: ' + s.note; go.disabled = false; go.textContent = 'Повторить'; return; }
+      if (s && s.state === 'installing') { st.textContent = s.note || 'Скачиваю…'; setTimeout(poll, 1500); return; }
+      // Установлено или демон уже перезапускается: ждём ответа новой версии.
+      st.textContent = 'Установлено, перезапуск…';
+      try { const h = await api('/api/hello'); if (h.app_version === target) { location.reload(); return; } } catch {}
+      setTimeout(poll, 1500);
+    };
+    setTimeout(poll, 800);
+  });
+}
+
+// Автопроверка — один раз за сеанс интерфейса (демон и сам не спрашивает
+// GitHub чаще раза в 6 часов). Отключается в Настройках → «О программе».
+function autoCheckUpdate() {
+  if (localStorage.getItem('tc_autoupd') === '0' || autoCheckUpdate.done) return;
+  autoCheckUpdate.done = true;
+  setTimeout(() => checkUpdate(false), 3000);
 }
 /* ================= SERVER ================= */
 function renderServer(root) {

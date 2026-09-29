@@ -118,6 +118,10 @@ function renderSettings(root) {
       </div>
       <ul class="whatsnew">${raw(WHATSNEW.map(([v, items]) => html`<li><b>${v}</b>: ${items.join('; ')}</li>`).join(''))}</ul>
       <p class="page-sub">Версия подставляется при сборке. По ней видно, какая копия запущена, когда на диске лежит несколько сборок.</p>
+      <div class="row wrap" style="margin-bottom:8px">
+        <button id="updCheck">Проверить обновления</button>
+        <label style="margin:0"><input type="checkbox" id="updAuto" ${localStorage.getItem('tc_autoupd') !== '0' ? 'checked' : ''}> Проверять автоматически</label>
+      </div>
       <div class="row wrap">
         <button id="diagBtn" class="primary">Собрать отчёт о состоянии</button>
         <span class="page-sub" style="margin:0">Версии, папки, серверы и файлы данных разом. Ключ TMDB и пароли в отчёт не попадают.</span>
@@ -262,6 +266,13 @@ function renderSettings(root) {
   });
   initTorznabApps();
   initRemote();
+  $('#updCheck').addEventListener('click', async e => {
+    e.target.disabled = true;
+    const u = await checkUpdate(true);
+    e.target.disabled = false;
+    if (u && u.error) toast(u.error, true); else if (u) showUpdate();
+  });
+  $('#updAuto').addEventListener('change', e => { localStorage.setItem('tc_autoupd', e.target.checked ? '1' : '0'); });
   $('#tzFind').addEventListener('click', async () => {
     const btn = $('#tzFind'), note = $('#tzFindNote'), box = $('#tzFound');
     btn.disabled = true; btn.textContent = 'Ищу...'; note.textContent = ''; box.innerHTML = '';
