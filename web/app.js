@@ -826,6 +826,108 @@ function isVideo(p) { return /\.(mp4|mkv|avi|mov|webm|m4v|ts|wmv|flv|mpg|mpeg|m2
 function isAudio(p) { return /\.(mp3|flac|wav|m4a|aac|ogg|opus|ac3|dts)$/i.test(p || ''); }
 function isPlayable(p) { return isVideo(p) || isAudio(p); }
 function isSeries(name) { return /(s\d{1,2}e\d{1,2}|sezon|сезон|\d{1,2}\s*листа|\d+\.{1,2}05|\bx0|\bread|\bсерия)/i.test(name || ''); }
+/* QUALITY-BEGIN */
+// rateRelease оценивает раздачу по названию, размеру и сидам: разрешение,
+// источник, кодек, HDR, русская дорожка. Возвращает оценку 0–100 и подписи для
+// подсказки. Оценка эвристическая: по названию нельзя узнать всё, поэтому
+// честно говорит «по названию» и не заменяет ffprobe в карточке раздачи.
+function rateRelease(r) {
+  const t = String((r && (r.title || r.name)) || '');
+  const seeds = Math.max(0, Number(r && r.seed) || 0);
+  const bytes = Number(r && r.size_bytes) || 0;
+  const has = re => re.test(t);
+  const out = { score: 0, res: '', source: '', codec: '', hdr: '', audio: '', ru: false, bad: false, notes: [] };
+
+  // Разрешение
+  let resPts = 0;
+  if (has(/\b(2160p?|4k|uhd)\b/i)) { out.res = '4K'; resPts = 40; }
+  else if (has(/\b1080[pi]?\b|\bfull\s?hd\b|\bfhd\b/i)) { out.res = '1080p'; resPts = 32; }
+  else if (has(/\b720p?\b|\bhd\b(?!tv|rip)/i)) { out.res = '720p'; resPts = 20; }
+  else if (has(/\b(480p?|576p?|dvd-?rip|dvd-?9|dvd5|sdtv|sd)\b/i)) { out.res = 'SD'; resPts = 8; }
+
+  // Источник
+  let srcPts = 10;
+  if (has(/\b(cam-?rip|camrip|hdcam|cam|telesync|ts|hdts|tc|telecine|scr|screener)\b/i) && !has(/\b(web|bd|blu)/i)) { out.source = 'Экранка'; out.bad = true; srcPts = 0; }
+  else if (has(/\bremux\b|bd-?remux/i)) { out.source = 'Remux'; srcPts = 20; }
+  else if (has(/\bblu-?ray\b|\bbdrip\b|\bbrrip\b|\bbd-?rip\b|\bbd(?:25|50|66|100)\b/i)) { out.source = 'BluRay'; srcPts = 18; }
+  else if (has(/\bweb-?dl\b/i)) { out.source = 'WEB-DL'; srcPts = 17; }
+  else if (has(/\bweb-?rip\b|\bwebdlrip\b/i)) { out.source = 'WEBRip'; srcPts = 13; }
+  else if (has(/\bhdtv|\bhdtvrip\b|\bsat-?rip\b|\btv-?rip\b/i)) { out.source = 'HDTV'; srcPts = 9; }
+  else if (has(/\bdvd-?rip\b|\bdvd\b/i)) { out.source = 'DVD'; srcPts = 8; }
+
+  // Кодек и HDR
+  let extra = 0;
+  if (has(/\bav1\b/i)) { out.codec = 'AV1'; extra += 3; }
+  else if (has(/\b(hevc|x265|h\.?265)\b/i)) { out.codec = 'HEVC'; extra += 3; }
+  else if (has(/\b(avc|x264|h\.?264)\b/i)) { out.codec = 'AVC'; extra += 2; }
+  if (has(/dolby.?vision|\bdv\b/i)) { out.hdr = 'Dolby Vision'; extra += 2; }
+  else if (has(/\bhdr10\+?\b|\bhdr\b/i)) { out.hdr = 'HDR'; extra += 2; }
+
+  // Русская дорожка: лицензия и дубляж лучше многоголоски, та лучше одноголоски
+  let ruPts = 0;
+  if (has(/дубл|\bdub\b|лицензи|\bлицуха\b|\bdubbed\b/i)) { out.audio = 'Дубляж'; out.ru = true; ruPts = 15; }
+  else if (has(/\bmvo\b|многоголос|\bпм\b/i)) { out.audio = 'Многоголосый'; out.ru = true; ruPts = 12; }
+  else if (has(/\bdvo\b|двухголос|\bдм\b/i)) { out.audio = 'Двухголосый'; out.ru = true; ruPts = 9; }
+  else if (has(/\bavo\b|\bvo\b|одноголос|\bлм\b|\bлюбительск/i)) { out.audio = 'Одноголосый'; out.ru = true; ruPts = 6; }
+  else if (has(/озвучк|\brus\b|русск|\bru\b|\brusdub\b/i)) { out.audio = 'Русская'; out.ru = true; ruPts = 8; }
+  if (has(/\b(atmos|truehd|dts-?hd|dts-?x)\b/i)) extra += 1;
+  if (has(/\bsub\b|субтитр|\bsubs?\b/i) && !out.ru) { out.notes.push('только субтитры'); ruPts = 2; }
+
+  // Сиды: логарифм, чтобы 1000 сидов не давили всё остальное
+  const seedPts = Math.min(15, Math.round(5 * Math.log10(seeds + 1)));
+  if (!seeds) out.notes.push('нет сидов');
+
+  // Размер: у «1080p» на полтора гигабайта или 720p на пять терабайт что-то не так
+  let sizePts = 3;
+  if (bytes) {
+    const gb = bytes / 1e9;
+    const lo = { '4K': 8, '1080p': 1.2, '720p': 0.5, 'SD': 0.3 }[out.res];
+    const hi = { '4K': 120, '1080p': 80, '720p': 25, 'SD': 12 }[out.res];
+    if (lo && gb < lo) { sizePts = 0; out.notes.push('размер мал для ' + out.res); }
+    else if (hi && gb > hi) { sizePts = 1; out.notes.push('очень большой'); }
+    else sizePts = 5;
+  }
+
+  let score = resPts + srcPts + seedPts + ruPts + extra + sizePts;
+  if (out.bad) score = Math.min(score, 15);
+  if (!seeds) score = Math.min(score, 30);
+  out.score = Math.max(0, Math.min(100, Math.round(score)));
+  out.tier = out.score >= 75 ? 'good' : out.score >= 50 ? 'ok' : 'low';
+  return out;
+}
+function rateTip(q) {
+  const parts = [];
+  if (q.res) parts.push(q.res);
+  if (q.source) parts.push(q.source);
+  if (q.codec) parts.push(q.codec);
+  if (q.hdr) parts.push(q.hdr);
+  parts.push(q.audio ? 'звук: ' + q.audio : 'русская дорожка не указана');
+  return 'Оценка по названию: ' + q.score + '/100 · ' + parts.join(' · ') + (q.notes.length ? ' · ' + q.notes.join(', ') : '');
+}
+// playVerdict по потокам ffprobe говорит, сыграет ли файл в окне программы, а
+// если нет — почему и что делать. Честнее, чем ждать ошибку <video>.
+function playVerdict(j) {
+  const streams = (j && j.streams) || [];
+  const v = streams.find(s => s.codec_type === 'video');
+  const audio = streams.filter(s => s.codec_type === 'audio');
+  const langs = audio.map(a => ((a.tags && (a.tags.language || a.tags.LANGUAGE)) || '').toLowerCase());
+  const hasRu = langs.some(l => l === 'rus' || l === 'ru');
+  const vOk = !v || /^(h264|vp8|vp9|av1)$/i.test(v.codec_name || '');
+  const aOk = audio.length === 0 || audio.some(a => /^(aac|mp3|opus|vorbis|flac)$/i.test(a.codec_name || ''));
+  const problems = [];
+  if (!vOk) problems.push('видео ' + String(v.codec_name).toUpperCase() + ' не поддерживается браузером');
+  if (!aOk) problems.push('звук ' + audio.map(a => String(a.codec_name).toUpperCase()).join('/') + ' не поддерживается браузером');
+  return {
+    ok: problems.length === 0,
+    ru: hasRu,
+    problems,
+    text: problems.length
+      ? 'В окне программы может не играть: ' + problems.join('; ') + '. Откройте во внешнем плеере.'
+      : 'Кодеки подходят для воспроизведения в окне программы.',
+  };
+}
+/* QUALITY-END */
+
 function qTag(name) {
   if (/(2160|4k|uhd)/i.test(name)) return 'q2160';
   if (/(1080|fullhd|fhd|blu-ray|bdrip|web-dl.*1080|hd)\b/i.test(name)) return 'q1080';
@@ -1161,6 +1263,7 @@ async function paintMedia(ov, t) {
       const kind = s.codec_type === 'video' ? 'Видео' : s.codec_type === 'audio' ? 'Звук' : s.codec_type === 'subtitle' ? 'Субтитры' : s.codec_type;
       return html`<div><b>${kind}:</b> ${s.codec_name || ''} ${raw(s.width ? html`${s.width}×${s.height}` : '')} ${s.bit_rate ? fmtSize(parseInt(s.bit_rate)) + '/с' : ''} ${s.duration ? fmtDur(parseFloat(s.duration)) : ''}</div>`;
     }).join('');
+    const pv = playVerdict(j);
     const fileDura = t.file_stats_rev ? (t.file_stats_rev[vf.id] && t.file_stats_rev[vf.id].length) : '';
     el.innerHTML = html`<div class="stat-line">
       <div><b>Контейнер:</b> ${fmt.format_name || ''} · ${fmt.format_long_name || ''}</div>
@@ -1168,6 +1271,8 @@ async function paintMedia(ov, t) {
       <div><b>Размер:</b> ${fmt.size ? fmtSize(parseInt(fmt.size)) : ''}</div>
       ${raw(t.bit_rate ? html`<div><b>Битрейт:</b> ${t.bit_rate}</div>` : '')}
       <div class="divider"></div>${raw(streams || '—')}
+      <div class="divider"></div>
+      <div class="${pv.ok ? '' : 'hint'}"><b>${pv.ok ? '✔' : '⚠'}</b> ${pv.text}${pv.ru ? ' Русская дорожка есть.' : ''}</div>
     </div>`;
   } catch (e) { el.innerHTML = html`<div class="empty">Не удалось проанализировать (возможно, ffmpeg недоступен на сервере): ${e.message}</div>`; }
 }
@@ -2299,12 +2404,13 @@ function paintResults(el) {
     if (sort === 'size') return (b.size_bytes || b.size || 0) - (a.size_bytes || a.size || 0);
     if (sort === 'name') return (a.title || a.name || '').localeCompare(b.title || b.name || '', 'ru');
     if (sort === 'peer') return (b.peer || 0) - (a.peer || 0);
+    if (sort === 'quality') return rateRelease(b).score - rateRelease(a).score || (b.seed || 0) - (a.seed || 0);
     return (b.seed || 0) - (a.seed || 0);
   });
   const isTop = rows2.length && rows2.every(r => r.provider === 'top24' || r.provider === 'topcat');
   const fhdNote = qualFilter ? ' · ' + qual.label : '';
   const topLabel = state.searchState.topLabel || '';
-  const sortLabel = sort === 'peer' ? 'по личам' : 'по сидам';
+  const sortLabel = sort === 'peer' ? 'по личам' : sort === 'quality' ? 'по качеству' : 'по сидам';
   // В заголовке видно, сколько раздач в блоке суток: иначе «ТОП-24» читается
   // как «двадцать четыре строки», и обрыв выдачи выглядит нормой. Число пришло
   // одно, а показано другое — пишем оба, иначе отсев остаётся невидимым.
@@ -2318,6 +2424,7 @@ function paintResults(el) {
   rows.forEach((r, i) => { if (!rowIx.has(r)) rowIx.set(r, i); });
   needProvider.innerHTML = html`<h2 class="section">${head}
     <select id="resSort" style="width:auto" title="Сортировка">
+      <option value="quality" ${sort === 'quality' ? 'selected' : ''}>по качеству</option>
       <option value="seed" ${sort === 'seed' ? 'selected' : ''}>по сидам</option>
       <option value="peer" ${sort === 'peer' ? 'selected' : ''}>по личам</option>
       <option value="size" ${sort === 'size' ? 'selected' : ''}>по размеру</option>
@@ -2353,6 +2460,7 @@ function resultRow(r, ix) {
   if (sz) mb.push(sz);
   if (r.seed != null) mb.push('⬆ ' + r.seed);
   if (r.peer != null) mb.push('👥 ' + r.peer);
+  const rq = rateRelease(r);
   return html`
   <div class="tile result" data-ix="${ix}">
     <div class="result-poster">
@@ -2363,6 +2471,7 @@ function resultRow(r, ix) {
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
         ${raw(isSer ? '<span class="chip series">Сериал</span>' : '')}
+        <span class="chip rq rq-${rq.tier}" title="${rateTip(rq)}">${rq.score}${rq.ru ? ' · RU' : ''}</span>
         <span class="chip grey">${r._p || ''}</span>
       </div>
       <div class="rate-stack">
