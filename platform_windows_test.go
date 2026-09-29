@@ -3,9 +3,21 @@
 package main
 
 import (
+	"os/exec"
 	"strings"
 	"testing"
 )
+
+// regRaw — сырой вывод reg query: parseRegQuery снимает внешние кавычки
+// (он для путей плееров), а здесь проверяется команда целиком, с кавычками.
+func regRaw(t *testing.T, key string, args ...string) string {
+	t.Helper()
+	out, err := exec.Command(regExe(), append([]string{"query", key}, args...)...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("reg query %s: %v\n%s", key, err, out)
+	}
+	return string(out)
+}
 
 // Настоящий реестр, но своя ветка: ассоциации magnet/.torrent и автозапуск
 // пользователя, запустившего go test, не трогаются.
@@ -29,7 +41,7 @@ func TestWindowsHandlersInstallAndUninstall(t *testing.T) {
 	if m, tr := platformHandlersStatus(); !m || !tr {
 		t.Fatalf("после регистрации magnet=%v torrent=%v", m, tr)
 	}
-	cmd := regQueryString(regClasses+`\magnet\shell\open\command`, "")
+	cmd := regRaw(t, regClasses+`\magnet\shell\open\command`, "/ve")
 	if !strings.Contains(cmd, `"`+exe+`" --magnet "%1"`) {
 		t.Fatalf("команда magnet: %q", cmd)
 	}
@@ -50,7 +62,7 @@ func TestWindowsAutostartOnOff(t *testing.T) {
 	if on, ok := platformAutostartState(); !on || !ok {
 		t.Fatalf("автозапуск не включился: on=%v supported=%v", on, ok)
 	}
-	if v := regQueryString(autostartRunKey, "TorrClient"); v != `"`+exe+`" --open=false` {
+	if v := regRaw(t, autostartRunKey, "/v", "TorrClient"); !strings.Contains(v, `"`+exe+`" --open=false`) {
 		t.Fatalf("команда автозапуска: %q", v)
 	}
 	platformSetAutostart(exe, false)
