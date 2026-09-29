@@ -90,7 +90,7 @@ TorrClientPortable/
 ## Автопроверка и релизы
 
 - **CI** (`.github/workflows/ci.yml`): на каждый пуш и PR GitHub собирает проект и гоняет `go vet`, `go test`, проверку `app.js` и образцы оценки качества — под Windows и Linux. Статус виден в PR.
-- **Релиз** (`.github/workflows/release.yml`): когда в `main` меняется `VERSION`, публикуется релиз `vX.Y.Z` с архивами `TorrClient-X.Y.Z-windows-amd64.zip` и `…-linux-amd64.tar.gz` (демон и веб-интерфейс). В Windows-архив входит и окно `TorrClient.exe` (Wails, собирается на windows-latest); рядом лежит `SHA256SUMS.txt`. CI собирает окно в каждом PR.
+- **Релиз** (`.github/workflows/release.yml`): когда в `main` меняется `VERSION`, публикуется релиз `vX.Y.Z` с архивами `TorrClient-X.Y.Z-windows-amd64.zip` и `…-linux-amd64.tar.gz` (демон и веб-интерфейс). В Windows-архив входит и окно `TorrClientDesktop.exe` (Wails; своё имя, потому что Windows не отличает `TorrClient.exe` от демона `torrclient.exe`, собирается на windows-latest); рядом лежит `SHA256SUMS.txt`. CI собирает окно в каждом PR.
 
 ## Кинозал: зеркала
 
