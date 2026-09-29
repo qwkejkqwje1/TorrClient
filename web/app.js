@@ -4331,6 +4331,11 @@ function renderSettings(root) {
       <p class="page-sub">Поиск идёт напрямую в индексатор, без TorrServer. Обычно это Jackett или Prowlarr: у него есть кнопка копирования адреса Torznab вместе с ключом — вставьте эту строку целиком, ключ выделится сам.</p>
       <div id="tzList"></div>
       <div class="row wrap" style="margin-top:8px">
+        <button id="tzFind" title="Ищет Jackett и Prowlarr на этом компьютере и в вашей локальной сети (порты 9117 и 9696)">Найти Jackett / Prowlarr</button>
+        <span class="page-sub" id="tzFindNote" style="margin:0"></span>
+      </div>
+      <div id="tzFound"></div>
+      <div class="row wrap" style="margin-top:8px">
         <input id="tzName" placeholder="Название" style="flex:1;min-width:110px">
         <input id="tzUrl" placeholder="http://127.0.0.1:9117/results/torznab/api" style="flex:2;min-width:220px">
         <input id="tzKey" placeholder="API key (если есть)" style="flex:1;min-width:130px">
@@ -4513,6 +4518,37 @@ function renderSettings(root) {
     name: ($('#tzName').value || '').trim(),
     url: ($('#tzUrl').value || '').trim(),
     api_key: ($('#tzKey').value || '').trim(),
+  });
+  $('#tzFind').addEventListener('click', async () => {
+    const btn = $('#tzFind'), note = $('#tzFindNote'), box = $('#tzFound');
+    btn.disabled = true; btn.textContent = 'Ищу...'; note.textContent = ''; box.innerHTML = '';
+    try {
+      const res = await api('/api/torznab/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const found = res.found || [];
+      note.textContent = found.length ? 'Найдено: ' + found.length + ' (проверено адресов: ' + res.scanned + ')'
+        : 'Ничего не найдено (проверено адресов: ' + res.scanned + '). Запущены ли Jackett или Prowlarr? Адрес можно ввести вручную ниже.';
+      box.innerHTML = found.map((f, i) => html`<div class="row wrap" style="margin-top:6px" data-fi="${i}">
+        <b>${f.kind === 'jackett' ? 'Jackett' : 'Prowlarr'}</b>
+        <span class="page-sub" style="margin:0">${f.host}:${f.port}${f.local ? ' · этот компьютер' : ''}</span>
+        ${raw(f.key_found ? '<span class="chip grey">ключ найден</span>' : html`<input class="fkey" placeholder="API key" style="flex:1;min-width:150px">`)}
+        <button class="primary fadd">Добавить</button>
+      </div>`).join('');
+      $$('.fadd', box).forEach(b => b.addEventListener('click', async () => {
+        const row = b.closest('[data-fi]'), f = found[+row.dataset.fi];
+        const keyEl = $('.fkey', row);
+        b.disabled = true; b.textContent = 'Добавляю...';
+        try {
+          const j = await api('/api/torznab/discover/add', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind: f.kind, base: f.base, api_key: keyEl ? keyEl.value.trim() : '' }),
+          });
+          tzSources = j.sources || []; tzDraw();
+          b.textContent = 'Добавлено: ' + j.added;
+          toast('Индексаторов добавлено: ' + j.added);
+        } catch (e) { b.disabled = false; b.textContent = 'Добавить'; toast(e.message, true); }
+      }));
+    } catch (e) { note.textContent = 'Поиск не удался: ' + e.message; }
+    finally { btn.disabled = false; btn.textContent = 'Найти Jackett / Prowlarr'; }
   });
   api('/api/torznab/sources').then(j => { tzSources = j.sources || []; tzDraw(); }).catch(() => { $('#tzList').innerHTML = '<div class="empty">Не удалось прочитать список индексаторов</div>'; });
   $('#tzTest').addEventListener('click', async () => {

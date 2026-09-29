@@ -148,6 +148,8 @@ func main() {
 	mux.HandleFunc("/api/discover", limitSearch(c.apiDiscover))
 	mux.HandleFunc("/api/torznab/test", c.apiTorznabTest)
 	mux.HandleFunc("/api/torznab/sources", c.apiTorznabSources)
+	mux.HandleFunc("/api/torznab/discover", c.apiTorznabDiscover)
+	mux.HandleFunc("/api/torznab/discover/add", c.apiTorznabDiscoverAdd)
 	mux.HandleFunc("/api/kinozal/add", c.apiKinozalAdd)
 	mux.HandleFunc("/api/userdata", c.apiUserData)
 	// Подписки на сериалы: список, добавление, снятие и проверка по кнопке.
