@@ -169,6 +169,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.9.0', ['Интерфейс разбит на части (web/src), app.js собирается из них', 'Проверено: сортировка rutor по сидам (код 2) и формат Prowlarr — по его исходникам', 'Тесты реестра Windows (своя ветка, ассоциации не трогаются); ошибки регистрации magnet больше не теряются', 'Окно «Что нового» один раз после обновления', 'Поиск по настройкам']],
   ['1.8.0', ['Кинозал: сначала официальные зеркала (kinozal.tv, .me, .guru), поддельные убраны', 'Кинозал: следующий поиск начинается с зеркала, ответившего последним', 'Настройки → Кинозал: свои зеркала, «только официальные», проверка всех зеркал', 'Автопроверка сборки и тестов на GitHub, готовый архив для Windows в релизах']],
   ['1.7.0', ['5 новых тем: Чёрная (OLED), Северная, Дракула, Лес, Сепия — выбор в Настройках → Оформление', 'Кнопки «Быстро» больше не повторяются', 'Метки качества и рейтинга читаются в светлых темах', 'Список «Что нового» в «О программе» показывался с HTML-тегами', 'В «О программе» видна настоящая система (была всегда windows)']],
   ['1.6.0', ['Светлая тема и «как в системе» (кнопка 🌓 или T)', 'Горячие клавиши: / — поиск, Alt+1…0 — разделы, ? — список', 'Скелетоны вместо «Загрузка…»', 'Автодополнение из истории поиска, удаление записей']],
@@ -183,14 +184,36 @@ function paintVersion() {
   const v = state.hello.app_version || '';
   el.textContent = v ? 'v' + v : '';
   el.title = (state.hello.version || '') + ' — нажмите, чтобы увидеть, что нового';
-  el.onclick = () => {
-    const seen = WHATSNEW.map(([ver, items]) => ver + (ver === v ? ' (установлена)' : '') + '\n' + items.map(i => '  • ' + i).join('\n')).join('\n\n');
-    alert('Что нового\n\n' + seen);
-  };
-  if (v && localStorage.getItem('tc_seen_ver') !== v) {
-    localStorage.setItem('tc_seen_ver', v);
-    if (typeof toast === 'function') toast('Обновлено до версии ' + v);
+  el.onclick = () => showWhatsNew(v, '');
+  const seen = localStorage.getItem('tc_seen_ver');
+  if (v && seen !== v) {
+    try { localStorage.setItem('tc_seen_ver', v); } catch {}
+    // Первый запуск — без окна: «что нового» относительно ничего не нужно.
+    if (seen) showWhatsNew(v, seen);
   }
+}
+
+// cmpVer сравнивает номера вида 1.2.3.
+function cmpVer(a, b) {
+  const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); }
+  return 0;
+}
+
+// showWhatsNew — окно «Что нового». since — прежняя версия: тогда показываются
+// только изменения после неё (один раз после обновления).
+function showWhatsNew(cur, since) {
+  const list = WHATSNEW.filter(([ver]) => !since || cmpVer(ver, since) > 0);
+  if (!list.length) return;
+  $$('body > .overlay.whatsnew-ov').forEach(o => o.remove());
+  const ov = document.createElement('div'); ov.className = 'overlay whatsnew-ov';
+  ov.innerHTML = html`<div class="modal" style="max-width:560px"><h3>${since ? 'Обновлено до ' + cur : 'Что нового'}</h3>
+    ${raw(list.map(([ver, items]) => html`<div style="margin:10px 0 4px"><b>${ver}</b>${ver === cur ? ' — установлена' : ''}</div><ul class="whatsnew">${raw(items.map(i => html`<li>${i}</li>`).join(''))}</ul>`).join(''))}
+    <div class="row"><button class="primary" id="wnOk">Понятно</button></div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelector('#wnOk').addEventListener('click', close);
 }
 
 async function api(path, opts) {
@@ -468,7 +491,7 @@ function route() {
   // Модальные окна живут прямо в document.body, а не внутри <main>, и переход
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
-  $$('body > .overlay').forEach(o => o.remove());
+  $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
   const pages = { library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderLibrary;
   const main = $('main'); main.innerHTML = '';
@@ -4448,7 +4471,7 @@ function seriesCard(g) {
 /* ================= SETTINGS ================= */
 function renderSettings(root) {
   root.innerHTML = html`
-    <div class="toolbar"><div class="grow"><h1 class="page-title">Настройки TorrClient</h1></div></div>
+    <div class="toolbar"><div class="grow"><h1 class="page-title">Настройки TorrClient</h1></div><input class="search-input" id="setFilter" placeholder="Найти настройку…" style="max-width:260px"></div>
     <div class="card"><h3>Серверы TorrServer <button id="setOpenTs" style="float:right">Открыть сервер в браузере</button></h3>
       <div id="profList"></div>
       <div class="divider"></div>
@@ -4609,6 +4632,7 @@ function renderSettings(root) {
   if (bd) bd.addEventListener('click', () => { window.location.href = '/api/backup'; });
   $('#autoOpen').addEventListener('change', e => localStorage.setItem('tc_autoopen', e.target.checked ? '1' : '0'));
   initKinozalMirrors();
+  initSettingsFilter(root);
   const diagBtn = $('#diagBtn');
   if (diagBtn) diagBtn.addEventListener('click', () => showDiagnostics(diagBtn));
   // Папки меняются одним и тем же диалогом: различаются только подпись и поле
@@ -4838,6 +4862,23 @@ async function restoreBackup(file) {
   }
 }
 
+
+// Поиск по настройкам: прячет карточки, в которых нет введённого текста.
+function initSettingsFilter(root) {
+  const inp = $('#setFilter'); if (!inp) return;
+  const cards = [...root.querySelectorAll('.card')];
+  let empty = null;
+  inp.addEventListener('input', () => {
+    const q = inp.value.trim().toLowerCase();
+    let shown = 0;
+    for (const c of cards) {
+      const hit = !q || c.textContent.toLowerCase().includes(q) || [...c.querySelectorAll('input,textarea')].some(i => (i.placeholder || '').toLowerCase().includes(q));
+      c.style.display = hit ? '' : 'none'; if (hit) shown++;
+    }
+    if (!empty) { empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'Такой настройки нет'; inp.closest('.toolbar').after(empty); }
+    empty.style.display = shown ? 'none' : '';
+  });
+}
 /* ================= SERVER ================= */
 function renderServer(root) {
   root.innerHTML = `

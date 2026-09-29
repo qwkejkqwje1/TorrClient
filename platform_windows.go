@@ -5,12 +5,18 @@ package main
 // Windows: реестр, открытие ссылок, автозапуск. Правится только здесь.
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 )
 
-const autostartRunKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+// Корни ключей — переменные, а не константы: тест подменяет их на свою ветку
+// HKCU\Software\TorrClientTest, чтобы не трогать настоящие ассоциации.
+var (
+	autostartRunKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+	regClasses      = `HKCU\Software\Classes`
+)
 
 func platformOpenURL(rawurl string) {
 	exec.Command(`rundll32`, `url.dll,FileProtocolHandler`, rawurl).Start()
@@ -19,13 +25,17 @@ func platformOpenURL(rawurl string) {
 func platformHandlersSupported() bool { return true }
 
 func platformHandlersStatus() (magnet, torrent bool) {
-	return regKeyExists(`HKCU\Software\Classes\magnet\shell\open\command`),
-		regKeyExists(`HKCU\Software\Classes\TorrClient.torrent\shell\open\command`)
+	return regKeyExists(regClasses + `\magnet\shell\open\command`),
+		regKeyExists(regClasses + `\TorrClient.torrent\shell\open\command`)
 }
 
 func platformInstallHandlers(exe string) error {
-	installMagnet(exe)
-	installTorrentAssoc(exe)
+	if err := installMagnet(exe); err != nil {
+		return fmt.Errorf("magnet: %v", err)
+	}
+	if err := installTorrentAssoc(exe); err != nil {
+		return fmt.Errorf(".torrent: %v", err)
+	}
 	return nil
 }
 
@@ -91,26 +101,41 @@ func regQueryString(key, val string) string {
 	return parseRegQuery(string(out), val)
 }
 
-func installMagnet(exe string) {
-	base := `HKCU\Software\Classes\magnet`
-	regAdd(base, `/ve`, `/d`, `URL:Magnet Protocol`)
-	regAdd(base, `/v`, `URL Protocol`, `/t`, `REG_SZ`, `/d`, ``)
-	regAdd(base+`\DefaultIcon`, `/ve`, `/d`, `"`+exe+`",0`)
-	regAdd(base+`\shell\open\command`, `/ve`, `/d`, `"`+exe+`" --magnet "%1"`)
+// firstErr возвращает первую ошибку: запись в реестр идёт пачкой, и отказ
+// раньше терялся — кнопка «Зарегистрировать» отвечала «готово» впустую.
+func firstErr(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func installMagnet(exe string) error {
+	base := regClasses + `\magnet`
+	return firstErr(
+		regAdd(base, `/ve`, `/d`, `URL:Magnet Protocol`),
+		regAdd(base, `/v`, `URL Protocol`, `/t`, `REG_SZ`, `/d`, ``),
+		regAdd(base+`\DefaultIcon`, `/ve`, `/d`, `"`+exe+`",0`),
+		regAdd(base+`\shell\open\command`, `/ve`, `/d`, `"`+exe+`" --magnet "%1"`),
+	)
 }
 
 func uninstallMagnet() {
-	regDel(`HKCU\Software\Classes\magnet`)
+	regDel(regClasses + `\magnet`)
 }
 
-func installTorrentAssoc(exe string) {
+func installTorrentAssoc(exe string) error {
 	progid := `TorrClient.torrent`
-	regAdd(`HKCU\Software\Classes\.torrent\OpenWithProgids`, `/v`, progid, `/t`, `REG_NONE`, `/d`, ``)
-	regAdd(`HKCU\Software\Classes\`+progid, `/ve`, `/d`, `Добавить в TorrClient`)
-	regAdd(`HKCU\Software\Classes\`+progid+`\DefaultIcon`, `/ve`, `/d`, `"`+exe+`",0`)
-	regAdd(`HKCU\Software\Classes\`+progid+`\shell\open\command`, `/ve`, `/d`, `"`+exe+`" --torrent "%1"`)
+	return firstErr(
+		regAdd(regClasses+`\.torrent\OpenWithProgids`, `/v`, progid, `/t`, `REG_NONE`, `/d`, ``),
+		regAdd(regClasses+`\`+progid, `/ve`, `/d`, `Добавить в TorrClient`),
+		regAdd(regClasses+`\`+progid+`\DefaultIcon`, `/ve`, `/d`, `"`+exe+`",0`),
+		regAdd(regClasses+`\`+progid+`\shell\open\command`, `/ve`, `/d`, `"`+exe+`" --torrent "%1"`),
+	)
 }
 
 func uninstallTorrentAssoc() {
-	regDel(`HKCU\Software\Classes\TorrClient.torrent`)
+	regDel(regClasses + `\TorrClient.torrent`)
 }

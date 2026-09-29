@@ -27,6 +27,8 @@ jobs:
         run: go vet ./...
       - name: go test
         run: go test ./...
+      - name: web/app.js собран из web/src
+        run: node tools/build-web.cjs --check
       - name: web/app.js — синтаксис
         run: node --check web/app.js
       - name: оценка качества — образцы
