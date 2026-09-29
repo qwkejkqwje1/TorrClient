@@ -8,6 +8,7 @@ package main
 // в длине подсказки иначе замечалась бы только глазами.
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
