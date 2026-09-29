@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -32,7 +33,7 @@ func (c *Comp) apiHello(w http.ResponseWriter, r *http.Request) {
 		"download_folder":   cfg.DownloadFolder,
 		"cache_folder":      cfg.CacheFolder,
 		"data_folder":       cfg.DataFolder,
-		"os":                "windows",
+		"os":                runtime.GOOS + "/" + runtime.GOARCH,
 		// Папка программы нужна странице «О программе»: на диске часто лежит
 		// несколько сборок, и по одному только номеру версии не поймёшь, какая
 		// из них запущена.

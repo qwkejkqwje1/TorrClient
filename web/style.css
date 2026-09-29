@@ -378,17 +378,17 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
   --fg:#18202b; --mut:#5d6b7e; --acc:#2f6fe6; --acc2:#1f9d45;
   --gold:#b88a00; --red:#d63a3a; --blue:#2f6fe6; --chip:#e3e9f3;
 }
-:root[data-theme=light] body{background:var(--bg)}
-:root[data-theme=light] .topbar{background:rgba(255,255,255,.9)}
-:root[data-theme=light] nav{background:rgba(255,255,255,.6)}
-:root[data-theme=light] nav button:hover,:root[data-theme=light] .seg button:hover,:root[data-theme=light] .iconbtn{background:rgba(0,0,0,.05)}
-:root[data-theme=light] .ctxmenu{background:#fff}
-:root[data-theme=light] #toast div{background:#fff; color:var(--fg); box-shadow:0 4px 16px rgba(0,0,0,.15)}
-:root[data-theme=light] #toast div.err{background:#fde8e8}
-:root[data-theme=light] .chip.grey,:root[data-theme=light] .kbd,:root[data-theme=light] .chip.rt-imdb{background:#e3e9f3; color:var(--fg)}
-:root[data-theme=light] ::-webkit-scrollbar-thumb{background:#c3cddb}
-:root[data-theme=light] .overlay{background:rgba(30,40,55,.45)}
-:root[data-theme=light] tr:hover td{background:rgba(0,0,0,.03)}
+:root[data-tone=light] body{background:var(--bg)}
+:root[data-tone=light] .topbar{background:rgba(255,255,255,.9)}
+:root[data-tone=light] nav{background:rgba(255,255,255,.6)}
+:root[data-tone=light] nav button:hover,:root[data-tone=light] .seg button:hover,:root[data-tone=light] .iconbtn{background:rgba(0,0,0,.05)}
+:root[data-tone=light] .ctxmenu{background:#fff}
+:root[data-tone=light] #toast div{background:#fff; color:var(--fg); box-shadow:0 4px 16px rgba(0,0,0,.15)}
+:root[data-tone=light] #toast div.err{background:#fde8e8}
+:root[data-tone=light] .chip.grey,:root[data-tone=light] .kbd,:root[data-tone=light] .chip.rt-imdb{background:#e3e9f3; color:var(--fg)}
+:root[data-tone=light] ::-webkit-scrollbar-thumb{background:#c3cddb}
+:root[data-tone=light] .overlay{background:rgba(30,40,55,.45)}
+:root[data-tone=light] tr:hover td{background:rgba(0,0,0,.03)}
 .tb-theme{background:transparent; font-size:16px; padding:4px 8px}
 .skel{display:flex; flex-direction:column; gap:8px; padding:6px 0}
 .skel-row{height:46px; border-radius:8px; background:linear-gradient(90deg,var(--bg2) 0%,var(--bg3) 50%,var(--bg2) 100%); background-size:200% 100%; animation:skel 1.2s ease-in-out infinite}
@@ -401,8 +401,30 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .hq-chip .hq-x{padding:7px 6px; margin-left:-4px; color:var(--mut); background:transparent}
 .hq-chip .hq-x:hover{color:var(--red)}
 .keys-table td{padding:4px 10px 4px 0}
-:root[data-theme=light] .quick button{color:var(--fg)}
-:root[data-theme=light] .quick button:hover{background:rgba(0,0,0,.05)}
+:root[data-tone=light] .quick button{color:var(--fg)}
+:root[data-tone=light] .quick button:hover{background:rgba(0,0,0,.05)}
 .quick .hq-chip button[data-hq]{border-radius:14px 0 0 14px; border-right:none}
 .quick .hq-chip .hq-x{border-radius:0 14px 14px 0; margin-left:0; padding:4px 8px; color:var(--mut)}
 .quick #hqClear{border-radius:14px; color:var(--mut)}
+
+/* ── Темы на выбор: только переменные цветов, нагрузки на систему нет ── */
+:root[data-theme=oled]{--bg:#000; --bg2:#0a0a0a; --bg3:#161616; --line:#222; --fg:#e8e8e8; --mut:#8a8a8a; --acc:#4f8cff; --acc2:#7ce08a; --chip:#1a1a1a}
+:root[data-theme=nord]{--bg:#2e3440; --bg2:#3b4252; --bg3:#434c5e; --line:#4c566a; --fg:#eceff4; --mut:#a3adbf; --acc:#88c0d0; --acc2:#a3be8c; --gold:#ebcb8b; --red:#bf616a; --blue:#81a1c1; --chip:#434c5e}
+:root[data-theme=dracula]{--bg:#1e1f29; --bg2:#282a36; --bg3:#343746; --line:#44475a; --fg:#f8f8f2; --mut:#9ea4c4; --acc:#bd93f9; --acc2:#50fa7b; --gold:#f1fa8c; --red:#ff5555; --blue:#8be9fd; --chip:#3a3c4e}
+:root[data-theme=forest]{--bg:#0f1712; --bg2:#16211a; --bg3:#1e2d23; --line:#2a3d30; --fg:#e6f0e8; --mut:#8aa392; --acc:#4caf7a; --acc2:#b5e06a; --gold:#e3c15a; --red:#e86a5a; --blue:#6ab7c9; --chip:#20321f}
+:root[data-theme=sepia]{--bg:#f4ecdc; --bg2:#fbf6ea; --bg3:#eadfc8; --line:#d8caa9; --fg:#3b2f22; --mut:#7a6a55; --acc:#a0602a; --acc2:#5f8a3a; --gold:#a07800; --red:#b8442f; --blue:#3f6f9a; --chip:#eadfc8}
+:root:not([data-theme=dark]) body{background:var(--bg)}
+:root:not([data-theme=dark]) .topbar{background:color-mix(in srgb, var(--bg2) 90%, transparent)}
+:root:not([data-theme=dark]) nav{background:color-mix(in srgb, var(--bg2) 55%, transparent)}
+:root:not([data-theme=dark]) .ctxmenu{background:var(--bg2)}
+:root:not([data-theme=dark]) #toast div{background:var(--bg3); color:var(--fg)}
+:root:not([data-theme=dark]) ::-webkit-scrollbar-thumb{background:var(--line)}
+:root:not([data-theme=dark]) .chip{color:var(--fg)}
+:root[data-tone=light] .chip.q1080{background:#dbeafb; color:#1c5fa8}
+:root[data-tone=light] .chip.q2160,:root[data-tone=light] .chip.rating{background:#f6ebc8; color:#7a5a00}
+:root[data-tone=light] .chip.series,:root[data-tone=light] .chip.hasnew{background:#f8dcec; color:#a02d6c}
+.theme-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px}
+.theme-sw{display:flex; flex-direction:column; gap:6px; align-items:stretch; padding:8px; border:2px solid var(--line); background:var(--bg2); text-align:left}
+.theme-sw.on{border-color:var(--acc)}
+.theme-sw .sw{height:34px; border-radius:6px; display:flex; overflow:hidden}
+.theme-sw .sw i{flex:1}
