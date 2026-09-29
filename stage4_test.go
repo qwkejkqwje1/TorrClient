@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -40,8 +39,8 @@ func TestApiPopular(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("код %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.HasPrefix(*path, "/search/1/1/000/2/") {
-		t.Errorf("запрошен путь %q, ожидалась сортировка по сидам (/search/1/1/000/2/)", *path)
+	if *path != "/browse/1/1/0/2" {
+		t.Errorf("запрошен путь %q, ожидался каталог с сортировкой по сидам (/browse/1/1/0/2): пустой поиск rutor отдаёт пустую страницу", *path)
 	}
 	var resp struct {
 		OK      bool        `json:"ok"`

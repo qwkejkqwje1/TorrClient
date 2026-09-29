@@ -169,6 +169,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.10.0', ['Доступ с телефона: QR-код и PIN в Настройках', '★ Лучшая раздача: rutor, Кинозал и Torznab разом, одна кнопка «Смотреть» (и по клику на постер)', 'Автонастройка буфера по скорости канала (Сервер → Настройки)', 'Установка и запуск Jackett/Prowlarr из Настроек (Windows, winget)', 'Метка «Сериал» с сезоном и числом серий', 'Исправлено «Популярное» (rutor отдавал пустую страницу)', 'Исправлено: индексаторы Torznab и зеркала Кинозала пропадали после перезапуска', 'MPC-HC тоже продолжает с места остановки']],
   ['1.9.0', ['Интерфейс разбит на части (web/src), app.js собирается из них', 'Проверено: сортировка rutor по сидам (код 2) и формат Prowlarr — по его исходникам', 'Тесты реестра Windows (своя ветка, ассоциации не трогаются); ошибки регистрации magnet больше не теряются', 'Окно «Что нового» один раз после обновления', 'Поиск по настройкам']],
   ['1.8.0', ['Кинозал: сначала официальные зеркала (kinozal.tv, .me, .guru), поддельные убраны', 'Кинозал: следующий поиск начинается с зеркала, ответившего последним', 'Настройки → Кинозал: свои зеркала, «только официальные», проверка всех зеркал', 'Автопроверка сборки и тестов на GitHub, готовый архив для Windows в релизах']],
   ['1.7.0', ['5 новых тем: Чёрная (OLED), Северная, Дракула, Лес, Сепия — выбор в Настройках → Оформление', 'Кнопки «Быстро» больше не повторяются', 'Метки качества и рейтинга читаются в светлых темах', 'Список «Что нового» в «О программе» показывался с HTML-тегами', 'В «О программе» видна настоящая система (была всегда windows)']],
@@ -941,7 +942,7 @@ function tile(t) {
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
-        ${raw(ser ? '<span class="chip series">Сериал</span>' : '')}
+        ${raw(ser ? html`<span class="chip series">${seriesTag(t.title || t.name || '')}</span>` : '')}
         <span class="statusdot ${scls}" title="${st || 'статус'}"></span>
       </div>
       <div class="rate-stack">
@@ -984,7 +985,21 @@ function fmtSpeed(s) { return s >= 1 << 20 ? (s / (1 << 20)).toFixed(1) + ' МБ
 function isVideo(p) { return /\.(mp4|mkv|avi|mov|webm|m4v|ts|wmv|flv|mpg|mpeg|m2ts|3gp)$/i.test(p || ''); }
 function isAudio(p) { return /\.(mp3|flac|wav|m4a|aac|ogg|opus|ac3|dts)$/i.test(p || ''); }
 function isPlayable(p) { return isVideo(p) || isAudio(p); }
-function isSeries(name) { return /(s\d{1,2}e\d{1,2}|sezon|сезон|\d{1,2}\s*листа|\d+\.{1,2}05|\bx0|\bread|\bсерия)/i.test(name || ''); }
+// Сериал по названию раздачи. Трекеры пишут по-разному: [S02], S01E01-08,
+// [02x01-02 из 10], «1 сезон: 1-8 серии из 8», «Сезон 3». Прежняя проверка
+// ловила только S01E01 и «сезон» — раздачи вида [S02] шли как фильмы.
+const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,3}\s*(?:-\s*\d{1,3}\s*)?из\s*\d{1,3}/i;
+function isSeries(name) { return SERIES_RE.test(name || ''); }
+// seriesTag — короткая метка «Сериал · S02» / «Сериал · S02, 1–2 из 10».
+function seriesTag(name) {
+  const t = name || ''; if (!isSeries(t)) return '';
+  let season = (t.match(/\b[sс](\d{1,2})(?:\s*[eе]\d{1,3})?\b/i) || t.match(/\b(\d{1,2})x\d{1,3}\b/i) || t.match(/(\d{1,2})\s*сезон/i) || t.match(/сезон\s*(\d{1,2})/i) || [])[1];
+  const eps = t.match(/(\d{1,3})\s*(?:-\s*(\d{1,3})\s*)?из\s*(\d{1,3})/i);
+  const parts = [];
+  if (season) parts.push('S' + String(+season).padStart(2, '0'));
+  if (eps) parts.push((eps[2] ? (+eps[1]) + '–' + (+eps[2]) : +eps[1]) + ' из ' + (+eps[3]));
+  return 'Сериал' + (parts.length ? ' · ' + parts.join(', ') : '');
+}
 /* QUALITY-BEGIN */
 // rateRelease оценивает раздачу по названию, размеру и сидам: разрешение,
 // источник, кодек, HDR, русская дорожка. Возвращает оценку 0–100 и подписи для
@@ -1355,7 +1370,7 @@ function openTorrentModal(t) {
         ${raw(t.category ? html`<span class="chip grey">${t.category}</span>` : '')}
         ${raw(t.torrent_size ? html`<span class="chip">${fmtSize(t.torrent_size)}</span>` : '')}
         ${raw(t.duration_seconds ? html`<span class="chip">${fmtDur(t.duration_seconds)}</span>` : '')}
-        ${raw(isSeries(t.title || '') ? '<span class="chip series">Сериал</span>' : '')}
+        ${raw(isSeries(t.title || '') ? html`<span class="chip series">${seriesTag(t.title || '')}</span>` : '')}
         ${raw(t.bit_rate ? html`<span class="chip">${t.bit_rate}</span>` : '')}
       </div></div>
       ${raw(t.poster ? html`<img src="${t.poster}" style="height:110px; border-radius:8px" onerror="this.remove()">` : '')}
@@ -1868,6 +1883,7 @@ async function renderSearch(root) {
         <option value="both">Все источники</option>
       </select>
       <button id="top24Btn" class="top24btn">ТОП-24</button>
+      <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
       <button id="popBtn" class="top24btn" title="Раздачи выбранной категории rutor за всё время, по числу сидов">Популярное</button>
       <span class="spacer"></span>
       <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
@@ -1893,6 +1909,7 @@ async function renderSearch(root) {
   $('#searchCat').value = sd.cat || '';
   $('#searchQual').value = qualOn();
   $('#searchBtn').addEventListener('click', () => doSearch());
+  $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   $('#searchProv').addEventListener('change', () => sd.provider = $('#searchProv').value);
   $('#searchCat').addEventListener('change', () => { sd.cat = $('#searchCat').value; sd.showAll = false; updateTopBtnLabel(); paintResults($('#searchResults')); });
@@ -2437,10 +2454,10 @@ async function fetchDiscover(reset) {
 function paintDiscover(el) {
   if (!discState.items.length) { el.innerHTML = '<div class="empty">В подборке пусто</div>'; return; }
   const cards = discState.items.map((it, i) => html`
-    <div class="disc-card" data-di="${i}" title="Найти раздачи">
+    <div class="disc-card" data-di="${i}" title="Подобрать лучшую раздачу из всех источников">
       <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}</div>
       <div class="disc-title">${it.title}</div>
-      <div class="disc-meta">${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
+      <div class="disc-meta">${discState.params && discState.params.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
   el.innerHTML = html`<div class="disc-head">Популярное за всё время (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>
@@ -2448,8 +2465,7 @@ function paintDiscover(el) {
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
     const it = discState.items[+c.dataset.di];
     if (!it) return;
-    $('#searchInput').value = it.title;
-    doSearch();
+    findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0);
   }));
   const more = $('#discMore');
   if (more) more.addEventListener('click', () => { more.disabled = true; more.textContent = 'Загрузка...'; fetchDiscover(false); });
@@ -2636,7 +2652,7 @@ function resultRow(r, ix) {
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
-        ${raw(isSer ? '<span class="chip series">Сериал</span>' : '')}
+        ${raw(isSer ? html`<span class="chip series">${seriesTag(title)}</span>` : '')}
         <span class="chip rq rq-${rq.tier}" title="${rateTip(rq)}">${rq.score}${rq.ru ? ' · RU' : ''}</span>
         <span class="chip grey">${r._p || ''}</span>
       </div>
@@ -3111,6 +3127,98 @@ function openPoster(p) {
   document.body.appendChild(ov); ov.addEventListener('click', () => ov.remove());
 }
 
+/* ---------- лучшая раздача из всех источников ---------- */
+// По нажатию: rutor, Кинозал и Torznab опрашиваются разом, одинаковые раздачи
+// (тот же хэш, а без хэша — то же название и размер) сливаются в одну со
+// списком источников, и выбирается лучшая по оценке качества, затем по сидам.
+
+function bestNorm(s) {
+  return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
+}
+// bestRelevant — название раздачи содержит все значимые слова запроса и, если
+// известен год, год рядом: иначе «Дюна» подтянет «Дюну» 1984 года и сборники.
+function bestRelevant(r, q, year) {
+  const t = bestNorm(r.title || r.name);
+  const words = bestNorm(q).split(' ').filter(w => w.length > 1);
+  if (!words.every(w => t.includes(w))) return false;
+  if (year) {
+    const ys = (String(r.title || '').match(/\b(19|20)\d{2}\b/g) || []).map(Number);
+    if (ys.length && !ys.some(y => Math.abs(y - year) <= 1)) return false;
+  }
+  return true;
+}
+function bestKey(r) {
+  if (r.hash) return 'h:' + String(r.hash).toLowerCase();
+  const gb = r.size_bytes ? Math.round(r.size_bytes / (64 * 1048576)) : '';
+  return 't:' + bestNorm(r.title || r.name) + '|' + gb;
+}
+function mergeBest(lists) {
+  const map = new Map();
+  for (const r of lists.flat()) {
+    if (!r) continue;
+    const k = bestKey(r);
+    const cur = map.get(k);
+    const src = r._p || '?';
+    if (!cur) { map.set(k, { ...r, _srcs: [src] }); continue; }
+    if (!cur._srcs.includes(src)) cur._srcs.push(src);
+    // Сиды одной раздачи на разных трекерах — один рой, считается максимум.
+    if ((r.seed || 0) > (cur.seed || 0)) cur.seed = r.seed;
+    if (!cur.magnet && r.magnet) cur.magnet = r.magnet;
+    if (!cur.hash && r.hash) cur.hash = r.hash;
+  }
+  return [...map.values()];
+}
+// Для просмотра «сразу» сиды важны не меньше качества: раздача с одним сидом
+// не раскачается, какой бы хорошей ни была. Поэтому к оценке качества
+// прибавляется вес сидов (логарифм, до +20), а почти пустые раздачи штрафуются.
+function bestScore(r, q) {
+  const s = r.seed || 0;
+  return q.score + Math.min(20, 8 * Math.log10(1 + s)) - (s < 3 ? 15 : 0);
+}
+function rankBest(rows) {
+  return rows.filter(r => (r.seed || 0) > 0)
+    .map(r => { const q = rateRelease(r); return { r, q, w: bestScore(r, q) }; })
+    .sort((a, b) => (b.w - a.w) || ((b.r.seed || 0) - (a.r.seed || 0)));
+}
+
+const SRC_NAME = { rutor: 'rutor', kinozal: 'Кинозал', torznab: 'Torznab', popular: 'rutor' };
+
+async function findBest(q, year) {
+  q = String(q || '').trim(); if (!q) return;
+  $$('body > .overlay.best-ov').forEach(o => o.remove());
+  const ov = document.createElement('div'); ov.className = 'overlay best-ov';
+  ov.innerHTML = html`<div class="modal" style="max-width:720px"><h3>Лучшая раздача: ${q}${year ? ' (' + year + ')' : ''}</h3><div id="bestBody">${raw(skeleton('Опрашиваю rutor, Кинозал и Torznab…', 3))}</div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  const body = ov.querySelector('#bestBody');
+  const jobs = [['rutor', () => searchRutor(q, 0, 0)], ['kinozal', () => searchKinozal(q, 0)], ['torznab', () => searchTorznab(q, 0)]];
+  const res = await Promise.allSettled(jobs.map(([, f]) => f()));
+  const failed = res.map((x, i) => x.status === 'rejected' ? SRC_NAME[jobs[i][0]] : '').filter(Boolean);
+  const lists = res.map((x, i) => (x.status === 'fulfilled' ? x.value : []).map(r => ({ ...r, _p: r._p || jobs[i][0] })));
+  let rows = mergeBest(lists).filter(r => bestRelevant(r, q, year));
+  const ranked = rankBest(rows);
+  if (!ranked.length) {
+    body.innerHTML = html`<div class="empty">Живых раздач не найдено${failed.length ? ' (не ответили: ' + failed.join(', ') + ')' : ''}.</div><div class="row"><button class="primary" id="bestAll">Обычный поиск</button></div>`;
+  } else {
+    const line = ({ r, q: rq }, big) => html`<div class="best-row${big ? ' best-top' : ''}">
+      <div class="best-title">${r.title || r.name}</div>
+      <div class="best-meta">
+        <span class="chip rq rq-${rq.tier}" title="${rateTip(rq)}">${rq.score}${rq.ru ? ' · RU' : ''}</span>
+        ${raw(isSeries(r.title) ? html`<span class="chip series">${seriesTag(r.title)}</span>` : '')}
+        <span>${r.size_bytes ? fmtSize(r.size_bytes) : (r.size || '')}</span><span>⬆ ${r.seed || 0}</span>
+        <span class="page-sub" style="margin:0">${r._srcs.map(s => SRC_NAME[s] || s).join(' + ')}</span>
+        <span class="spacer"></span><button class="${big ? 'primary' : ''}" data-bplay="${ranked.indexOf(ranked.find(x => x.r === r))}">▶ Смотреть</button>
+      </div></div>`;
+    body.innerHTML = html`${raw(line(ranked[0], true))}
+      ${raw(ranked.length > 1 ? '<div class="page-sub" style="margin:10px 0 4px">Другие варианты</div>' + ranked.slice(1, 6).map(x => line(x, false)).join('') : '')}
+      <div class="page-sub" style="margin-top:8px">Выбрано из ${rows.length} раздач (одинаковые с разных трекеров объединены)${failed.length ? '; не ответили: ' + failed.join(', ') : ''}.</div>
+      <div class="row" style="margin-top:8px"><button id="bestAll">Все раздачи</button><span class="spacer"></span><button id="bestClose">Закрыть</button></div>`;
+    $$('[data-bplay]', body).forEach(b => b.addEventListener('click', () => { const x = ranked[+b.dataset.bplay]; ov.remove(); playSearchLink(x.r); }));
+  }
+  const all = body.querySelector('#bestAll');
+  if (all) all.addEventListener('click', () => { ov.remove(); if (state.view !== 'search') setView('search'); setTimeout(() => { $('#searchInput').value = q; doSearch(); }, 30); });
+  const cl = body.querySelector('#bestClose'); if (cl) cl.addEventListener('click', () => ov.remove());
+}
 /* ---------- подготовка торрента перед показом ---------- */
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -4501,6 +4609,15 @@ function renderSettings(root) {
         <span class="page-sub" id="tzFindNote" style="margin:0"></span>
       </div>
       <div id="tzFound"></div>
+      <details id="tzHelp" style="margin-top:8px"><summary>Нет Jackett или Prowlarr? Установить и настроить</summary>
+        <p class="page-sub">Jackett и Prowlarr — отдельные бесплатные программы: они ищут по десяткам трекеров сразу, а TorrClient спрашивает их одним запросом. Нужна одна из двух; Prowlarr новее и удобнее.</p>
+        <div id="tzApps"></div>
+        <ol class="page-sub" style="margin:6px 0 0 18px;padding:0">
+          <li>Установите и запустите программу кнопкой выше (или скачайте с сайта).</li>
+          <li>Откройте её страницу и добавьте трекеры: <b>Indexers → Add Indexer</b>. Публичные (rutor, NNM-Club, RuTor, 1337x и др.) работают без входа; для закрытых нужен ваш логин на трекере.</li>
+          <li>Нажмите «Найти Jackett / Prowlarr» — адрес и ключ подставятся сами.</li>
+        </ol>
+      </details>
       <div class="row wrap" style="margin-top:8px">
         <input id="tzName" placeholder="Название" style="flex:1;min-width:110px">
         <input id="tzUrl" placeholder="http://127.0.0.1:9117/results/torznab/api" style="flex:2;min-width:220px">
@@ -4563,6 +4680,10 @@ function renderSettings(root) {
     <div class="card"><h3>Оформление</h3>
       ${raw(themePickerHtml())}
       <p class="page-sub">Кнопка 🌓 в шапке и клавиша T перебирают темы по кругу.</p>
+    </div>
+    <div class="card" id="remoteCard"><h3>Доступ с телефона</h3>
+      <p class="page-sub">Откройте TorrClient на телефоне в той же Wi-Fi-сети: наведите камеру на QR-код или введите адрес и PIN. С телефона можно искать, добавлять раздачи и запускать просмотр на компьютере.</p>
+      <div id="remoteBox"><div class="hint">Загрузка…</div></div>
     </div>
     <div class="card"><h3>Автооткрытие и встроенные</h3>
       <label style="margin:0"><input type="checkbox" id="autoOpen" ${localStorage.getItem('tc_autoopen') !== '0' ? 'checked' : ''}> Автоматически открывать UI после добавления торрента</label>
@@ -4717,6 +4838,8 @@ function renderSettings(root) {
     url: ($('#tzUrl').value || '').trim(),
     api_key: ($('#tzKey').value || '').trim(),
   });
+  initTorznabApps();
+  initRemote();
   $('#tzFind').addEventListener('click', async () => {
     const btn = $('#tzFind'), note = $('#tzFindNote'), box = $('#tzFound');
     btn.disabled = true; btn.textContent = 'Ищу...'; note.textContent = ''; box.innerHTML = '';
@@ -4879,6 +5002,79 @@ function initSettingsFilter(root) {
     empty.style.display = shown ? 'none' : '';
   });
 }
+
+// Установка и запуск Jackett/Prowlarr из настроек (winget на Windows).
+function initRemote() {
+  const box = $('#remoteBox'); if (!box) return;
+  const draw = st => {
+    const on = st.enabled;
+    box.innerHTML = html`
+      <label style="margin:0"><input type="checkbox" id="remoteOn" ${on ? 'checked' : ''}> Разрешить вход с телефона</label>
+      ${raw(on ? html`
+        <div class="row wrap" style="margin-top:10px;align-items:flex-start;gap:16px">
+          ${raw(st.qr ? html`<img src="${st.qr}" alt="QR-код для телефона" width="180" height="180" style="background:#fff;border-radius:8px;padding:6px">` : '')}
+          <div style="flex:1;min-width:220px">
+            <div><b>PIN:</b> <span class="mono" style="font-size:1.4em;letter-spacing:3px">${st.pin}</span></div>
+            <div style="margin-top:6px"><b>Адрес:</b> ${raw((st.urls || []).map(u => html`<div class="mono">${u.replace(/\?pin=.*$/, '')}</div>`).join('') || '<div class="hint">Компьютер не подключён к локальной сети.</div>')}</div>
+            ${raw(st.error ? html`<div class="hint" style="color:var(--red)">Не удалось открыть порт ${st.port}: ${st.error}</div>` : '')}
+            <div class="row wrap" style="margin-top:8px"><button id="remotePin">Новый PIN</button>
+              <label style="margin:0">Порт <input id="remotePort" type="number" min="1024" max="65535" value="${st.port}" style="width:90px"></label></div>
+            <p class="page-sub" style="margin:6px 0 0">Windows может спросить разрешение для брандмауэра — разрешите для частных сетей. Новый PIN отключает все телефоны, вошедшие по старому.</p>
+          </div>
+        </div>` : '')}`;
+  };
+  const send = async body => {
+    try { draw(await api('/api/remote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch (e) { toast(e.message, true); load(); }
+  };
+  const load = () => api('/api/remote').then(draw).catch(() => { $('#remoteCard') && $('#remoteCard').remove(); });
+  box.addEventListener('change', e => {
+    if (e.target.id === 'remoteOn') send({ enabled: e.target.checked });
+    if (e.target.id === 'remotePort') send({ port: +e.target.value });
+  });
+  box.addEventListener('click', e => {
+    if (e.target.id === 'remotePin' && confirm('Сменить PIN? Телефоны, вошедшие по старому, придётся подключить заново.')) send({ new_pin: true });
+  });
+  load();
+}
+
+function initTorznabApps() {
+  const box = $('#tzApps'); if (!box) return;
+  let timer = null;
+  const draw = st => {
+    box.innerHTML = (st.apps || []).map(a => {
+      const status = a.running ? '<span style="color:var(--acc2)">работает</span>'
+        : a.job && a.job.state === 'installing' ? 'устанавливается…'
+        : a.installed ? 'установлен, не запущен' : 'не установлен';
+      const btns = [];
+      if (a.running) btns.push(html`<button data-open-url="${a.url}">Открыть ${a.name}</button>`);
+      else if (a.installed && a.exe) btns.push(html`<button class="primary" data-app="${a.kind}" data-act="start">Запустить</button>`);
+      else if (st.winget && !(a.job && a.job.state === 'installing')) btns.push(html`<button class="primary" data-app="${a.kind}" data-act="install">Установить</button>`);
+      btns.push(html`<button data-open-url="${a.site}">Сайт загрузки</button>`);
+      const note = a.job && a.job.note && a.job.state !== 'installing' ? html`<div class="page-sub" style="margin:2px 0 0">${a.job.note}</div>` : '';
+      return html`<div class="row wrap" style="margin-top:6px"><b style="min-width:80px">${a.name}</b><span class="page-sub" style="margin:0;min-width:170px">${raw(status)}</span>${raw(btns.join(''))}</div>${raw(note)}`;
+    }).join('') + (st.os === 'windows' && !st.winget ? '<div class="hint">winget не найден — установите «Установщик приложений» из Microsoft Store или скачайте программу с сайта.</div>' : '');
+    const busy = (st.apps || []).some(a => a.job && a.job.state === 'installing');
+    clearTimeout(timer);
+    if (busy) timer = setTimeout(load, 3000);
+    const justDone = (st.apps || []).some(a => a.job && a.job.state === 'done' && a.running);
+    if (justDone && !box.dataset.rescanned) { box.dataset.rescanned = '1'; $('#tzFind') && $('#tzFind').click(); }
+  };
+  const load = () => api('/api/torznab/apps').then(draw).catch(e => { box.innerHTML = html`<div class="hint">${e.message}</div>`; });
+  box.addEventListener('click', async e => {
+    const u = e.target.closest('[data-open-url]');
+    if (u) { openExternal(u.dataset.openUrl); return; }
+    const b = e.target.closest('[data-app]'); if (!b) return;
+    b.disabled = true; b.textContent = b.dataset.act === 'install' ? 'Запускаю установку…' : 'Запускаю…';
+    try {
+      draw(await api('/api/torznab/apps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: b.dataset.app, action: b.dataset.act }) }));
+      if (b.dataset.act === 'install') toast('Установка идёт в фоне. Windows может попросить подтверждение.');
+      else setTimeout(load, 4000);
+    } catch (err) { toast(err.message, true); load(); }
+  });
+  $('#tzHelp').addEventListener('toggle', () => { if ($('#tzHelp').open) load(); });
+  load();
+}
 /* ================= SERVER ================= */
 function renderServer(root) {
   root.innerHTML = `
@@ -5018,6 +5214,7 @@ async function renderServerPane(tab) {
   const mb = n => Math.round(Number(n || 0) / 1048576);
   pane.innerHTML = html`
     <div class="row wrap" style="align-items:center;gap:10px;margin-bottom:6px">
+      <button id="ssAuto" class="primary" title="Замерит скорость интернета и подберёт кэш, предзагрузку и число соединений">Автонастройка буфера</button>
       <button id="ssPreset">Только оперативная память, без следов</button>
       <span class="page-sub" style="margin:0">Кэш живёт в RAM и освобождается при снятии раздачи, на диск не пишется ничего, отдача выключена.</span>
     </div>
@@ -5050,6 +5247,22 @@ async function renderServerPane(tab) {
       toast('Настройки сохранены');
       await refreshLibrary();
     } catch (e) { toast('Ошибка сохранения: ' + e.message, true); }
+  });
+
+  const auto = $('#ssAuto');
+  if (auto) auto.addEventListener('click', async () => {
+    auto.disabled = true; auto.textContent = 'Замеряю скорость…';
+    try {
+      const p = await api('/api/autobuffer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const txt = `Скорость ≈ ${Math.round(p.mbps)} Мбит/с — ${p.why}.\n\nКэш ${Math.round(p.CacheSize / 1048576)} МБ, предзагрузка ${p.PreloadCache}%, чтение вперёд ${p.ReaderReadAHead}%, соединений ${p.ConnectionsLimit}.\n\nПрименить?`;
+      if (confirm(txt)) {
+        await saveServerSets({ CacheSize: p.CacheSize, PreloadCache: p.PreloadCache, ReaderReadAHead: p.ReaderReadAHead, ConnectionsLimit: p.ConnectionsLimit });
+        toast('Буфер настроен под ' + Math.round(p.mbps) + ' Мбит/с');
+        renderServerPane(tab);
+        return;
+      }
+    } catch (e) { toast(e.message, true); }
+    auto.disabled = false; auto.textContent = 'Автонастройка буфера';
   });
 
   const preset = $('#ssPreset');

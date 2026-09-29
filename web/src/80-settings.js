@@ -31,6 +31,15 @@ function renderSettings(root) {
         <span class="page-sub" id="tzFindNote" style="margin:0"></span>
       </div>
       <div id="tzFound"></div>
+      <details id="tzHelp" style="margin-top:8px"><summary>Нет Jackett или Prowlarr? Установить и настроить</summary>
+        <p class="page-sub">Jackett и Prowlarr — отдельные бесплатные программы: они ищут по десяткам трекеров сразу, а TorrClient спрашивает их одним запросом. Нужна одна из двух; Prowlarr новее и удобнее.</p>
+        <div id="tzApps"></div>
+        <ol class="page-sub" style="margin:6px 0 0 18px;padding:0">
+          <li>Установите и запустите программу кнопкой выше (или скачайте с сайта).</li>
+          <li>Откройте её страницу и добавьте трекеры: <b>Indexers → Add Indexer</b>. Публичные (rutor, NNM-Club, RuTor, 1337x и др.) работают без входа; для закрытых нужен ваш логин на трекере.</li>
+          <li>Нажмите «Найти Jackett / Prowlarr» — адрес и ключ подставятся сами.</li>
+        </ol>
+      </details>
       <div class="row wrap" style="margin-top:8px">
         <input id="tzName" placeholder="Название" style="flex:1;min-width:110px">
         <input id="tzUrl" placeholder="http://127.0.0.1:9117/results/torznab/api" style="flex:2;min-width:220px">
@@ -93,6 +102,10 @@ function renderSettings(root) {
     <div class="card"><h3>Оформление</h3>
       ${raw(themePickerHtml())}
       <p class="page-sub">Кнопка 🌓 в шапке и клавиша T перебирают темы по кругу.</p>
+    </div>
+    <div class="card" id="remoteCard"><h3>Доступ с телефона</h3>
+      <p class="page-sub">Откройте TorrClient на телефоне в той же Wi-Fi-сети: наведите камеру на QR-код или введите адрес и PIN. С телефона можно искать, добавлять раздачи и запускать просмотр на компьютере.</p>
+      <div id="remoteBox"><div class="hint">Загрузка…</div></div>
     </div>
     <div class="card"><h3>Автооткрытие и встроенные</h3>
       <label style="margin:0"><input type="checkbox" id="autoOpen" ${localStorage.getItem('tc_autoopen') !== '0' ? 'checked' : ''}> Автоматически открывать UI после добавления торрента</label>
@@ -247,6 +260,8 @@ function renderSettings(root) {
     url: ($('#tzUrl').value || '').trim(),
     api_key: ($('#tzKey').value || '').trim(),
   });
+  initTorznabApps();
+  initRemote();
   $('#tzFind').addEventListener('click', async () => {
     const btn = $('#tzFind'), note = $('#tzFindNote'), box = $('#tzFound');
     btn.disabled = true; btn.textContent = 'Ищу...'; note.textContent = ''; box.innerHTML = '';
@@ -408,4 +423,77 @@ function initSettingsFilter(root) {
     if (!empty) { empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'Такой настройки нет'; inp.closest('.toolbar').after(empty); }
     empty.style.display = shown ? 'none' : '';
   });
+}
+
+// Установка и запуск Jackett/Prowlarr из настроек (winget на Windows).
+function initRemote() {
+  const box = $('#remoteBox'); if (!box) return;
+  const draw = st => {
+    const on = st.enabled;
+    box.innerHTML = html`
+      <label style="margin:0"><input type="checkbox" id="remoteOn" ${on ? 'checked' : ''}> Разрешить вход с телефона</label>
+      ${raw(on ? html`
+        <div class="row wrap" style="margin-top:10px;align-items:flex-start;gap:16px">
+          ${raw(st.qr ? html`<img src="${st.qr}" alt="QR-код для телефона" width="180" height="180" style="background:#fff;border-radius:8px;padding:6px">` : '')}
+          <div style="flex:1;min-width:220px">
+            <div><b>PIN:</b> <span class="mono" style="font-size:1.4em;letter-spacing:3px">${st.pin}</span></div>
+            <div style="margin-top:6px"><b>Адрес:</b> ${raw((st.urls || []).map(u => html`<div class="mono">${u.replace(/\?pin=.*$/, '')}</div>`).join('') || '<div class="hint">Компьютер не подключён к локальной сети.</div>')}</div>
+            ${raw(st.error ? html`<div class="hint" style="color:var(--red)">Не удалось открыть порт ${st.port}: ${st.error}</div>` : '')}
+            <div class="row wrap" style="margin-top:8px"><button id="remotePin">Новый PIN</button>
+              <label style="margin:0">Порт <input id="remotePort" type="number" min="1024" max="65535" value="${st.port}" style="width:90px"></label></div>
+            <p class="page-sub" style="margin:6px 0 0">Windows может спросить разрешение для брандмауэра — разрешите для частных сетей. Новый PIN отключает все телефоны, вошедшие по старому.</p>
+          </div>
+        </div>` : '')}`;
+  };
+  const send = async body => {
+    try { draw(await api('/api/remote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
+    catch (e) { toast(e.message, true); load(); }
+  };
+  const load = () => api('/api/remote').then(draw).catch(() => { $('#remoteCard') && $('#remoteCard').remove(); });
+  box.addEventListener('change', e => {
+    if (e.target.id === 'remoteOn') send({ enabled: e.target.checked });
+    if (e.target.id === 'remotePort') send({ port: +e.target.value });
+  });
+  box.addEventListener('click', e => {
+    if (e.target.id === 'remotePin' && confirm('Сменить PIN? Телефоны, вошедшие по старому, придётся подключить заново.')) send({ new_pin: true });
+  });
+  load();
+}
+
+function initTorznabApps() {
+  const box = $('#tzApps'); if (!box) return;
+  let timer = null;
+  const draw = st => {
+    box.innerHTML = (st.apps || []).map(a => {
+      const status = a.running ? '<span style="color:var(--acc2)">работает</span>'
+        : a.job && a.job.state === 'installing' ? 'устанавливается…'
+        : a.installed ? 'установлен, не запущен' : 'не установлен';
+      const btns = [];
+      if (a.running) btns.push(html`<button data-open-url="${a.url}">Открыть ${a.name}</button>`);
+      else if (a.installed && a.exe) btns.push(html`<button class="primary" data-app="${a.kind}" data-act="start">Запустить</button>`);
+      else if (st.winget && !(a.job && a.job.state === 'installing')) btns.push(html`<button class="primary" data-app="${a.kind}" data-act="install">Установить</button>`);
+      btns.push(html`<button data-open-url="${a.site}">Сайт загрузки</button>`);
+      const note = a.job && a.job.note && a.job.state !== 'installing' ? html`<div class="page-sub" style="margin:2px 0 0">${a.job.note}</div>` : '';
+      return html`<div class="row wrap" style="margin-top:6px"><b style="min-width:80px">${a.name}</b><span class="page-sub" style="margin:0;min-width:170px">${raw(status)}</span>${raw(btns.join(''))}</div>${raw(note)}`;
+    }).join('') + (st.os === 'windows' && !st.winget ? '<div class="hint">winget не найден — установите «Установщик приложений» из Microsoft Store или скачайте программу с сайта.</div>' : '');
+    const busy = (st.apps || []).some(a => a.job && a.job.state === 'installing');
+    clearTimeout(timer);
+    if (busy) timer = setTimeout(load, 3000);
+    const justDone = (st.apps || []).some(a => a.job && a.job.state === 'done' && a.running);
+    if (justDone && !box.dataset.rescanned) { box.dataset.rescanned = '1'; $('#tzFind') && $('#tzFind').click(); }
+  };
+  const load = () => api('/api/torznab/apps').then(draw).catch(e => { box.innerHTML = html`<div class="hint">${e.message}</div>`; });
+  box.addEventListener('click', async e => {
+    const u = e.target.closest('[data-open-url]');
+    if (u) { openExternal(u.dataset.openUrl); return; }
+    const b = e.target.closest('[data-app]'); if (!b) return;
+    b.disabled = true; b.textContent = b.dataset.act === 'install' ? 'Запускаю установку…' : 'Запускаю…';
+    try {
+      draw(await api('/api/torznab/apps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: b.dataset.app, action: b.dataset.act }) }));
+      if (b.dataset.act === 'install') toast('Установка идёт в фоне. Windows может попросить подтверждение.');
+      else setTimeout(load, 4000);
+    } catch (err) { toast(err.message, true); load(); }
+  });
+  $('#tzHelp').addEventListener('toggle', () => { if ($('#tzHelp').open) load(); });
+  load();
 }

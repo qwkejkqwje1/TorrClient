@@ -61,8 +61,12 @@ type Config struct {
 	// отдаёт только первую страницу и не отличает «не настроен» от «упал».
 	// Ключи лежат здесь же, поэтому torrclient.json нельзя публиковать — он и
 	// не публикуется: сборка релиза его в состав не входит.
-	TorznabSources []TorznabSource     `json:"torznab_sources,omitempty"`
-	profileByID    map[string]*Profile `json:"-"`
+	TorznabSources []TorznabSource `json:"torznab_sources,omitempty"`
+	// Доступ с телефона: второй слушатель на всех адресах, вход по PIN.
+	RemoteEnabled bool                `json:"remote_enabled,omitempty"`
+	RemotePIN     string              `json:"remote_pin,omitempty"`
+	RemotePort    int                 `json:"remote_port,omitempty"`
+	profileByID   map[string]*Profile `json:"-"`
 }
 
 func defaultConfig() *Config {
@@ -117,6 +121,15 @@ func loadConfig() *Config {
 		if c.TMDBAccessToken != "" {
 			cfg.TMDBAccessToken = c.TMDBAccessToken
 		}
+		// Эти поля раньше не переносились из файла: индексаторы Torznab,
+		// свои зеркала Кинозала и «только официальные» сохранялись на диск,
+		// но пропадали после перезапуска программы.
+		cfg.KinozalHosts = c.KinozalHosts
+		cfg.KinozalOfficialOnly = c.KinozalOfficialOnly
+		cfg.TorznabSources = c.TorznabSources
+		cfg.RemoteEnabled = c.RemoteEnabled
+		cfg.RemotePIN = c.RemotePIN
+		cfg.RemotePort = c.RemotePort
 	}
 	if cfg.ActiveProfileID == "" {
 		cfg.ActiveProfileID = cfg.Profiles[0].ID

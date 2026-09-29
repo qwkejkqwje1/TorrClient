@@ -33,7 +33,7 @@ func TestRutorPopularPathStage2(t *testing.T) {
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
-	if rutorPopularPath(0, 0, "") != "/search/0/0/000/2/" {
+	if rutorPopularPath(0, 0, "") != "/browse/0/0/0/2" {
 		t.Fatalf("пустой запрос должен давать «всё в категории»")
 	}
 }

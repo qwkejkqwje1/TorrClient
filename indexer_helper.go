@@ -421,3 +421,45 @@ func mergeFoundSources(old, add []TorznabSource) []TorznabSource {
 	}
 	return out
 }
+
+// apiTorznabApps — GET: установлены ли и запущены Jackett/Prowlarr;
+// POST {"kind":"prowlarr","action":"install"|"start"} — поставить через winget
+// или запустить. Только POST меняет систему: чужая вкладка не должна ставить
+// программы.
+func (c *Comp) apiTorznabApps(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		jj(w, indexerAppsState(r.Context()))
+	case http.MethodPost:
+		var in struct {
+			Kind   string `json:"kind"`
+			Action string `json:"action"`
+		}
+		if err := decodeTorznabBody(w, r, &in); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "тело запроса не разобрано")
+			return
+		}
+		a, ok := indexerAppByKind(in.Kind)
+		if !ok {
+			writeJSONError(w, http.StatusBadRequest, "неизвестная программа")
+			return
+		}
+		var msg string
+		switch in.Action {
+		case "install":
+			msg = startIndexerInstall(a, runCombined)
+		case "start":
+			msg = startIndexerApp(a)
+		default:
+			writeJSONError(w, http.StatusBadRequest, "action: install или start")
+			return
+		}
+		if msg != "" {
+			writeJSONError(w, http.StatusBadRequest, msg)
+			return
+		}
+		jj(w, indexerAppsState(r.Context()))
+	default:
+		writeJSONError(w, http.StatusMethodNotAllowed, "метод не поддерживается")
+	}
+}

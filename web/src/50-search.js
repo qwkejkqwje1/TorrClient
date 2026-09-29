@@ -21,6 +21,7 @@ async function renderSearch(root) {
         <option value="both">Все источники</option>
       </select>
       <button id="top24Btn" class="top24btn">ТОП-24</button>
+      <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
       <button id="popBtn" class="top24btn" title="Раздачи выбранной категории rutor за всё время, по числу сидов">Популярное</button>
       <span class="spacer"></span>
       <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
@@ -46,6 +47,7 @@ async function renderSearch(root) {
   $('#searchCat').value = sd.cat || '';
   $('#searchQual').value = qualOn();
   $('#searchBtn').addEventListener('click', () => doSearch());
+  $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   $('#searchProv').addEventListener('change', () => sd.provider = $('#searchProv').value);
   $('#searchCat').addEventListener('change', () => { sd.cat = $('#searchCat').value; sd.showAll = false; updateTopBtnLabel(); paintResults($('#searchResults')); });
@@ -590,10 +592,10 @@ async function fetchDiscover(reset) {
 function paintDiscover(el) {
   if (!discState.items.length) { el.innerHTML = '<div class="empty">В подборке пусто</div>'; return; }
   const cards = discState.items.map((it, i) => html`
-    <div class="disc-card" data-di="${i}" title="Найти раздачи">
+    <div class="disc-card" data-di="${i}" title="Подобрать лучшую раздачу из всех источников">
       <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}</div>
       <div class="disc-title">${it.title}</div>
-      <div class="disc-meta">${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
+      <div class="disc-meta">${discState.params && discState.params.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
   el.innerHTML = html`<div class="disc-head">Популярное за всё время (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>
@@ -601,8 +603,7 @@ function paintDiscover(el) {
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
     const it = discState.items[+c.dataset.di];
     if (!it) return;
-    $('#searchInput').value = it.title;
-    doSearch();
+    findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0);
   }));
   const more = $('#discMore');
   if (more) more.addEventListener('click', () => { more.disabled = true; more.textContent = 'Загрузка...'; fetchDiscover(false); });

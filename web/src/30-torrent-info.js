@@ -10,7 +10,7 @@ function openTorrentModal(t) {
         ${raw(t.category ? html`<span class="chip grey">${t.category}</span>` : '')}
         ${raw(t.torrent_size ? html`<span class="chip">${fmtSize(t.torrent_size)}</span>` : '')}
         ${raw(t.duration_seconds ? html`<span class="chip">${fmtDur(t.duration_seconds)}</span>` : '')}
-        ${raw(isSeries(t.title || '') ? '<span class="chip series">Сериал</span>' : '')}
+        ${raw(isSeries(t.title || '') ? html`<span class="chip series">${seriesTag(t.title || '')}</span>` : '')}
         ${raw(t.bit_rate ? html`<span class="chip">${t.bit_rate}</span>` : '')}
       </div></div>
       ${raw(t.poster ? html`<img src="${t.poster}" style="height:110px; border-radius:8px" onerror="this.remove()">` : '')}
