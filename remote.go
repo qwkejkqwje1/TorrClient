@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -208,6 +209,11 @@ func (s *remoteSrv) apply() {
 		return
 	}
 	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	// После автообновления старая копия ещё держит порт долю секунды.
+	for i := 0; err != nil && i < 20 && os.Getenv("TC_UPDATE_RESTART") == "1"; i++ {
+		time.Sleep(250 * time.Millisecond)
+		ln, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	}
 	if err != nil {
 		s.lastErr = err.Error()
 		logAlways("Доступ с телефона: порт %d занят: %v", port, err)

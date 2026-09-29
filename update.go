@@ -41,6 +41,9 @@ const (
 	updateEvery   = 6 * time.Hour
 )
 
+// startExe — путь к программе, каким он был при запуске.
+var startExe = func() string { p, _ := os.Executable(); return p }()
+
 // updateAPI, updateDir, trustURL — переменные ради тестов: адрес «последнего
 // релиза», папка, куда ложатся файлы, и проверка адреса загрузки.
 var (
@@ -388,22 +391,29 @@ func (u *updater) install(restart func()) {
 // (TC_SUPERVISED=1) достаточно выйти: окно поднимет демон само и уже из
 // нового файла. Иначе порт освобождается и запускается своя новая копия.
 func (c *Comp) restartSelf() {
+	_ = viewedMarks.save()
 	if os.Getenv("TC_SUPERVISED") == "1" {
 		os.Exit(0)
+	}
+	// Новая копия запускается первой: как только старая отпустит порт
+	// (Shutdown ниже), она его займёт — ждать она умеет (TC_UPDATE_RESTART).
+	// Наоборот нельзя: после Shutdown main возвращается и процесс кончается
+	// раньше, чем успел бы запустить замену.
+	// Путь берётся запомненный при запуске: на Linux os.Executable() после
+	// переименования вернул бы уже torrclient.old.
+	if exe := startExe; exe != "" {
+		cmd := exec.Command(exe, os.Args[1:]...)
+		cmd.Env = append(os.Environ(), "TC_UPDATE_RESTART=1")
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		detachCmd(cmd)
+		if err := cmd.Start(); err != nil {
+			logAlways("Перезапуск после обновления: %v — запустите программу вручную.", err)
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	if c.httpSrv != nil {
 		_ = c.httpSrv.Shutdown(ctx)
-	}
-	_ = viewedMarks.save()
-	exe, err := os.Executable()
-	if err == nil {
-		cmd := exec.Command(exe, os.Args[1:]...)
-		cmd.Env = append(os.Environ(), "TC_UPDATE_RESTART=1")
-		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		detachCmd(cmd)
-		_ = cmd.Start()
 	}
 	os.Exit(0)
 }

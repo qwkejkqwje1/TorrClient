@@ -45,10 +45,14 @@ jobs:
       - name: Сборка окна
         working-directory: app
         run: wails build -clean -trimpath -ldflags "-s -w"
+      # Windows не различает регистр: TorrClient.exe и демон torrclient.exe в
+      # одной папке — один и тот же файл. Окно в архиве получает своё имя.
+      - name: Имя окна
+        run: Rename-Item app/build/bin/TorrClient.exe TorrClientDesktop.exe
       - uses: actions/upload-artifact@v4
         with:
           name: desktop
-          path: app/build/bin/TorrClient.exe
+          path: app/build/bin/TorrClientDesktop.exe
 
   release:
     needs: [prep, desktop]
@@ -80,6 +84,8 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X 'main.version=TorrClient $V ($REV $D)'" -o dist/linux/torrclient .
           cp README.md VERSION dist/win/; cp README.md VERSION dist/linux/
           for f in start_web.bat stop_all.bat; do [ -f "$f" ] && cp "$f" dist/win/; done
+          # Два файла, различающихся только регистром, на Windows затрут друг друга.
+          dup=$(ls dist/win | tr 'A-Z' 'a-z' | sort | uniq -d); [ -z "$dup" ] || { echo "совпадают без учёта регистра: $dup"; exit 1; }
           (cd dist/win && zip -qr "../TorrClient-$V-windows-amd64.zip" .)
           tar -czf "dist/TorrClient-$V-linux-amd64.tar.gz" -C dist/linux .
           (cd dist && sha256sum TorrClient-$V-*.zip TorrClient-$V-*.tar.gz > SHA256SUMS.txt)
@@ -93,9 +99,9 @@ jobs:
             const m=src.match(/const WHATSNEW = (\[[\s\S]*?\n\]);/);
             const list=m ? Function("return "+m[1])() : [];
             const it=(list.find(x=>x[0]===v)||[v,[]])[1];
-            const win=fs.existsSync("dist/win/TorrClient.exe");
+            const win=fs.existsSync("dist/win/TorrClientDesktop.exe");
             let s="## Что нового\n"+it.map(x=>"- "+x).join("\n")+"\n\n## Установка\n";
-            s+= win ? "- **Windows:** распакуйте архив и запустите `TorrClient.exe` (окно) или `start_web.bat` (браузер). Нужен TorrServer рядом (TorrServer-windows-amd64.exe).\n"
+            s+= win ? "- **Windows:** распакуйте архив и запустите `TorrClientDesktop.exe` (окно) или `start_web.bat` (браузер). Нужен TorrServer рядом (TorrServer-windows-amd64.exe).\n"
                     : "- **Windows:** распакуйте архив и запустите `torrclient.exe` или `start_web.bat`.\n";
             s+="- **Linux:** `./torrclient --open=false`, затем откройте http://127.0.0.1:8099\n- Уже установлено 1.11+? Обновление приходит само: кнопка ⬆ рядом с версией в шапке.\n";
             fs.writeFileSync("dist/notes.md", s);
