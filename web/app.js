@@ -4350,6 +4350,7 @@ function renderSettings(root) {
         <input id="wfPath" value="${state.hello.watch_folder}" style="flex:2">
         <button id="wfBrowse">Обзор</button>
         <button id="wfReg" class="primary">Зарегистрировать magnet:// и .torrent</button>
+        <label style="margin:0;display:inline-flex;align-items:center;gap:6px" title="Демон запускается при входе в систему, без окна и без открытия браузера"><input type="checkbox" id="autoStart" disabled> запускать при входе в систему</label>
       </div>
       ${raw(folderNoticeHTML('watch'))}
       <div class="row wrap" style="margin-top:8px">
@@ -4423,6 +4424,22 @@ function renderSettings(root) {
   $('#wfReg').addEventListener('click', async () => {
     try { await api('/api/reg?action=install', { method: 'POST' }); toast('Протокол magnet:// зарегистрирован. Проверьте, что TorrClient — браузер по умолчанию для magnet.'); renderServerStatus(); } catch (e) { toast(e.message, true); }
   });
+  const asBox = $('#autoStart');
+  if (asBox) {
+    api('/api/autostart').then(j => {
+      if (!j.supported) { asBox.parentElement.title = 'На этой системе автозапуск не поддерживается'; return; }
+      asBox.checked = !!j.enabled; asBox.disabled = false;
+    }).catch(() => {});
+    asBox.addEventListener('change', async () => {
+      asBox.disabled = true;
+      try {
+        const j = await api('/api/autostart', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: asBox.checked }) });
+        asBox.checked = !!j.enabled;
+        toast(j.enabled ? 'Автозапуск включён' : 'Автозапуск выключен');
+      } catch (e) { asBox.checked = !asBox.checked; toast(e.message, true); }
+      asBox.disabled = false;
+    });
+  }
   $('#expList').addEventListener('click', exportList);
   $('#impList').addEventListener('click', () => $('#impInput').click());
   $('#impInput').addEventListener('change', e => importList(e.target.files[0]));

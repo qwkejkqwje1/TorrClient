@@ -159,6 +159,7 @@ func main() {
 	// выглядит правильным, а писать в него нельзя.
 	mux.HandleFunc("/api/folders", c.apiFolders)
 	mux.HandleFunc("/api/reg", c.apiReg)
+	mux.HandleFunc("/api/autostart", c.apiAutostart)
 	// Живая лента: интерфейс узнаёт об изменениях сразу, а не опросом.
 	mux.HandleFunc("/api/events", c.apiEvents)
 	// Резервная копия состояния одним архивом и её возврат.

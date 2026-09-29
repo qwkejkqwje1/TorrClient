@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -115,7 +114,7 @@ func openBrowser(rawurl string) {
 	if !isHTTPLink(rawurl) {
 		return
 	}
-	exec.Command(`rundll32`, `url.dll,FileProtocolHandler`, rawurl).Start()
+	platformOpenURL(rawurl)
 }
 
 // isHTTPLink сообщает, безопасно ли передать адрес браузеру или плееру:
