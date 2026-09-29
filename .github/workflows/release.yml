@@ -1,0 +1,52 @@
+name: Release
+
+# Когда в main меняется файл VERSION, собирается демон и публикуется релиз
+# vX.Y.Z с архивами для Windows и Linux. Тег уже есть — релиз не повторяется.
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Версия
+        id: v
+        run: |
+          V=$(tr -d ' \r\n' < VERSION)
+          echo "ver=$V" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then echo "exists=1" >> "$GITHUB_OUTPUT"; fi
+      - name: Тесты
+        if: steps.v.outputs.exists != '1'
+        run: go test ./...
+      - name: Сборка
+        if: steps.v.outputs.exists != '1'
+        run: |
+          V=${{ steps.v.outputs.ver }}
+          REV=$(git rev-parse --short HEAD)
+          D=$(date +%Y-%m-%d)
+          mkdir -p dist/win dist/linux
+          GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=TorrClient $V ($REV $D)'" -o dist/win/torrclient.exe .
+          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=TorrClient $V ($REV $D)'" -o dist/linux/torrclient .
+          cp README.md VERSION dist/win/; cp README.md VERSION dist/linux/
+          for f in start_web.bat stop_all.bat; do [ -f "$f" ] && cp "$f" dist/win/; done
+          (cd dist/win && zip -qr "../TorrClient-$V-windows-amd64.zip" .)
+          tar -czf "dist/TorrClient-$V-linux-amd64.tar.gz" -C dist/linux .
+      - name: Релиз
+        if: steps.v.outputs.exists != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=${{ steps.v.outputs.ver }}
+          gh release create "v$V" dist/TorrClient-$V-*.zip dist/TorrClient-$V-*.tar.gz \
+            --title "TorrClient $V" --target "$GITHUB_SHA" \
+            --notes "Демон TorrClient $V (веб-интерфейс, без окна Wails). Windows: распакуйте и запустите torrclient.exe или start_web.bat. Linux: ./torrclient --open=false. Что нового — значок версии в шапке программы."
