@@ -142,6 +142,9 @@ func main() {
 	// Torznab-поиск идёт напрямую в индексаторы, поэтому ограничитель здесь
 	// обязателен: иначе один человек с кнопкой «ещё» уронит и трекер, и себя.
 	mux.HandleFunc("/api/torznab/search", limitSearch(c.apiTorznabSearch))
+	// Этап 2: потоковый параллельный поиск и «популярное за всё время».
+	mux.HandleFunc("/api/torznab/stream", limitSearch(c.apiTorznabStream))
+	mux.HandleFunc("/api/popular", limitSearch(c.apiPopular))
 	mux.HandleFunc("/api/torznab/test", c.apiTorznabTest)
 	mux.HandleFunc("/api/torznab/sources", c.apiTorznabSources)
 	mux.HandleFunc("/api/kinozal/add", c.apiKinozalAdd)
