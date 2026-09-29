@@ -71,6 +71,7 @@ SHELL_SOURCES = [
     os.path.join("app", "app.go"),
     os.path.join("app", "restart.go"),
     os.path.join("app", "main.go"),
+    os.path.join("app", "tray.go"),
     os.path.join("app", "frontend", "dist", "index.html"),
 ]
 
@@ -187,13 +188,35 @@ def main():
     if os.path.isdir(out):
         extra = [f for f, _ in tree(out) if f.replace("\\", "/") not in EXPECTED]
         if extra:
-            aside = os.path.join(rel, ".old-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+            stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             try:
-                os.rename(out, aside)
-                print("      прежняя папка отведена в release\\%s — в ней было постороннее: %s"
-                      % (os.path.basename(aside), ", ".join(sorted(extra)[:3])))
+                os.rename(out, os.path.join(rel, ".old-" + stamp))
+                print("      прежняя папка отведена в release\\.old-%s — в ней было постороннее: %s"
+                      % (stamp, ", ".join(sorted(extra)[:3])))
             except OSError as e:
-                print("      прежнюю папку отвести не удалось (%s)" % e)
+                # Папку держат (обычно не сразу отпускает WebView2). Переименовать
+                # нельзя, а собирать поверх неё нельзя тем более: в архив попадут
+                # torrclient.json с ключом TMDB, подписки и история просмотра.
+                # Поэтому посторонние файлы выносятся по одному — папку держат,
+                # а переносить из неё можно. Данные не теряются: уходят в
+                # release\_data-<метка>, которую следующая сборка не обнуляет.
+                keep = os.path.join(rel, "_data-" + stamp)
+                stuck = []
+                for f in extra:
+                    src = os.path.join(out, f)
+                    dst = os.path.join(keep, f)
+                    try:
+                        os.makedirs(os.path.dirname(dst), exist_ok=True)
+                        os.replace(src, dst)
+                    except OSError:
+                        stuck.append(f)
+                if stuck:
+                    print("      ПРЕКРАЩАЮ: не смог убрать из папки релиза: %s" % ", ".join(sorted(stuck)[:3]))
+                    print("      Закройте программу (stop_all.bat) и повторите сборку.")
+                    return 1
+                print("      прежнюю папку отвести не удалось (%s)" % (e.args[2] if len(e.args) > 2 else e))
+                print("      посторонние файлы вынесены в release\\_data-%s: %s"
+                      % (stamp, ", ".join(sorted(extra)[:3])))
     os.makedirs(out, exist_ok=True)
     exe = os.path.join(out, "torrclient.exe")
     p = run([GO, "build", "-ldflags", "-s -w -X 'main.version=%s'" % ver, "-o", exe, "."])

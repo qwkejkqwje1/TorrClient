@@ -472,13 +472,12 @@ const viewedMaxAge = 90 * 24 * time.Hour
 
 func (s *viewedStore) load() {
 	s.mu.Lock()
-	b, err := os.ReadFile(viewedPath())
-	if err != nil {
-		s.mu.Unlock()
-		return
-	}
+	// Файл без номера формата (прежние сборки) читается как есть. Файл
+	// записей новой версии и битый файл оставляют склад пустым, но не
+	// стираются: следующая запись переписала бы то, что прочесть не удалось,
+	// и вернуть было бы уже нечего.
 	var data map[string]map[int]*viewedMark
-	if json.Unmarshal(b, &data) == nil && data != nil {
+	if readStateDoc(viewedPath(), &data) == nil && data != nil {
 		s.data = data
 	}
 	s.mu.Unlock()
@@ -527,8 +526,7 @@ func viewedJanitor() {
 func (s *viewedStore) save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	b, _ := json.MarshalIndent(s.data, "", "  ")
-	return writeFileAtomic(viewedPath(), b, 0o600)
+	return writeStateDoc(viewedPath(), s.data)
 }
 
 func (s *viewedStore) set(hash string, fileID int, mark viewedMark) {

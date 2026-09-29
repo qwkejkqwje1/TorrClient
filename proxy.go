@@ -197,7 +197,15 @@ var streamClient = &http.Client{
 }
 
 func (c *Comp) handleProxy(w http.ResponseWriter, r *http.Request) {
-	prof := curCfg().active()
+	// Конфиг может быть ещё не опубликован: прокси поднимается на том же шаге,
+	// что и чтение настроек, а обращение к nil-конфигу — паника в обработчике
+	// запроса. Тот же случай оговорён в backup.go.
+	cfg := curCfg()
+	if cfg == nil {
+		writeJSONError(w, http.StatusBadGateway, "настройки ещё не прочитаны")
+		return
+	}
+	prof := cfg.active()
 	if prof == nil {
 		http.Error(w, `{"error":"no active profile"}`, http.StatusBadGateway)
 		return

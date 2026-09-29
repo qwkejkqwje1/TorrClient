@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed" xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/">
+  <channel>
+    <title>Эталонный индексатор</title>
+    <item>
+      <title>Матрица 1999 1080p BluRay &amp; HDR</title>
+      <guid isPermaLink="false">magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;dn=Matrix</guid>
+      <link>http://127.0.0.1:9117/dl/magnet/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</link>
+      <pubDate>Sun, 27 Sep 2026 10:00:00 +0000</pubDate>
+      <category>2040</category>
+      <size>8589934592</size>
+      <torznab:attr name="size" value="8589934592" />
+      <torznab:attr name="seeders" value="120" />
+      <torznab:attr name="leechers" value="7" />
+      <torznab:attr name="infohash" value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" />
+      <torznab:attr name="imdb" value="tt0133093" />
+      <enclosure url="http://127.0.0.1:9117/dl/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.torrent" length="8589934592" type="application/x-bittorrent" />
+    </item>
+    <item>
+      <title>Обход &lt;заглушки&gt; и прочих спецсимволов</title>
+      <guid isPermaLink="true">http://127.0.0.1:9117/details/2</guid>
+      <link>http://127.0.0.1:9117/dl/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.torrent</link>
+      <pubDate>Sat, 26 Sep 2026 09:00:00 +0000</pubDate>
+      <category>5040</category>
+      <size>1.4 GB</size>
+      <torznab:attr name="infohash" value="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" />
+      <torznab:attr name="seeders" value="-1" />
+      <torznab:attr name="leechers" value="0" />
+      <enclosure url="http://127.0.0.1:9117/dl/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.torrent" length="1503238553" type="application/x-bittorrent" />
+    </item>
+    <item>
+      <title>Только инфохаш, без ссылки на файл</title>
+      <guid isPermaLink="false">cccccccccccccccccccccccccccccccccccccccc</guid>
+      <pubDate>Fri, 25 Sep 2026 08:00:00 +0000</pubDate>
+      <size>536870912</size>
+      <torznab:attr name="infohash" value="CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC" />
+      <torznab:attr name="seeders" value="5" />
+      <torznab:attr name="leechers" value="2" />
+    </item>
+    <item>
+      <title>Пустая раздача: качать нечего, в выдаче быть не должно</title>
+      <guid isPermaLink="true">http://127.0.0.1:9117/details/4</guid>
+      <pubDate>Thu, 24 Sep 2026 07:00:00 +0000</pubDate>
+      <torznab:attr name="seeders" value="999" />
+    </item>
+  </channel>
+</rss>

@@ -45,10 +45,21 @@ type Config struct {
 	// DataFolder — где лежат постоянные данные: отметки просмотра и склад
 	// избранного с закладками. Их потеря не восполняется ничем, и папка должна
 	// быть на постоянном диске.
-	DataFolder      string              `json:"data_folder,omitempty"`
-	TMDBApiKey      string              `json:"tmdb_api_key,omitempty"`
-	TMDBAccessToken string              `json:"tmdb_access_token,omitempty"`
-	profileByID     map[string]*Profile `json:"-"`
+	DataFolder      string `json:"data_folder,omitempty"`
+	TMDBApiKey      string `json:"tmdb_api_key,omitempty"`
+	TMDBAccessToken string `json:"tmdb_access_token,omitempty"`
+	// KinozalHosts — зеркала Кинозала, добавленные пользователем. Идут перед
+	// встроенным списком: домены Кинозала меняются быстрее, чем выходят
+	// обновления программы, и человек, знающий рабочее зеркало, не должен
+	// ждать, пока перебор дойдёт до него через мёртвые.
+	KinozalHosts []string `json:"kinozal_hosts,omitempty"`
+	// TorznabSources — индексаторы для поиска раздач: Jackett, Prowlarr,
+	// NZBhydra2. Их поиск ведём сами, а не через TorrServer: у сервера он
+	// отдаёт только первую страницу и не отличает «не настроен» от «упал».
+	// Ключи лежат здесь же, поэтому torrclient.json нельзя публиковать — он и
+	// не публикуется: сборка релиза его в состав не входит.
+	TorznabSources []TorznabSource     `json:"torznab_sources,omitempty"`
+	profileByID    map[string]*Profile `json:"-"`
 }
 
 func defaultConfig() *Config {
@@ -266,6 +277,9 @@ func (c *Config) clone() *Config {
 		cp := *p
 		nc.Players[i] = &cp
 	}
+	// Список индексаторов копируется по той же причине: иначе правка элемента
+	// в новом снимке была бы видна в старом, уже опубликованном.
+	nc.TorznabSources = append([]TorznabSource(nil), c.TorznabSources...)
 	nc.profileByID = nil
 	return &nc
 }

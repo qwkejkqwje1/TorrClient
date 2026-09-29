@@ -493,6 +493,27 @@ call('state.viewed = [];');
   check(!String(boxAll.innerHTML).includes('скрыто'), 'по «показать всё» отсев снят');
   check(String(boxAll.innerHTML).includes('Counter-Strike'), 'и сама раздача вернулась на место');
 
+  /* ТОП-24 приходит полным блоком суток — 30 раздач, а фильтр качества, включённый
+     по умолчанию, оставляет 24. Заголовок обязан называть оба числа и отсев по
+     имени фильтра: иначе блок суток читается как «двадцать четыре раздачи», и
+     человек ищет несуществующее ограничение в трекере, вместо того чтобы снять
+     фильтр. Числа взяты настоящие: так выглядел настоящий ответ rutor.info. */
+  const topRows = [];
+  for (let i = 0; i < 30; i++) topRows.push({ title: 'Раздача ' + i + ' (2026) WEB-DL 1080p', seed: 300 - i, peer: 10, provider: 'top24' });
+  for (let i = 0; i < 6; i++) topRows[i] = { title: 'Передача ' + i + ' (2026) HDTVRip 720p', seed: 200 - i, peer: 5, provider: 'top24' };
+  call('state.searchState = { results: ' + JSON.stringify(topRows) + ', status: [], cat: "", showAll: false, sort: "seed" };');
+  const boxTop = node();
+  try { ctx.paintResults(boxTop); } catch (e) { /* нам нужен заголовок */ }
+  const hTop = String(boxTop.innerHTML);
+  check(hTop.includes('24 из 30'), 'заголовок называет и показанное, и пришедшее число', hTop.slice(0, 160));
+  check(/отсеяно 6[^<]*1080p и выше|отсеяно 6 фильтром/i.test(hTop), 'отсев по качеству назван числом и фильтром', hTop.slice(0, 200));
+  check(hTop.includes('anyQualBtn'), 'есть кнопка «показать без фильтра качества»');
+  const boxTop2 = node();
+  call('state.searchState.showAnyQual = true;');
+  try { ctx.paintResults(boxTop2); } catch (e) { /* см. выше */ }
+  const hTop2 = String(boxTop2.innerHTML);
+  check(hTop2.includes('(30)') && !hTop2.includes('отсеяно'), 'по кнопке виден весь блок суток', hTop2.slice(0, 160));
+
   console.log('\n13. Запрос с исключением: «ведьмак -игра»');
 
   /* Исключение не уходит на трекер: rutor ищет фразу целиком, и «ведьмак -игра»
@@ -695,10 +716,16 @@ call('state.viewed = [];');
   /* Место карточки в разметке (data-ix) считается по полной выдаче, а постеры
      искали карточку по месту в показанном списке. На отфильтрованной выдаче
      («Full HD» включён по умолчанию) индексы расходятся, и постер либо не
-     находил своей карточки, либо попадал на чужую. */
+     находил своей карточки, либо попадал на чужую.
+
+     Место берётся из карты, собранной по полной выдаче один раз: прежде оно
+     искалось через base.indexOf внутри прохода по показанным строкам, то есть
+     квадратом на большой выдаче. Проверяется и то, и другое: источник места —
+     полная выдача, поиск перебором — убран. */
   const epSrc = code.slice(code.indexOf('async function enrichPosters'), code.indexOf('function setPosterImage'));
   check(/enrichPosters\s*\(\s*visible\s*,\s*all\s*\)/.test(epSrc), 'постеры получают и полную выдачу, и показанную');
-  check(/base\.indexOf\(r\)/.test(epSrc), 'место карточки берётся по полной выдаче, а не по показанной');
+  check(!/base\.indexOf\(/.test(epSrc), 'место карточки больше не ищется перебором полной выдачи');
+  check(/base\.forEach\(\(r,\s*i\)\s*=>/.test(epSrc) && /ixOf\.get\(r\)/.test(epSrc), 'место карточки берётся из карты мест полной выдачи, а не показанной');
 
   call("state.searchState = { results: [], exclude: [], status: [], cat: '', showAll: false, sort: 'name' };");
   call("state.searchState.results = [{ title: 'Раздача 720p RIP', name: 'Раздача 720p RIP' }, { title: 'Ведьмак (2019) 1080p', name: 'Ведьмак (2019) 1080p' }];");
@@ -756,6 +783,177 @@ call('state.viewed = [];');
   check(topHTML.includes('за последние 24 часа (30)'),
     'в заголовке видно, сколько раздач в блоке суток',
     topHTML.slice(0, 90));
+
+  console.log('\n17. Подборки и фильтры библиотеки');
+
+  /* Библиотека на сотни раздач без фильтров нечитаема, а единственного
+     «Избранного» мало: разложить по полкам его было нельзя. Проверяется то,
+     что нельзя увидеть глазами на живой странице: что фильтр по просмотру
+     различает не начатое, начатое и досмотренное (у сериала — по сериям), что
+     подборка отбирает ровно свои раздачи и что подборки едут на сервер вместе
+     с избранным. */
+  call("localStorage.removeItem('tc_colls'); localStorage.setItem('tc_userlist', '[]');" +
+    "state.query = ''; state.category = 'all'; state.seen = 'all'; state.coll = '';");
+  call(`state.lib = [
+    { hash: 'h1', title: 'Фильм один (2020) 1080p', file_stats: [{ id: 1, path: 'Фильм один.mkv' }] },
+    { hash: 'h2', title: 'Фильм два (2021) 1080p', file_stats: [{ id: 1, path: 'Фильм два.mkv' }] },
+    { hash: 'h3', title: 'Сериал три (2022) 1080p', file_stats: [{ id: 1, path: 's01e01.mkv' }, { id: 2, path: 's01e02.mkv' }] },
+  ];`);
+  call(`state.viewed = [
+    { hash: 'h2', file_index: 1, timecode: 600, duration: 1000, done: false },
+    { hash: 'h3', file_index: 1, timecode: 100, duration: 100, done: true },
+    { hash: 'h3', file_index: 2, timecode: 100, duration: 100, done: true },
+  ];`);
+
+  check(call("watchState(state.lib[0])") === 'new', 'неначатая раздача — «не начато»');
+  check(call("watchState(state.lib[1])") === 'started', 'начатая, но не досмотренная — «начато»');
+  check(call("watchState(state.lib[2])") === 'done', 'сериал со всеми сериями — «досмотрено»');
+
+  const bySeen = want => call(`state.seen = '${want}'; filterLib().map(t => t.hash).join(',')`);
+  check(bySeen('new') === 'h1', 'фильтр «не начато» оставляет не начатое', bySeen('new'));
+  check(bySeen('started') === 'h2', 'фильтр «начато» — начатое, но не досмотренное', bySeen('started'));
+  check(bySeen('done') === 'h3', 'фильтр «досмотрено» — досмотренное', bySeen('done'));
+  call("state.seen = 'all';");
+  check(call('filterLib().length') === 3, 'без фильтра показывается всё');
+
+  const cid = call("collCreate('Смотреть вечером')");
+  check(call(`collHas('${cid}', 'h1')`) === false, 'новая подборка пустая');
+  check(call(`collToggle('${cid}', 'h1')`) === true, 'раздача добавляется в подборку');
+  check(call(`collHas('${cid}', 'h1')`) === true, 'и лежит в ней');
+  check(call(`collToggle('${cid}', 'h1')`) === false, 'повторное добавление убирает раздачу');
+  call(`collToggle('${cid}', 'h1'); collToggle('${cid}', 'h2');`);
+  const inColl = call(`state.coll = '${cid}'; filterLib().map(t => t.hash).join(',')`);
+  check(inColl === 'h1,h2', 'фильтр по подборке показывает только её раздачи', inColl);
+  check(call("state.coll = 'fav'; filterLib().length") === 0, 'пустое избранное даёт пустую выдачу');
+  check(call("state.coll = ''; libFiltered()") === false, 'без фильтров сброс не нужен');
+  check(call("state.seen = 'new'; libFiltered()") === true, 'с фильтром сброс нужен');
+
+  call("state.seen = 'all'; localStorage.setItem('tc_order', 'progress');");
+  call('painting();');
+  const orderHTML = String((topEls.get('#libGrid') || {}).innerHTML || '');
+  const at = s => orderHTML.indexOf(s);
+  check(at('Сериал три') < at('Фильм два') && at('Фильм два') < at('Фильм один') && at('Фильм один') >= 0,
+    'сортировка «по просмотру» поднимает начатое выше не начатого',
+    orderHTML.slice(0, 60));
+  call("localStorage.setItem('tc_order', 'name');");
+
+  check(call('userDataPayload().collections.length') === 1,
+    'подборки уходят в /api/userdata вместе с избранным');
+  call(`collRemove('${cid}');`);
+  check(call('collList().length') === 0, 'подборка удаляется');
+  check(call('state.coll') === '', 'удалённая подборка больше не выбрана');
+
+  /* Кэш и постоянные данные в одной папке: очистка кэша уносит подписки и
+     отметки просмотра. Проверяются и сравнение путей, и сама плашка. */
+  console.log('\nКэш и данные в одной папке');
+  call("state.folders = { cache: { path: 'C:\\\\TC', ok: true }, data: { path: 'c:\\\\tc\\\\', ok: true } };");
+  check(call('samePath("C:\\\\TC", "c:\\\\tc\\\\")') === true,
+    'пути сравниваются как папки: регистр и хвостовой слеш не важны');
+  check(call('samePath("C:\\\\TC", "C:\\\\TC\\\\data")') === false,
+    'подпапка — не та же папка');
+  check(call('samePath("C:\\\\TC", "")') === false,
+    'пустой путь не совпадает с заданным');
+  const overlap = String(call('folderOverlapHTML()'));
+  check(overlap.indexOf('одной папке') >= 0, 'плашка о совпадении папок появляется', overlap.slice(0, 70));
+  check(overlap.indexOf('не собрать') >= 0, 'плашка говорит, что пропадёт при очистке');
+  call("state.folders = { cache: { path: 'C:\\\\TC\\\\cache', ok: true }, data: { path: 'D:\\\\TC\\\\data', ok: true } };");
+  check(String(call('folderOverlapHTML()')) === '', 'при разных папках плашки нет');
+
+  console.log('\nОтчёт о состоянии');
+  check(call('typeof showDiagnostics') === 'function', 'функция отчёта на месте');
+  check(call('typeof diagFallbackCopy') === 'function', 'запасной путь копирования на месте');
+  check(String(call('typeof navigator.clipboard')) !== 'function',
+    'в песочнице буфера обмена нет — значит отчёт обязан уметь обойтись без него');
+
+  /* ---------- Torznab ----------
+     Проверяется главное: поиск ушёл в свой демон, а не обратно в TorrServer.
+     Возврат на прокси выглядел бы рабочим ровно до того дня, когда у человека
+     не окажется настроенного EnableTorznabSearch на сервере, — и отказ пришёл
+     бы как пустая выдача без внятной причины. */
+  console.log('\nTorznab: свой поиск вместо прокси через сервер');
+  check(code.indexOf("ts('/torznab/search") < 0, 'прокси /ts/torznab/search больше не используется');
+  check(code.indexOf('/api/torznab/search') > 0, 'поиск идёт в свой демон');
+  check(code.indexOf('/api/torznab/test') > 0, 'проверка индексатора на месте');
+  check(code.indexOf('/api/torznab/sources') > 0, 'список источников на месте');
+  check(String(call('SRC_PAGE.torznab')) === '100', 'размер страницы Torznab известен интерфейсу');
+  check(code.indexOf('searchTorznab(s.query, s.page + 1)') > 0, 'кнопка «ещё» догружает следующую страницу Torznab');
+  check(code.indexOf('moreSources.torznab') > 0, 'источник Torznab попадает в список догружаемых');
+
+  // Разбор по индексаторам: упавший не должен выглядеть как «пусто».
+  const tzItem = {
+    title: 'Матрица 1999 1080p BluRay', size: '8.6 ГБ', seed: 120, peer: 7,
+    magnet: 'magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', link: 'http://x/dl/a.torrent',
+  };
+  const wasTzFetch = sandbox.fetch;
+  let tzUrl = '';
+  sandbox.fetch = async (u) => {
+    /* Ловим только свой адрес: в песочнице параллельно висят запросы от более
+       ранних проверок, и без фильтра сюда попадает чужой /api/ratings. */
+    if (String(u).indexOf('torznab') >= 0) tzUrl = String(u);
+    return { ok: true, status: 200, json: async () => ({ items: [tzItem], sources: [{ name: 'Джекетт', ok: true, items: 1 }] }) };
+  };
+  let rows = [];
+  try { rows = await call("searchTorznab('матрица', 0)"); } finally { sandbox.fetch = wasTzFetch; }
+  check(tzUrl.indexOf('/api/torznab/search') === 0, 'запрос уходит в /api/torznab/search', tzUrl);
+  check(tzUrl.indexOf('page=0') > 0, 'номер страницы передаётся', tzUrl);
+  check(rows.length === 1 && rows[0]._p === 'torznab', 'раздача разложена по полям');
+  check(rows[0] && rows[0].seed === 120, 'сиды доехали до интерфейса');
+  check(rows[0] && rows[0].size_bytes > 0, 'размер разобран в байты из строки', String(rows[0] && rows[0].size_bytes));
+
+  // Один индексатор упал, второй ответил: показываем выдачу и говорим про упавший.
+  call("state.searchState.tznabOff = null;");
+  sandbox.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => ({ items: [tzItem], sources: [{ name: 'Джекетт', ok: true, items: 1 }, { name: 'Prowlarr', ok: false, error: 'индексатор отклонил ключ: код 403' }] }),
+  });
+  try { rows = await call("searchTorznab('матрица', 0)"); } finally { sandbox.fetch = wasTzFetch; }
+  check(rows.length === 1, 'упавший индексатор не выбрасывает выдачу остальных');
+  check(String(call('state.searchState.tznabOff')).indexOf('Prowlarr') >= 0,
+    'причина по упавшему индексатору названа', String(call('state.searchState.tznabOff')));
+
+  // Упали все: причина обязана дойти до человека, иначе он ищет не там.
+  sandbox.fetch = async () => ({ ok: false, status: 502, json: async () => ({ error: 'ни один индексатор не ответил — Prowlarr: индексатор отклонил ключ: код 403' }) });
+  let tzErr = '';
+  try { await call("searchTorznab('матрица', 0)"); } catch (e) { tzErr = String(e.message || e); }
+  finally { sandbox.fetch = wasTzFetch; }
+  check(tzErr.indexOf('Prowlarr') >= 0, 'причина по всем индексаторам дошла до интерфейса', tzErr);
+  check(tzErr.indexOf('не настроены') >= 0 || tzErr.indexOf('не ответил') >= 0, 'ошибка названа словом, а не кодом', tzErr);
+
+  console.log('\nTorznab: настройки индексаторов');
+  check(code.indexOf('id="tzList"') > 0, 'список индексаторов отрисован');
+  check(code.indexOf('id="tzTest"') > 0, 'кнопка проверки на месте');
+  check(code.indexOf('id="tzAdd"') > 0, 'кнопка добавления на месте');
+  check(code.indexOf('id="tzKey"') > 0, 'поле ключа на месте');
+  check(code.indexOf('Индексаторы Torznab') > 0, 'карточка настроек подписана');
+  // Ключ не должен возвращаться в браузер целиком: он попал бы в буфер обмена
+  // вместе с «экспортом» и в отчёт о состоянии.
+  check(code.indexOf('key_hint') > 0, 'ключ приходит замаскированным');
+  check(code.indexOf('has_key') > 0, 'есть признак «ключ задан»');
+  check(code.indexOf('Проверка не удалась') > 0, 'неудачная проверка объясняет причину');
+  check(code.indexOf('отвечает') > 0 && code.indexOf(' мс') > 0, 'удачная проверка показывает время ответа');
+  // Правка источника не должна обнулять ключ: сервер сам достроит прежний.
+  check(code.indexOf('api_key: f.api_key') > 0, 'при отправке ключ не подставляется чужой');
+
+  console.log('\nСерии: название и разметка окна');
+  const epName = f => call('epFileName(' + JSON.stringify(f) + ')');
+  const nm = [
+    ['Тёмная материя - Dark Matter S02 E01 (Тихая жизнь) WEB-DL 1080p (2026).mkv', 'Тихая жизнь', 'название в скобках после номера'],
+    ['Show.S02E03.Pilot.1080p.WEB-DL.mkv', 'Pilot', 'точками вместо пробелов'],
+    ['Show S02 E04 - The Wall [1080p].mkv', 'The Wall', 'тире, а не скобки'],
+    ['Show.S02E02.(2026).1080p.mkv', '', 'год — не название серии'],
+    ['Show.S02E02.(1080p).mkv', '', 'разрешение — не название серии'],
+    ['Show S02 E05 1080p WEB-DL.mkv', '', 'без скобок названия нет'],
+    ['Show.S02E06.1080p.WEB-DL.x264.mkv', '', 'только техника — названия нет'],
+    ['Show S02E07 - Sci-Fi Night.mkv', 'Sci-Fi Night', 'дефис внутри названия не рвётся'],
+  ];
+  nm.forEach(([f, want, why]) => check(epName(f) === want, 'название серии: ' + why, JSON.stringify(epName(f))));
+  check(epName('Тёмная материя S02 E01 (Тихая жизнь) WEB-DL 1080p (2026).mkv') === 'Тихая жизнь',
+    'название серии читается по-русски');
+  // Разметка строки серии обязана попадать в окно разобранной, а не текстом:
+  // без raw() шаблон экранирует её, и пользователь видит теги вместо серий.
+  check(code.indexOf('${raw(groups.get(sn).map(f => epRow') > 0, 'строки серий вставлены как разметка, а не как текст');
+  check(/<span class="epname">\$\{fb \? ' · ' \+ fb : ''\}<\/span>/.test(code), 'в строке серии есть место под название из имени файла');
 
   console.log('\n' + (fails ? 'ПРОВАЛОВ: ' + fails : 'все проверки пройдены'));
   process.exit(fails ? 1 : 0);

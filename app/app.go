@@ -36,6 +36,14 @@ const (
 	// не успевал открыть порт ни разу, и поиск с раздачами молчали.
 	tsStartGrace = 90 * time.Second
 
+	// tsReadyWait, daemonReadyWait — сколько ждать готовности после запуска.
+	// Срок настоящий, по часам: прежде он задавался числом попыток, и одна проба
+	// съедала до healthTimeout, поэтому «12 секунд» оборачивались минутой с
+	// лишним. Значения прежние — 48 × 250 мс и 60 × 250 мс, — но теперь они
+	// означают то, что написано.
+	tsReadyWait     = 12 * time.Second
+	daemonReadyWait = 15 * time.Second
+
 	// restartLimit — сколько раз подряд сторож поднимает один и тот же процесс,
 	// прежде чем признать, что дело не в случайном падении, и замолчать.
 	//
@@ -77,6 +85,10 @@ type App struct {
 	// файл не должен приводить к запуску каждые пять секунд без конца.
 	tsGuard     restartGuard
 	daemonGuard restartGuard
+
+	// tray — иконка в системном лотке. Пока её нет, закрытие окна означает
+	// выход, как прежде; появилась — окно прячется, а раздача продолжается.
+	tray *trayIcon
 }
 
 // NewApp creates a new App application struct
@@ -96,6 +108,65 @@ func (a *App) startup(ctx context.Context) {
 	go a.startTorrServer()
 	go a.startDaemon()
 	go a.healthLoop(ctx)
+	// Лоток поднимается отдельно и не может помешать запуску: без иконки
+	// программа работает как прежде.
+	go a.setupTray()
+}
+
+// setupTray показывает иконку в системном лотке.
+//
+// Иконка нужна не для красоты: закрытое окно раньше означало остановку —
+// вместе с демоном и раздачами. Теперь окно прячется, раздача идёт, а вернуть
+// окно можно двойным щелчком по иконке.
+func (a *App) setupTray() {
+	exe := ""
+	if p, err := os.Executable(); err == nil {
+		exe = p
+	}
+	t := &trayIcon{onOpen: a.showWindow, onQuit: a.quitApp}
+	if err := t.start("TorrClient", trayIconPath(exe)); err != nil {
+		// Лоток не поднялся — молчим: окно и так работает, а сообщение о
+		// неудавшейся иконке только пугает.
+		return
+	}
+	a.mu.Lock()
+	a.tray = t
+	a.mu.Unlock()
+}
+
+// beforeClose решает, что делать при закрытии окна. Возврат true отменяет
+// закрытие.
+//
+// Прятать окно, а не выходить: программа раздаёт торренты в фоне, и закрытие
+// окна в такой программе не должно означать «перестать раздавать». Выход
+// остаётся в меню иконки.
+func (a *App) beforeClose(ctx context.Context) bool {
+	a.mu.Lock()
+	tray := a.tray
+	a.mu.Unlock()
+	if tray == nil || !tray.started {
+		return false
+	}
+	runtime.WindowHide(ctx)
+	return true
+}
+
+// showWindow возвращает окно из лотка. Снимается и свёрнутое состояние:
+// свёрнутое окно показать мало — оно осталось бы свёрнутым.
+func (a *App) showWindow() {
+	if a.ctx == nil {
+		return
+	}
+	runtime.WindowUnminimise(a.ctx)
+	runtime.WindowShow(a.ctx)
+}
+
+// quitApp завершает программу по команде из лотка.
+func (a *App) quitApp() {
+	if a.ctx == nil {
+		return
+	}
+	runtime.Quit(a.ctx)
 }
 
 // healthLoop поднимает упавший процесс заново — но не бесконечно.
@@ -117,9 +188,23 @@ func (a *App) healthLoop(ctx context.Context) {
 }
 
 // watchProcesses — один круг сторожа.
+//
+// Оба процесса проверяются одновременно. Прежде круг был последовательным, и
+// ответа TorrServer (до двух секунд на пробу) ждали прежде, чем спросить о
+// демоне: упавший демон замечался не за пять секунд, а за минуты, да ещё и
+// каждая проба readiness откладывала проверку соседа.
 func (a *App) watchProcesses(now time.Time) {
-	a.watchOne("TorrServer", &a.tsGuard, a.startTorrServer, now)
-	a.watchOne("демон", &a.daemonGuard, a.startDaemon, now)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		a.watchOne("TorrServer", &a.tsGuard, a.startTorrServer, now)
+	}()
+	go func() {
+		defer wg.Done()
+		a.watchOne("демон", &a.daemonGuard, a.startDaemon, now)
+	}()
+	wg.Wait()
 }
 
 // watchOne поднимает один процесс, считая неудачные попытки подряд.
@@ -168,6 +253,9 @@ func (a *App) reportProblem(msg string) {
 func (a *App) shutdown(ctx context.Context) {
 	a.mu.Lock()
 	a.closing = true
+	// Иконка убирается до выхода: иначе она остаётся в лотке, и программа
+	// выглядит работающей, когда её давно нет.
+	a.tray.stop()
 	defer a.mu.Unlock()
 	if a.tsCmd != nil {
 		// Ждать здесь не нужно: процесс убирает горутина, поставленная при
@@ -269,21 +357,30 @@ func shouldSpawnTorrServer(portUp, prevRunning bool, prevAge, grace time.Duratio
 
 // waitReady ждёт готовности, но не дольше срока и не дольше жизни процесса.
 //
-// Ждать пятнадцать секунд, когда запущенный процесс уже завершился, незачем:
-// причина отказа известна сразу, и сказать о ней полезнее, чем ждать впустую.
+// Срок отсчитывается по времени, а не по числу попыток. Прежде попыток было
+// фиксированное число, и одна проба могла занять весь срок ответа (две секунды):
+// заявленные «12 секунд» на деле превращались в 108, а «15» — в 135, и всё это
+// время окно ждало впустую, тогда как рядом стоял упавший процесс. Одна проба
+// может занять до healthTimeout — поэтому ожидание ограничено сроком плюс одна
+// проба, а не сроком точно.
+//
 // Живость и готовность проверяются отдельно, потому что это разные вопросы:
-// «отвечает ли» и «есть ли кому отвечать».
-func waitReady(tries int, pause time.Duration, ready, alive func() bool) bool {
-	for i := 0; i < tries; i++ {
+// «отвечает ли» и «есть ли кому отвечать». Мёртвого не ждут ни секунды: причина
+// отказа известна сразу, и сказать о ней полезнее, чем ждать.
+func waitReady(timeout, pause time.Duration, ready, alive func() bool) bool {
+	deadline := time.Now().Add(timeout)
+	for {
 		if ready() {
 			return true
 		}
 		if !alive() {
 			return false
 		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
 		time.Sleep(pause)
 	}
-	return false
 }
 
 // foreignHolder отвечает, держит ли порт чужая программа.
@@ -421,13 +518,13 @@ func (a *App) startTorrServer() (restartOutcome, string) {
 		a.mu.Unlock()
 		return cur == cmd
 	}
-	if waitReady(48, 250*time.Millisecond, ready, alive) {
+	if waitReady(tsReadyWait, 250*time.Millisecond, ready, alive) {
 		return restartOK, ""
 	}
 	if !alive() {
 		return restartFailed, "процесс TorrServer завершился, не начав отвечать"
 	}
-	return restartFailed, fmt.Sprintf("TorrServer не начал отвечать за 12 секунд (порт %d)", tsPort)
+	return restartFailed, fmt.Sprintf("TorrServer не начал отвечать за %v (порт %d)", tsReadyWait, tsPort)
 }
 
 func torrServerPath() string {
@@ -516,7 +613,7 @@ func (a *App) startDaemon() (restartOutcome, string) {
 		a.mu.Unlock()
 		return cur == cmd
 	}
-	if waitReady(60, 250*time.Millisecond, ready, alive) {
+	if waitReady(daemonReadyWait, 250*time.Millisecond, ready, alive) {
 		return restartOK, ""
 	}
 	if !alive() {

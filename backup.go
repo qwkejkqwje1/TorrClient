@@ -26,7 +26,11 @@ import (
 
 // backupFiles — что попадает в архив. Порядок фиксирован: в архиве с одним и
 // тем же состоянием файлы идут одинаково.
-var backupFiles = []string{"torrclient.json", "userdata.json", "viewed.json"}
+//
+// subscriptions.json добавлен вместе с подписками: список набирается месяцами и
+// восстановить его нечем, а архив без него на чужой машине оставил бы подписки
+// пустыми без всякого объяснения.
+var backupFiles = []string{"torrclient.json", "userdata.json", "viewed.json", "subscriptions.json"}
 
 // backupSecrets — поля настроек, которых в архиве быть не должно.
 //
@@ -221,9 +225,10 @@ func (c *Comp) apiBackup(w http.ResponseWriter, r *http.Request) {
 // restoreNames — как называть файлы состояния в сообщении об отказе: «файл
 // userdata.json испорчен» пользователю ничего не говорит.
 var restoreNames = map[string]string{
-	"torrclient.json": "настройки",
-	"userdata.json":   "избранное и закладки",
-	"viewed.json":     "отметки просмотра",
+	"torrclient.json":    "настройки",
+	"userdata.json":      "избранное и закладки",
+	"viewed.json":        "отметки просмотра",
+	"subscriptions.json": "подписки на сериалы",
 }
 
 // validateRestore разбирает файлы архива до первой записи.

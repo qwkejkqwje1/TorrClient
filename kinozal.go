@@ -19,21 +19,29 @@ import (
 
 // ---------- Kinozal search (kinozaltv.life + зеркала) ----------
 
-// Список хостов в порядке приоритета. Домены Кинозала живут недолго и
+// kinozalHosts — хосты в порядке приоритета. Домены Кинозала живут недолго и
 // меняются; при недоступности одного перебираем следующий.
 //
-// Проверено 20.09.2026: kinozaltv.life отвечает 200 и отдаёт 50 строк выдачи;
-// kinozal.me и kinozal.guru отвечают 403 (защита от ботов), kinozal.life не
-// отвечает вовсе. Прежний список начинался с 403-хостов и рабочего адреса не
-// содержал, поэтому источник был мёртв целиком.
+// Проверено 27.09.2026 перебором вживую (см. tools/check-kinozal.js: повторяет
+// тот же список, печатает отчёт). Отдают выдачу — kinozaltv.life и
+// kinozal.cloudns.nz, по 100 ссылок на страницу. Остальные либо не резолвятся,
+// либо отвечают 403/404, либо открываются, но страницы выдачи не содержат.
+//
+// Мёртвые хосты оставлены не по недосмотру, а намеренно: список перебирается
+// по порядку и обрыв недолговечного зеркала переживает без правки кода. Хост,
+// который однажды оживёт, будет работать сам. Начинать же с них нельзя —
+// каждая мёртвая попытка стоит времени ожидания до ответа.
 var kinozalHosts = [...]string{
+	// Живые, проверены 27.09.2026.
 	"kinozaltv.life",
+	"kinozal.cloudns.nz",
+	// Не отвечают: 403 (защита от ботов) либо домен не резолвится. Если
+	// зеркало оживёт, перебор дойдёт до него сам.
 	"kinozal.me",
 	"kinozal.guru",
+	"kinozal.tv",
 	"tv.kinozal.app",
 	"kinozal.jumpingcrab.com",
-	"kinozal.cloudns.nz",
-	"kinozal.tv",
 	"kinozal.club",
 	"kinozal.bz",
 	"kinozal.ist",
@@ -45,6 +53,38 @@ var kinozalHosts = [...]string{
 // (page=0 — первая). Запрос кодируется в UTF-8: сайт принимает и свою
 // windows-1251, и UTF-8 — сверено обоими способами, выдача совпадает.
 const kinozalSearchPath = "/browse.php?s=%s&g=0&page=%d"
+
+// kinozalBases собирает адреса для перебора.
+//
+// Отдельная чистая функция, а не цикл в fetchKinozal: состав списка — это то,
+// что стоит проверять, а сам перебор ходит в сеть. Здесь же отсеиваются мусор
+// и дубли: пользовательский список не должен ни испортить перебор, ни съесть
+// время на два одинаковых адреса подряд.
+func kinozalBases(hosts []string) []string {
+	seen := make(map[string]bool, len(hosts))
+	out := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		h = strings.TrimSpace(strings.ToLower(h))
+		// Хост без суффикса не примет соединение, а мусор в виде адреса целиком
+		// («https://kinozal.tv/») даст путь вида https://https://... — такой
+		// отказ внятнее убрать заранее, чем разбирать его по месту.
+		if h == "" {
+			continue
+		}
+		h = strings.TrimPrefix(h, "https://")
+		h = strings.TrimPrefix(h, "http://")
+		h = strings.TrimSuffix(h, "/")
+		if i := strings.IndexByte(h, '/'); i >= 0 {
+			h = h[:i]
+		}
+		if h == "" || seen[h] {
+			continue
+		}
+		seen[h] = true
+		out = append(out, "https://"+h)
+	}
+	return out
+}
 
 var (
 	// Строка выдачи. Живой Кинозал размечает первую строку как
@@ -105,11 +145,23 @@ func (c *Comp) apiKinozalSearch(w http.ResponseWriter, r *http.Request) {
 // Если не ответил ни один — возвращается ошибка с причиной последней попытки:
 // мёртвый источник не должен выглядеть как пустая выдача.
 func (c *Comp) fetchKinozal(q string, page int) ([]rutorItem, error) {
-	bases := make([]string, 0, len(kinozalHosts))
-	for _, host := range kinozalHosts {
-		bases = append(bases, "https://"+host)
+	// Свой список из настроек идёт первым: человек, который знает рабочее
+	// зеркало, не должен ждать, пока перебор дойдёт до него через мёртвые.
+	hosts := make([]string, 0, len(kinozalExtraHosts())+len(kinozalHosts))
+	hosts = append(hosts, kinozalExtraHosts()...)
+	hosts = append(hosts, kinozalHosts[:]...)
+	return c.fetchKinozalFrom(q, page, kinozalBases(hosts))
+}
+
+// kinozalExtraHosts — добавленные пользователем зеркала. Домены Кинозала
+// меняются быстрее, чем выходят обновления программы, поэтому список должен
+// правиться без пересборки: запись в torrclient.json переживает всё остальное.
+func kinozalExtraHosts() []string {
+	cur := curCfg()
+	if cur == nil {
+		return nil
 	}
-	return c.fetchKinozalFrom(q, page, bases)
+	return cur.KinozalHosts
 }
 
 // fetchKinozalFrom — перебор адресов зеркал. Вынесено отдельно, чтобы путь

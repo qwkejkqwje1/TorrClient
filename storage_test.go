@@ -223,6 +223,22 @@ func TestMoveStateFilesCarriesTheStoreOver(t *testing.T) {
 	}
 }
 
+// Смена папки постоянных данных переносит подписки. Без этого список
+// читался бы из новой папки, где файла нет, и выглядел пустым до перезапуска.
+func TestMoveStateFilesCarriesTheSubscriptions(t *testing.T) {
+	from, to := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(from, "subscriptions.json"), []byte(`[{"id":"s1"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	moved := moveStateFiles(from, to, "viewed.json", "userdata.json", "subscriptions.json")
+	if len(moved) != 1 || moved[0] != "subscriptions.json" {
+		t.Fatalf("перенесено %v, ожидались подписки", moved)
+	}
+	if _, err := os.Stat(filepath.Join(to, "subscriptions.json")); err != nil {
+		t.Errorf("подписки не оказались в новой папке: %v", err)
+	}
+}
+
 // Своё, уже накопленное в новой папке, чужой копией не затирается: иначе
 // случайное указание папки, где уже лежит склад, стёрло бы его.
 func TestMoveStateFilesKeepsWhatIsAlreadyThere(t *testing.T) {
@@ -333,6 +349,11 @@ func TestBackupTakesStateFilesFromTheirFolders(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(data, "viewed.json"), []byte(`{"х":{"1":{"pos":5}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// Подписки набираются месяцами и восстановить их нечем: архив без этого
+	// файла оставил бы их пустыми на другой машине без объяснений.
+	if err := os.WriteFile(filepath.Join(data, "subscriptions.json"), []byte(`[{"id":"s1","title":"Ведьмак"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	comp := &Comp{}
 	rr := httptest.NewRecorder()
@@ -363,6 +384,9 @@ func TestBackupTakesStateFilesFromTheirFolders(t *testing.T) {
 	}
 	if !strings.Contains(got["viewed.json"], `"pos":5`) {
 		t.Errorf("отметки просмотра в архиве: %q", got["viewed.json"])
+	}
+	if !strings.Contains(got["subscriptions.json"], "Ведьмак") {
+		t.Errorf("подписки в архив не попали: %q", got["subscriptions.json"])
 	}
 }
 

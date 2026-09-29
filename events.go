@@ -27,8 +27,9 @@ type eventHub struct {
 var events = &eventHub{subs: map[chan []byte]struct{}{}}
 
 // subscribe заводит канал подписчика. Буфер небольшой: лента сообщает «что
-// изменилось», а не хранит историю — если интерфейс не успевает читать, старое
-// событие теряется, а следующее всё равно принесёт актуальное состояние.
+// изменилось», а не хранит историю — если интерфейс не успевает читать, то при
+// переполнении из буфера вытесняется самое старое, и следующее актуальное
+// событие доезжает на его место.
 func (h *eventHub) subscribe() chan []byte {
 	ch := make(chan []byte, 8)
 	h.mu.Lock()
@@ -68,6 +69,19 @@ func (h *eventHub) broadcast(name string, data any) {
 		select {
 		case ch <- frame:
 		default:
+			// Буфер полон, и роняется самое старое, а не новое. Отбрасывать
+			// новое — значит застрявший интерфейс получал бы устаревшие кадры
+			// и никогда не добрался бы до актуального состояния: следующее
+			// событие тоже отбрасывалось бы, освобождения места не происходит.
+			// Здесь место освобождается сразу, и в канале всегда свежайшее.
+			select {
+			case <-ch:
+			default:
+			}
+			select {
+			case ch <- frame:
+			default:
+			}
 		}
 	}
 }
@@ -122,9 +136,13 @@ func (c *Comp) apiEvents(w http.ResponseWriter, r *http.Request) {
 
 // torrentsSnapshot спрашивает у TorrServer список раздач в исходном виде.
 func (c *Comp) torrentsSnapshot() ([]byte, error) {
+	// active() без профилей возвращает профиль по умолчанию, а не nil, так что
+	// проверка на nil здесь была мёртвой: сломанная настройка молча уходила в
+	// попытку поговорить с 127.0.0.1 и выглядела как «сервер не отвечает».
+	// Проверяется то, что на самом деле может быть пустым, — сам адрес.
 	prof := curCfg().active()
-	if prof == nil {
-		return nil, fmt.Errorf("нет активного сервера")
+	if prof == nil || strings.TrimSpace(prof.URL) == "" {
+		return nil, fmt.Errorf("не задан адрес сервера")
 	}
 	body, _ := json.Marshal(map[string]any{"action": "list"})
 	req, err := http.NewRequest("POST", strings.TrimRight(prof.URL, "/")+"/torrents", bytes.NewReader(body))
@@ -151,10 +169,25 @@ func (c *Comp) torrentsSnapshot() ([]byte, error) {
 // сервере, и без этого сторожa окно закачек опрашивало бы его само — ровно то,
 // что SSE и убирает. Запрос уходит только когда есть кому слушать.
 func (c *Comp) torrentsWatcher() {
-	var last string
+	c.torrentsWatcherStop(nil)
+}
+
+// torrentsWatcherStop — сторож с возможностью остановиться.
+//
+// Отдельный метод нужен не для удобства: цикл без выхода переживает проверку и
+// продолжает ходить на сервер уже после её завершения, а следующая проверка
+// принимает его события за свои. Остановка приходит по done: nil означает
+// «работать вечно», как в настоящей программе.
+func (c *Comp) torrentsWatcherStop(done <-chan struct{}) {
+	var last []byte
 	t := time.NewTicker(2 * time.Second)
 	defer t.Stop()
-	for range t.C {
+	for {
+		select {
+		case <-done:
+			return
+		case <-t.C:
+		}
 		if events.count() == 0 {
 			continue
 		}
@@ -162,10 +195,14 @@ func (c *Comp) torrentsWatcher() {
 		if err != nil {
 			continue
 		}
-		if string(raw) == last {
+		// Снимок сравнивается байтами, а не строкой: на большой библиотеке
+		// string(raw) каждые две секунды — это лишняя копия в мегабайты и
+		// мегабайтное сравнение на ровном месте. bytes.Equal не копирует
+		// ничего, а снимок всё равно нужен целиком — его отдаёт событие.
+		if bytes.Equal(raw, last) {
 			continue
 		}
-		last = string(raw)
+		last = raw
 		events.broadcast("torrents", json.RawMessage(raw))
 	}
 }
@@ -191,10 +228,18 @@ func (d *DLManager) notifyDownloads() {
 // notifyDownloadsNow отправляет список закачек немедленно — так сообщается о
 // смене состояния: смена статуса не должна теряться из-за порога прогресса.
 //
+// Порог при этом сдвигается: событие уже отправлено, и без сдвига первый же
+// прогресс после него прошёл бы порог и отправил то же самое вторым кадром.
+// Тут это особенно заметно — загрузка начинается notifyDownloadsNow, и сразу
+// после старта лента получала список дважды.
+//
 // Папка закачек в событие не входит: её интерфейс знает из /api/hello, а
 // обращение к глобальному конфигу здесь падало бы, если событие шлётся до его
 // публикации (так бывает в проверках и при запуске CLI-помощника).
 func (d *DLManager) notifyDownloadsNow() {
+	// Сдвиг до отправки: если отправка не сдвинет окно, следующий прогресс
+	// пройдёт порог на пустом месте.
+	d.lastNotify.Store(time.Now().UnixNano())
 	events.broadcast("downloads", map[string]any{"jobs": d.list()})
 }
 

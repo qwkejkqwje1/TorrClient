@@ -32,6 +32,10 @@ func (c *Comp) apiHello(w http.ResponseWriter, r *http.Request) {
 		"cache_folder":      cfg.CacheFolder,
 		"data_folder":       cfg.DataFolder,
 		"os":                "windows",
+		// Папка программы нужна странице «О программе»: на диске часто лежит
+		// несколько сборок, и по одному только номеру версии не поймёшь, какая
+		// из них запущена.
+		"exe": exeDir(),
 	})
 }
 
@@ -183,10 +187,16 @@ func (c *Comp) apiProfiles(w http.ResponseWriter, r *http.Request) {
 			// Смена папки постоянных данных переносит накопленное. Без переноса
 			// смена пути выглядела бы как «всё пропало»: файлы остались в
 			// прежней папке, а читаются уже из новой — то есть пустой.
-			moved := moveStateFiles(absToExe(before), nc.DataFolder, "viewed.json", "userdata.json")
+			//
+			// subscriptions.json переносится тем же списком, а перечитывается
+			// отдельно: подписки читаются один раз при запуске, и без этого
+			// после смены папки список указывал бы на новую, где файла нет, —
+			// то есть выглядел бы пустым до следующего перезапуска.
+			moved := moveStateFiles(absToExe(before), nc.DataFolder, "viewed.json", "userdata.json", "subscriptions.json")
 			if len(moved) > 0 {
 				viewedMarks.load()
 				loadUserDataStore()
+				loadSubs()
 				logMsg("  Постоянные данные перенесены: %s", strings.Join(moved, ", "))
 			}
 			jj(w, map[string]any{"ok": true, "moved": moved})

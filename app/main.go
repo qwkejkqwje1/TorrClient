@@ -137,6 +137,9 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 14, G: 19, B: 26, A: 1},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
+		// Закрытие окна прячет его в лоток, а не завершает программу: решение
+		// принимает сама оболочка (вернёт false, если лотка нет).
+		OnBeforeClose: app.beforeClose,
 		Bind: []interface{}{
 			app,
 		},

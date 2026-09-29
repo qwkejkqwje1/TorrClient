@@ -15,6 +15,10 @@ import (
 type UserData struct {
 	Favorites []json.RawMessage `json:"favorites"`
 	Bookmarks []json.RawMessage `json:"bookmarks"`
+	// Collections — подборки: именованные списки раздач. Хранятся как есть,
+	// как избранное и закладки: склад не разбирает чужие поля, а только
+	// перевозит их между интерфейсом и диском.
+	Collections []json.RawMessage `json:"collections"`
 }
 
 var (
@@ -30,27 +34,26 @@ func userDataPath() string {
 
 func loadUserDataStore() {
 	userDataList = &UserData{}
-	b, err := os.ReadFile(userDataPath())
-	if err != nil {
-		return
+	// Файл без номера формата читается как прежде: номера в нём не было, пока
+	// поле не появилось. Битый файл и файл чужого формата оставляют склад пустым,
+	// но сам файл не трогают — иначе следующая запись стёрла бы то, что
+	// разобрать не удалось, и восстановить было бы уже нечего.
+	_ = readStateDoc(userDataPath(), userDataList)
+	if userDataList.Favorites == nil {
+		userDataList.Favorites = []json.RawMessage{}
 	}
-	var d UserData
-	if json.Unmarshal(b, &d) == nil {
-		if d.Favorites == nil {
-			d.Favorites = []json.RawMessage{}
-		}
-		if d.Bookmarks == nil {
-			d.Bookmarks = []json.RawMessage{}
-		}
-		userDataList = &d
+	if userDataList.Bookmarks == nil {
+		userDataList.Bookmarks = []json.RawMessage{}
+	}
+	if userDataList.Collections == nil {
+		userDataList.Collections = []json.RawMessage{}
 	}
 }
 
 func saveUserDataStore() error {
 	userDataMu.Lock()
 	defer userDataMu.Unlock()
-	b, _ := json.MarshalIndent(userDataList, "", "  ")
-	return writeFileAtomic(userDataPath(), b, 0o600)
+	return writeStateDoc(userDataPath(), userDataList)
 }
 
 func (c *Comp) apiUserData(w http.ResponseWriter, r *http.Request) {
@@ -59,12 +62,21 @@ func (c *Comp) apiUserData(w http.ResponseWriter, r *http.Request) {
 		userDataMu.Lock()
 		fav := append([]json.RawMessage{}, userDataList.Favorites...)
 		bm := append([]json.RawMessage{}, userDataList.Bookmarks...)
+		colls := append([]json.RawMessage{}, userDataList.Collections...)
 		userDataMu.Unlock()
-		jj(w, map[string]any{"favorites": fav, "bookmarks": bm})
+		// stored отвечает, писал ли кто-нибудь в склад хоть раз. Без него
+		// «пустой список» неотличим от «склада ещё нет», и свежая сборка
+		// стирала бы избранное, накопленное в браузере до первого сохранения.
+		_, statErr := os.Stat(userDataPath())
+		jj(w, map[string]any{
+			"favorites": fav, "bookmarks": bm, "collections": colls,
+			"stored": statErr == nil,
+		})
 	case http.MethodPost:
 		var in struct {
-			Favorites *[]json.RawMessage `json:"favorites"`
-			Bookmarks *[]json.RawMessage `json:"bookmarks"`
+			Favorites   *[]json.RawMessage `json:"favorites"`
+			Bookmarks   *[]json.RawMessage `json:"bookmarks"`
+			Collections *[]json.RawMessage `json:"collections"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil {
 			// Битый JSON не должен молча обнулить избранное и закладки.
@@ -77,6 +89,12 @@ func (c *Comp) apiUserData(w http.ResponseWriter, r *http.Request) {
 		}
 		if in.Bookmarks != nil {
 			userDataList.Bookmarks = *in.Bookmarks
+		}
+		// Пустой список подборок — не «стереть»: интерфейс шлёт склад целиком,
+		// и пустой массив означает «подборок нет», а не «не трогать».
+		// Отличать их по отсутствию ключа надёжнее, чем по длине.
+		if in.Collections != nil {
+			userDataList.Collections = *in.Collections
 		}
 		userDataMu.Unlock()
 		saveUserDataStore()

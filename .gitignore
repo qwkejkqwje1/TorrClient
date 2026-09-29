@@ -5,6 +5,7 @@ torrclient.log
 tmdb-cache.json
 userdata.json
 viewed.json
+subscriptions.json
 config.db
 settings.json
 
@@ -29,3 +30,11 @@ app/frontend/node_modules/
 # Память проекта и прочий мусор
 .workbuddy-ai/
 _tmp_check.go.disabled
+
+# Вывод гейтов, если он перенаправлен в корень (cmd > x.out 2> x.err).
+# Сами проверки так не пишут — это остатки ручных запусков.
+*.out
+*.err
+
+# Профиль покрытия ручных замеров: go test -coverprofile=.cov
+.cov

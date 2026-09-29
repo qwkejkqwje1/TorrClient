@@ -34,6 +34,13 @@ const state = {
   view: 'library', hello: null, profiles: [], active: null, players: [],
   lib: [], viewed: [], dlJobs: [], settings: null, watch: { folder: '', log: [] }, folders: null,
   query: '', category: 'all', searchState: { loading: false, results: [], provider: 'rutor', q: '' },
+  // seen — фильтр по состоянию просмотра, coll — выбранная подборка. Пустая
+  // подборка означает «вся библиотека», 'fav' — избранное. Отдельно от query и
+  // category: те фильтруют и поиск, а эти два — только библиотеку.
+  seen: 'all', coll: '',
+  // subs — подписки на сериалы. Ведёт их демон: он спрашивает трекер по
+  // расписанию сам и присылает событие, поэтому список нужен только для показа.
+  subs: [],
   series: { loading: false, rows: [] }, modal: null,
   // metaError — код причины, по которой метаданные не приходят («ключ не
   // задан», «ключ отклонён»). Пустая строка — «всё в порядке либо ещё не
@@ -62,17 +69,6 @@ async function tsJson(path, body) { const r = await jFetch(path, body); const t 
 async function tsGet(path) { const r = await fetch(ts(path)); const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch {} if (!r.ok) throw new Error(j.error || r.status); return j; }
 
 function streamBase(fname) { return fname ? `/stream/${encodeURIComponent(fname)}` : '/stream'; }
-function torrentStreamUrl(t, opts = {}) {
-  let q = 'link=' + encodeURIComponent(t.hash) + (opts.index ? '&index=' + opts.index : '');
-  if (opts.play) q += '&play';
-  if (opts.title) q += '&title=' + encodeURIComponent(opts.title);
-  if (opts.category) q += '&category=' + encodeURIComponent(opts.category);
-  if (opts.poster) q += '&poster=' + encodeURIComponent(opts.poster);
-  if (opts.save) q += '&save';
-  // Параметра pos здесь нет и быть не может: TorrServer его не разбирает.
-  // Продолжение с места остановки ставит флаг запуска самого плеера.
-  return ts(streamBase(opts.fname)) + '?' + q;
-}
 
 /* ---------- boot ---------- */
 (async function boot() {
@@ -148,6 +144,28 @@ function folderNoticeHTML(which) {
   </div>`;
 }
 
+// Кэш и данные в одной папке — самая дорогая поломка из возможных: папку кэша
+// принято уводить на очищаемый диск, и вместе с ней уезжают подписки и отметки
+// просмотра, которые заново не собрать. Само сравнение делает демон
+// (см. sameFolder), потому что на Windows регистр букв не различает папки.
+function folderOverlapHTML() {
+  const f = state.folders;
+  if (!f || !f.cache || !f.data) return '';
+  if (!samePath(f.cache.path, f.data.path)) return '';
+  return html`<div class="folder-warn" style="margin-top:10px">
+    <b>Кэш и постоянные данные лежат в одной папке</b>
+    <div class="page-sub">Кэш можно увести на очищаемый диск — постеры и оценки соберутся заново. А вот подписки и отметки просмотра заново не собрать: они уедут вместе с кэшем при первой же очистке. Разведите папки: укажите кэшу отдельный путь.</div>
+  </div>`;
+}
+
+// samePath сравнивает пути как папки, а не как строки: хвостовой слеш и регистр
+// букв не должны выдавать одну и ту же папку за две разные.
+function samePath(a, b) {
+  const norm = s => String(s || '').trim().replace(/[\\/]+$/, '').toLowerCase();
+  const x = norm(a);
+  return !!x && x === norm(b);
+}
+
 // folderFixBody — тело запроса для кнопки исправления. Вынесено отдельно,
 // потому что проверять нужно именно его: в теле должна быть одна сломанная
 // папка, иначе исправление заодно перепишет исправную соседнюю настройку.
@@ -219,6 +237,12 @@ function hookEvents() {
     try { d = JSON.parse(e.data); } catch (err) { return; }
     applyPosition(d);
   });
+  // Новые серии по подписке: демон нашёл их сам, интерфейс только показывает.
+  eventsSrc.addEventListener('subs', e => {
+    let d = {};
+    try { d = JSON.parse(e.data); } catch (err) { return; }
+    subsArrived(d);
+  });
   eventsSrc.addEventListener('torrents', e => {
     let list = [];
     try { list = JSON.parse(e.data); } catch (err) { return; }
@@ -244,6 +268,7 @@ function applyPosition(d) {
   const i = state.viewed.findIndex(v => v.hash === row.hash && v.file_index === row.file_index);
   if (i >= 0) state.viewed[i] = Object.assign({}, state.viewed[i], row);
   else state.viewed.push(row);
+  invalidateMarks();
 
   const key = viewedSignature();
   if (key === viewedKey) return;
@@ -304,7 +329,11 @@ function setView(v) {
 }
 function route() {
   const v = state.view;
-  const pages = { library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, settings: renderSettings, server: renderServer };
+  // Модальные окна живут прямо в document.body, а не внутри <main>, и переход
+  // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
+  // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
+  $$('body > .overlay').forEach(o => o.remove());
+  const pages = { library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderLibrary;
   const main = $('main'); main.innerHTML = '';
   fn(main);
@@ -312,9 +341,12 @@ function route() {
 function hookNav() {
   $('#nav').innerHTML = [
     ['library', 'Библиотека'], ['search', 'Поиск'], ['favorites', 'Избранное'], ['bookmarks', 'Закладки'], ['players', 'Плееры'],
-    ['series', 'Сериалы'], ['downloads', 'Загрузки'], ['settings', 'Настройки'], ['server', 'Сервер'],
+    ['series', 'Сериалы'], ['subs', 'Подписки'], ['downloads', 'Загрузки'], ['settings', 'Настройки'], ['server', 'Сервер'],
   ].map(([k, n]) => `<button data-view="${k}" class="${state.view === k ? 'on' : ''}">${n}</button>`).join('');
   $$('#nav [data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.ctxmenu').forEach(m => m.classList.add('hidden')); setView(b.dataset.view); }));
+  // Число новых серий на вкладке: подписки проверяет демон и без открытой
+  // страницы, а узнать об этом было бы неоткуда.
+  loadSubs().catch(() => {});
 }
 function renderTopbar() {
   const prof = state.profiles.find(p => p.id === state.active) || {};
@@ -324,7 +356,19 @@ function renderTopbar() {
   sel.className = 'tb-select';
   sel.id = 'activeselect';
   sel.innerHTML = state.profiles.map(p => html`<option value="${p.id}" ${p.id === state.active ? 'selected' : ''}>${p.name}</option>`).join('');
-  sel.addEventListener('change', async () => { await api('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'active', id: sel.value }) }); state.active = sel.value; renderServerStatus(); if (state.view === 'library') route(); });
+  sel.addEventListener('change', async () => {
+    // Смена активного сервера — запрос к демону, и он может не пройти. Прежде
+    // отказ был не виден: селект и надпись уже показывали новый сервер, а
+    // библиотека грузилась со старого.
+    const prev = state.active;
+    try {
+      await api('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'active', id: sel.value }) });
+      state.active = sel.value; renderServerStatus(); if (state.view === 'library') route();
+    } catch (e) {
+      toast('Сервер не переключился: ' + e.message, true);
+      sel.value = prev;
+    }
+  });
   sel.classList.toggle('hidden', state.profiles.length < 2);
   cur.replaceWith(sel);
   renderServerStatus();
@@ -418,7 +462,17 @@ async function renderLibrary(root) {
         <option value="name">По названию</option>
         <option value="date">По дате</option>
         <option value="size">По размеру</option>
+        <option value="progress">По просмотру</option>
       </select>
+      <select id="libSeen" style="width:auto" title="Что показать по просмотру">
+        <option value="all">Любой просмотр</option>
+        <option value="new">Не начато</option>
+        <option value="started">Начато</option>
+        <option value="done">Досмотрено</option>
+      </select>
+      <select id="libColl" style="width:auto" title="Подборка"></select>
+      <button id="collNew" class="iconbtn" title="Новая подборка">＋</button>
+      <button id="libReset" class="iconbtn hidden" title="Сбросить фильтры">✕</button>
       <button data-act="refresh" class="iconbtn" title="Обновить">⟳</button>
       <span class="spacer"></span>
       <div class="seg" id="libViewSeg">
@@ -438,6 +492,26 @@ async function renderLibrary(root) {
   $('#libCat').addEventListener('change', () => { state.category = $('#libCat').value; paintLibrary(); });
   $('#libOrder').value = localStorage.getItem(LS.order) || 'name';
   $('#libOrder').addEventListener('change', () => { localStorage.setItem(LS.order, $('#libOrder').value); paintLibrary(); });
+  $('#libSeen').value = state.seen || 'all';
+  $('#libSeen').addEventListener('change', () => { state.seen = $('#libSeen').value; paintLibrary(); });
+  fillCollSelect($('#libColl'), state.coll);
+  $('#libColl').addEventListener('change', () => { state.coll = $('#libColl').value; paintLibrary(); });
+  $('#collNew').addEventListener('click', () => {
+    const name = (typeof prompt === 'function' ? prompt('Название подборки:') : '') || '';
+    if (!name.trim()) return;
+    // Сразу выбрать новую подборку: иначе непонятно, создалась ли она, и куда
+    // попадёт следующая раздача.
+    state.coll = collCreate(name.trim());
+    fillCollSelect($('#libColl'), state.coll);
+    paintLibrary();
+    toast('Подборка создана');
+  });
+  $('#libReset').addEventListener('click', () => {
+    state.query = ''; state.category = 'all'; state.seen = 'all'; state.coll = '';
+    $('#libQuery').value = ''; $('#libCat').value = 'all';
+    $('#libSeen').value = 'all'; $('#libColl').value = '';
+    paintLibrary();
+  });
   $('[data-open="add"]').addEventListener('click', openAddModal);
   $('[data-act="refresh"]').addEventListener('click', () => { refreshLibrary(); });
   $$('#libViewSeg [data-vw]').forEach(b => b.addEventListener('click', () => {
@@ -485,7 +559,7 @@ async function loadLibrary(paint) {
    по времени с момента запуска. Список /viewed у TorrServer отмечает файл
    просмотренным уже в момент начала потока и позицию не хранит. */
 async function loadPositions() {
-  try { const rows = await api('/api/positions'); if (Array.isArray(rows)) state.viewed = rows; }
+  try { const rows = await api('/api/positions'); if (Array.isArray(rows)) { state.viewed = rows; invalidateMarks(); } }
   catch {}
 }
 async function savePosition(hash, fi, pos, duration, done) {
@@ -503,6 +577,7 @@ async function savePosition(hash, fi, pos, duration, done) {
     } else {
       state.viewed.push({ hash, file_index: fi, timecode: body.timecode || 0, duration: body.duration || 0, done: !!body.done });
     }
+    invalidateMarks();
     return true;
   } catch (e) { toast('Не удалось сохранить отметку: ' + e.message, true); return false; }
 }
@@ -527,13 +602,42 @@ async function enrichBackground(need) {
   if (state.view === 'library') paintLibrary();
 }
 
+/* fillCollSelect наполняет список подборок. Отдельной функцией, потому что
+   наполнять приходится не один раз: подборку создают, переименовывают и
+   удаляют, не переходя на другую страницу. */
+function fillCollSelect(sel, value) {
+  if (!sel) return;
+  sel.innerHTML = html`
+    <option value="">Вся библиотека</option>
+    <option value="fav">Избранное</option>
+    ${raw(collList().map(c => html`<option value="${c.id}">${c.name} (${(c.items || []).length})</option>`).join(''))}`;
+  sel.value = value || '';
+}
+
+// libFiltered — включён ли хоть один фильтр. По нему показывается кнопка
+// сброса: без неё «библиотека пуста» при включённом фильтре выглядела бы как
+// пропавшие раздачи, а не как отфильтрованная выдача.
+function libFiltered() {
+  return !!(state.query.trim() || state.category !== 'all' || (state.seen && state.seen !== 'all') || state.coll);
+}
+
 function filterLib() {
   const q = state.query.trim().toLowerCase();
   const cat = state.category;
+  const seen = state.seen || 'all';
+  const coll = state.coll || '';
+  // Наборы хешей готовятся один раз, а не ищутся внутри фильтра: раздач в
+  // библиотеке сотни, и поиск по массиву на каждую делал фильтр квадратичным.
+  const favHashes = new Set(favList().map(f => (f && f.hash ? f.hash : f)));
+  const collItem = coll && coll !== 'fav' ? collById(coll) : null;
+  const collHashes = new Set(collItem ? (collItem.items || []) : []);
   return state.lib.filter(t => {
     const title = (t.title || t.name || '').toLowerCase();
     if (q && !title.includes(q)) return false;
     if (cat !== 'all') { const c = (t.category || '').toLowerCase(); if (cat === 'uncategorized' ? c : c !== cat) return false; }
+    if (seen !== 'all' && watchState(t) !== seen) return false;
+    if (coll === 'fav') { if (!favHashes.has(t.hash)) return false; }
+    else if (coll) { if (!collItem || !collHashes.has(t.hash)) return false; }
     return true;
   });
 }
@@ -546,11 +650,18 @@ function painting() {
     name: (a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || '', 'ru'),
     date: (a, b) => b.timestamp - a.timestamp,
     size: (a, b) => b.torrent_size - a.torrent_size,
+    // «По просмотру»: начатое выше не начатого. У сериала доля считается по
+    // сериям, поэтому начатый сезон поднимается выше просмотренного фильма.
+    progress: (a, b) => libProgress(b) - libProgress(a),
   }[order] || ((a, b) => 0);
   list.sort(cmp);
-  $('#libSub').textContent = `Торрентов: ${state.lib.length}`;
+  $('#libSub').textContent = libFiltered()
+    ? `Показано ${list.length} из ${state.lib.length}`
+    : `Торрентов: ${state.lib.length}`;
+  const reset = $('#libReset');
+  if (reset) reset.classList.toggle('hidden', !libFiltered());
   const grid = $('#libGrid');
-  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = state.lib.length ? 'Нет совпадений.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
+  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
   $('#libEmpty').classList.add('hidden');
   grid.innerHTML = list.map(t => tile(t)).join('');
   bindTiles(grid);
@@ -650,6 +761,10 @@ function tile(t) {
   const rt = ratingFor(t);
   const rtTmdb = rt && rt.rating > 0 ? rt.rating.toFixed(1) : '';
   const rtImdb = rt && rt.imdb > 0 ? rt.imdb.toFixed(1) : '';
+  // Байты метаданных (год, размер, сиды) приходят из ответа TorrServer: год и
+  // счётчики там не обязаны быть числами, а название раздачи пишет трекер.
+  // Каждый байт экранируется по отдельности — разделитель между ними остаётся
+  // разметкой, а подставленное значение ею стать не может.
   const metaBits = [];
   if (t.year) metaBits.push(t.year);
   if (t.torrent_size) metaBits.push(fmtSize(t.torrent_size));
@@ -684,7 +799,7 @@ function tile(t) {
       ${raw(pg)}
       ${raw(pgNote)}
       <div class="metabar">
-        <span class="mb-stats">${raw(metaBits.map(b => b).join(' &nbsp;·&nbsp; ') || '—')}</span>
+        <span class="mb-stats">${raw(metaBits.map(esc).join(' &nbsp;·&nbsp; ') || '—')}</span>
       </div>
       <button class="menu-ico" data-menu title="Ещё">⋮</button>
     </div>
@@ -692,7 +807,9 @@ function tile(t) {
       <button data-act="info">Инфо о раздаче</button>
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>
+      ${raw(ser ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
       <button data-act="bm">Закладка просмотра</button>
+      <button data-act="coll">В подборку…</button>
       <div class="sep"></div>
       <button data-sa="kp">Кинопоиск</button>
       <button data-sa="imdb">IMDb</button>
@@ -735,7 +852,11 @@ function bindTiles(grid) {
     act('[data-act="drop"]', () => dropTorrent(t));
     act('[data-del]', () => dropTorrent(t));
     act('[data-act="autoposter"]', () => autoPoster(t));
+    // Подписка ведётся по названию сериала, а не по раздаче: сезон выходит
+    // новыми раздачами, и следить за одной из них нечем.
+    act('[data-act="subs"]', () => subsAdd(cleanSeriesName(t.title || t.name || '') || t.title || t.name || ''));
     act('[data-act="bm"]', () => { const f = firstPlayable(t); if (!f) return toast('Нет воспроизводимых файлов', true); addBookmark(t, f.id, basename(f.path)); });
+    act('[data-act="coll"]', () => openCollectionPicker(t));
     act('[data-sa="kp"]', () => openExternal(kpSearchUrl(t.title || t.name || '')));
     act('[data-sa="imdb"]', () => openExternal(imdbUrlFor(t)));
   });
@@ -763,6 +884,62 @@ async function autoPoster(t) {
     delete statCache[t.hash];
     paintLibrary();
   } catch (e) { toast('Ошибка сохранения: ' + e.message, true); }
+}
+
+/* openCollectionPicker — окно «в какие подборки положить раздачу».
+   Одна раздача может лежать в нескольких подборках, поэтому это не выбор
+   одного значения, а набор отметок. Удалить подборку можно тут же: отдельной
+   страницы ради трёх списков делать незачем. */
+function openCollectionPicker(t) {
+  const list = collList();
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  ov.innerHTML = html`<div class="modal">
+    <button class="modal-close" data-close>✕</button>
+    <h2>В подборку</h2>
+    <div class="page-sub">${t.title || t.name || ''}</div>
+    <div id="collPick">${raw(list.length
+      ? list.map(c => html`<div class="row"><label style="flex:1"><input type="checkbox" data-coll="${c.id}"${collHas(c.id, t.hash) ? ' checked' : ''}> ${c.name}</label><button class="iconbtn" data-cdel="${c.id}" title="Удалить подборку">✕</button></div>`).join('')
+      : '<div class="empty">Подборок пока нет — создайте первую ниже.</div>')}</div>
+    <div class="divider"></div>
+    <label>Новая подборка</label>
+    <div class="row">
+      <input id="collNewName" placeholder="Например: смотреть вечером" style="flex:1">
+      <button id="collNewGo">Создать</button>
+    </div>
+    <div class="row" style="margin-top:12px; justify-content:flex-end">
+      <button data-close>Готово</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close));
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelectorAll('[data-coll]').forEach(cb => cb.addEventListener('change', () => {
+    const added = collToggle(cb.dataset.coll, t.hash);
+    toast(added ? 'Добавлено в подборку' : 'Убрано из подборки');
+    fillCollSelect($('#libColl'), state.coll);
+    if (state.coll) paintLibrary();
+  }));
+  ov.querySelectorAll('[data-cdel]').forEach(b => b.addEventListener('click', () => {
+    const c = collById(b.dataset.cdel);
+    if (!c) return;
+    if (typeof confirm === 'function' && !confirm('Удалить подборку «' + c.name + '»? Раздачи останутся в библиотеке.')) return;
+    collRemove(b.dataset.cdel);
+    fillCollSelect($('#libColl'), state.coll);
+    close();
+    paintLibrary();
+    toast('Подборка удалена');
+  }));
+  ov.querySelector('#collNewGo').addEventListener('click', () => {
+    const name = (ov.querySelector('#collNewName').value || '').trim();
+    if (!name) return toast('Введите название подборки', true);
+    const id = collCreate(name);
+    collToggle(id, t.hash);
+    fillCollSelect($('#libColl'), state.coll);
+    close();
+    toast('Подборка создана, раздача в ней');
+    paintLibrary();
+  });
 }
 
 async function copyTorrentMagnet(t) {
@@ -885,13 +1062,23 @@ function openEditModal(t) {
   ov.querySelector('#edGo').addEventListener('click', async () => {
     const title = ov.querySelector('#edTitle').value;
     const poster = ov.querySelector('#edPoster').value.trim();
-    await torrentAction('set', { hash: t.hash, title: title, category: ov.querySelector('#edCat').value, poster: poster });
-    // TorrServer поле poster не хранит, поэтому введённый вручную адрес
-    // запоминается отдельно — иначе он пропадал бы при первой же перезагрузке
-    // списка (loadLibrary заменяет state.lib новым массивом).
-    const c = cleanSearchTitle(title || t.title || t.name || '');
-    if (poster) rememberPoster(c, poster); else forgetPoster(c);
-    ov.remove(); refreshLibrary();
+    // Кнопка гасится на время запроса: без этого второе нажатие уходило вторым
+    // запросом, а окно закрывалось только по ответу первого — и «сохранил, но
+    // ничего не изменилось» выглядело как потеря правки.
+    const go = ov.querySelector('#edGo');
+    go.disabled = true;
+    try {
+      await torrentAction('set', { hash: t.hash, title: title, category: ov.querySelector('#edCat').value, poster: poster });
+      // TorrServer поле poster не хранит, поэтому введённый вручную адрес
+      // запоминается отдельно — иначе он пропадал бы при первой же перезагрузке
+      // списка (loadLibrary заменяет state.lib новым массивом).
+      const c = cleanSearchTitle(title || t.title || t.name || '');
+      if (poster) rememberPoster(c, poster); else forgetPoster(c);
+      ov.remove(); refreshLibrary();
+    } catch (e) {
+      toast('Не сохранилось: ' + e.message, true);
+      go.disabled = false;
+    }
   });
 }
 function copyToClip(txt, msg) { navigator.clipboard.writeText(txt).then(() => toast(msg || 'Скопировано')); }
@@ -992,23 +1179,137 @@ function saveFavList(l) { try { localStorage.setItem('tc_userlist', JSON.stringi
 function getBookmarks() { try { const a = JSON.parse(localStorage.getItem('tc_bm') || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } }
 function saveBookmarks(l) { try { localStorage.setItem('tc_bm', JSON.stringify(l)); } catch {} syncUserData(); }
 function userDataPayload() {
-  let fav = [], bm = [];
+  let fav = [], bm = [], colls = [];
   try { fav = JSON.parse(localStorage.getItem('tc_userlist') || '[]'); } catch {}
   try { bm = JSON.parse(localStorage.getItem('tc_bm') || '[]'); } catch {}
-  return { favorites: Array.isArray(fav) ? fav : [], bookmarks: Array.isArray(bm) ? bm : [] };
+  try { colls = JSON.parse(localStorage.getItem(COLLS_KEY) || '[]'); } catch {}
+  return {
+    favorites: Array.isArray(fav) ? fav : [],
+    bookmarks: Array.isArray(bm) ? bm : [],
+    collections: Array.isArray(colls) ? colls : [],
+  };
 }
 function syncUserData() { fetch('/api/userdata', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userDataPayload()) }).catch(() => {}); }
 async function loadUserData() {
   try {
     const j = await api('/api/userdata');
-    if (Array.isArray(j.favorites) && j.favorites.length) localStorage.setItem('tc_userlist', JSON.stringify(j.favorites));
-    if (Array.isArray(j.bookmarks) && j.bookmarks.length) localStorage.setItem('tc_bm', JSON.stringify(j.bookmarks));
+    /* Склад рядом с демоном — источник правды, но только если в него хоть раз
+       писали: у свежей сборки он пуст, и «на сервере пусто» означало бы
+       стирание списка, накопленного в браузере до первого сохранения. Прежде
+       пустой серверный список просто игнорировался, поэтому удалённое в одном
+       браузере возвращалось из другого: устаревшее локальное всегда побеждало. */
+    if (!j.stored) {
+      if (favList().length || getBookmarks().length || collList().length) syncUserData();
+      return;
+    }
+    localStorage.setItem('tc_userlist', JSON.stringify(Array.isArray(j.favorites) ? j.favorites : []));
+    localStorage.setItem('tc_bm', JSON.stringify(Array.isArray(j.bookmarks) ? j.bookmarks : []));
+    // Подборки, как и избранное, лежат на сервере: они переживают переустановку
+    // браузера и едут в архив состояния вместе с остальным.
+    localStorage.setItem(COLLS_KEY, JSON.stringify(Array.isArray(j.collections) ? j.collections : []));
   } catch {}
+}
+
+/* ---------- подборки ----------
+   Подборка — именованный список раздач. Ими заменяется единственное
+   «Избранное»: одного списка мало, когда библиотека на сотни раздач, а
+   переименовать или разложить по полкам его было нельзя.
+
+   В списке хранятся хеши: сама раздача живёт на сервере, и дублировать её
+   описание в подборке незачем — название и постер берутся из библиотеки. Хеш
+   переживает переименование раздачи, а вот название раздачи — нет. */
+const COLLS_KEY = 'tc_colls';
+
+function collList() {
+  try {
+    const a = JSON.parse(localStorage.getItem(COLLS_KEY) || '[]');
+    return Array.isArray(a) ? a.filter(c => c && typeof c === 'object' && c.id) : [];
+  } catch { return []; }
+}
+function saveCollList(l) { try { localStorage.setItem(COLLS_KEY, JSON.stringify(l)); } catch {} syncUserData(); }
+function collById(id) { return collList().find(c => c.id === id) || null; }
+function collHas(id, hash) { const c = collById(id); return !!(c && (c.items || []).indexOf(hash) >= 0); }
+function collCreate(name) {
+  const list = collList();
+  const id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  list.push({ id, name: String(name || 'Подборка').slice(0, 60), items: [] });
+  saveCollList(list);
+  return id;
+}
+// Возвращает признак «теперь в подборке»: по нему интерфейс говорит, что
+// добавлено, а что убрано, — не переспрашивая список заново.
+function collToggle(id, hash) {
+  const list = collList();
+  const c = list.find(x => x.id === id);
+  if (!c) return false;
+  const items = Array.isArray(c.items) ? c.items : [];
+  const at = items.indexOf(hash);
+  if (at >= 0) { items.splice(at, 1); c.items = items; saveCollList(list); return false; }
+  c.items = items.concat([hash]);
+  saveCollList(list);
+  return true;
+}
+function collRemove(id) {
+  const list = collList().filter(c => c.id !== id);
+  saveCollList(list);
+  if (state.coll === id) state.coll = '';
+}
+
+/* watchState — состояние просмотра раздачи: не начато, начато, досмотрено.
+   Считается по видеофайлам: у сериала «досмотрено» означает все серии, одна
+   начатая серия делает раздачу начатой. Нет известных файлов (статистика ещё не
+   подгружена) — раздача считается не начатой, а не пропадает из выдачи. */
+function watchState(t) {
+  const vids = playableOf(t).filter(f => isVideo(f.path));
+  if (!vids.length) return 'new';
+  const done = vids.filter(f => isWatched(t, f.id)).length;
+  if (done >= vids.length) return 'done';
+  if (done > 0 || vids.some(f => viewedShare(t, f.id) > 0)) return 'started';
+  return 'new';
+}
+// Доля просмотренного: у сериала — по сериям, у фильма — по первому файлу.
+function libProgress(t) {
+  const sp = seriesProgress(t);
+  if (sp) return sp.share;
+  const f = playableOf(t).filter(x => isVideo(x.path))[0];
+  return f ? viewedShare(t, f.id) : 0;
 }
 /* Отметка одного файла. Досмотр и позиция — разные вещи: у досмотренной серии
    позиция обнуляется, поэтому «просмотрено» определяется признаком done, а не
    положительным временем. По времени досмотренная серия выглядела непросмотренной. */
-function markOf(t, fi) { return (state.viewed || []).find(x => x.hash === t.hash && x.file_index === fi) || null; }
+/* marksIndex — те же отметки, разложенные по хешу раздачи. Строится по
+   требованию и живёт до первого изменения отметок.
+
+   Прежде поиск шёл по всему массиву на каждый файл: плитка сериала спрашивает
+   про каждый файл дважды (досмотр и позиция), то есть 200 раздач × 100 файлов ×
+   500 отметок давали на каждую перерисовку миллионы сравнений. Перерисовка же
+   идёт на каждый ввод буквы в фильтре и на каждое событие positions. Индекс
+   строится один раз за весь проход — столько же работы, сколько один поиск. */
+let marksIndex = null;
+let marksIndexArr = null;
+let marksIndexLen = -1;
+
+/* Сброс нужен ровно там, где запись отметки заменяется на месте новым объектом
+   (так приходит событие positions): смену самого массива и его рост индекс
+   замечает сам, и вызывать сброс из каждого места не требуется — забытый сброс
+   означал бы устаревшие отметки на экране. */
+function invalidateMarks() { marksIndex = null; }
+function marksFor(hash) {
+  const arr = state.viewed || [];
+  if (!marksIndex || marksIndexArr !== arr || marksIndexLen !== arr.length) {
+    marksIndex = {};
+    marksIndexArr = arr;
+    marksIndexLen = arr.length;
+    arr.forEach(v => {
+      if (!v) return;
+      let m = marksIndex[v.hash];
+      if (!m) m = marksIndex[v.hash] = {};
+      m[v.file_index] = v;
+    });
+  }
+  return marksIndex[hash] || null;
+}
+function markOf(t, fi) { const m = marksFor(t.hash); return (m && m[fi]) || null; }
 function currentTc(t, fi) { const v = markOf(t, fi); return v && !v.done ? (v.timecode || 0) : 0; }
 function isWatched(t, fi) { const v = markOf(t, fi); return !!(v && v.done); }
 function viewedShare(t, fi) { const v = markOf(t, fi); return v && v.duration > 0 ? Math.min(1, (v.timecode || 0) / v.duration) : 0; }
@@ -1155,7 +1456,11 @@ async function renderBookmarks(root) {
   $('#bmClear').addEventListener('click', () => { if (list.length && confirm('Удалить все закладки?')) { saveBookmarks([]); renderBookmarks($('main')); } });
   const body = $('#bmBody');
   if (!list.length) { body.innerHTML = '<div class="empty">Закладок пока нет.</div>'; return; }
-  let viewed = []; try { viewed = await tsJson('/viewed', { action: 'list' }); state.viewed = viewed; } catch {}
+  // Список читается только для этой страницы и НЕ подменяет общий: у TorrServer
+  // отметка означает «файл тронут», позиции в ней нет вовсе, а общий список
+  // ведёт демон — он один знает время. Подмена затирала бы позиции всех раздач
+  // после простого открытия «Закладок».
+  let viewed = []; try { viewed = await tsJson('/viewed', { action: 'list' }); } catch {}
   const rows = list.map(b => {
     const v = viewed.find(x => x.hash === b.hash && x.file_index === b.file_index);
     const cur = v && v.timecode > 0 ? v.timecode : (b.pos || 0);
@@ -1272,7 +1577,7 @@ let searchAbort = null;
 // Раньше клиент брал первые 40 строк из 100 и следующую страницу не давал вовсе,
 // поэтому нужная раздача могла быть просто не видна.
 let moreSources = {};
-const SRC_PAGE = { rutor: 100, kinozal: 50 };
+const SRC_PAGE = { rutor: 100, kinozal: 50, torznab: 100 };
 function hasMore() {
   return Object.entries(moreSources).some(([p, s]) => s.count >= (SRC_PAGE[p] || 0));
 }
@@ -1318,7 +1623,7 @@ async function renderSearch(root) {
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   $('#searchProv').addEventListener('change', () => sd.provider = $('#searchProv').value);
   $('#searchCat').addEventListener('change', () => { sd.cat = $('#searchCat').value; sd.showAll = false; updateTopBtnLabel(); paintResults($('#searchResults')); });
-  $('#searchQual').addEventListener('change', () => { setQual($('#searchQual').value); paintResults($('#searchResults')); });
+  $('#searchQual').addEventListener('change', () => { setQual($('#searchQual').value); state.searchState.showAnyQual = false; paintResults($('#searchResults')); });
   const vidBox = $('#searchVid');
   if (vidBox) {
     vidBox.checked = videoOnlyPref();
@@ -1519,6 +1824,7 @@ async function fetchTop24() {
   state.searchState.results = items;
   state.searchState.q = '';
   state.searchState.topLabel = '';
+  state.searchState.showAnyQual = false;
   moreSources = {};
   state.top24Hash = resp.hash || '';
   button.disabled = false; updateTopBtnLabel();
@@ -1547,6 +1853,7 @@ async function fetchTopCat(sec, label) {
   state.searchState.results = items;
   state.searchState.q = '';
   state.searchState.topLabel = label;
+  state.searchState.showAnyQual = false;
   moreSources = {};
   state.top24Hash = '';
   button.disabled = false; updateTopBtnLabel();
@@ -1619,10 +1926,12 @@ async function doSearch() {
   const cat = rutorCat();
   sd().append = $('#searchAppend') && $('#searchAppend').checked;
   sd().showAll = false; // новый поиск снова прячет не-видео
+  sd().showAnyQual = false; // и снова применяет выбранное качество
   sd().exclude = parts.drop; // «ведьмак -игра» отсекает игру по названию
   state.searchState.results = sd().append ? state.searchState.results : [];
   moreSources = {};
   if (prov === 'rutor' || prov === 'both') moreSources.rutor = { query: q, page: 0, count: 0, cat };
+  if (prov === 'torznab' || prov === 'both') moreSources.torznab = { query: q, page: 0, count: 0, cat: 0 };
   if (prov === 'kinozal' || prov === 'both') moreSources.kinozal = { query: q, page: 0, count: 0, cat: 0 };
   paintResults($('#searchResults'));
   const el = $('#searchResults');
@@ -1631,15 +1940,18 @@ async function doSearch() {
   const jobs = [];
   const errs = [];
   const add = (p, promise) => jobs.push(promise.catch(e => {
+    /* Torznab разбирает источники построчно, и причина там длиннее одной
+       строки всплывающей подсказки, поэтому она уходит в разбор под списком,
+       а не в toast. Для остальных источников поведение прежнее. */
+    if (p === 'torznab') { state.searchState.tznabOff = 'Torznab: ' + e.message; return; }
     errs.push(p + ': ' + e.message);
-    if (p === 'torznab') { state.searchState.tznabOff = 'Torznab не настроен на сервере — поиск ведётся только по остальным источникам'; return; }
     toast(p + ': ' + e.message, true);
   }).then(r => {
     if (r && r.length) { state.searchState.results = mergeResults(state.searchState.results, r); }
     else if (p !== 'torznab') errs.push(p + ': 0 результатов');
   }));
   if (moreSources.rutor) add('rutor', searchRutor(q, 0, cat).then(r => { moreSources.rutor.count = r.length; return r; }));
-  if (prov === 'torznab' || prov === 'both') add('torznab', searchTorznab(q));
+  if (prov === 'torznab' || prov === 'both') add('torznab', searchTorznab(q, 0).then(r => { moreSources.torznab.count = r.length; return r; }));
   if (moreSources.kinozal) add('kinozal', searchKinozal(q, 0).then(r => { moreSources.kinozal.count = r.length; return r; }));
   await Promise.all(jobs);
   state.searchState.status = errs;
@@ -1717,9 +2029,10 @@ async function loadMore() {
   if (btn) { btn.disabled = true; btn.textContent = 'Загрузка...'; }
   for (const [p, s] of targets) {
     try {
-      const next = p === 'kinozal'
-        ? await searchKinozal(s.query, s.page + 1)
-        : await searchRutor(s.query, s.page + 1, s.cat);
+      let next;
+      if (p === 'kinozal') next = await searchKinozal(s.query, s.page + 1);
+      else if (p === 'torznab') next = await searchTorznab(s.query, s.page + 1);
+      else next = await searchRutor(s.query, s.page + 1, s.cat);
       s.page += 1;
       s.count = next.length;
       if (next.length) state.searchState.results = mergeResults(state.searchState.results, next);
@@ -1731,14 +2044,30 @@ async function loadMore() {
   paintResults($('#searchResults'));
 }
 
-async function searchTorznab(q) {
-  const arr = await apiGetJSON(ts('/torznab/search?query=' + encodeURIComponent(q)));
+async function searchTorznab(q, page) {
+  /* Свой Torznab отдаёт не голый список, а разбор по индексаторам: упал ли
+     какой-то из них и почему. Раньше эта причина терялась, и пустая выдача
+     выглядела так же, как «все индексаторы молчат». */
+  const env = await apiGetJSON('/api/torznab/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0));
+  const arr = env && Array.isArray(env.items) ? env.items : [];
+  if (env && Array.isArray(env.sources)) {
+    const bad = env.sources.filter(s => !s.ok && s.error);
+    if (bad.length) {
+      const names = bad.map(s => s.name + ' — ' + s.error).join('; ');
+      if (!arr.length) throw new Error(names);
+      state.searchState.tznabOff = 'Индексатор не ответил: ' + names;
+    }
+  }
   return (arr || []).map(it => {
     const g = (a, b) => (it[a] != null ? it[a] : it[b]);
     return {
-      _p: 'torznab', title: g('name', 'Name') || g('title', 'Title'), name: g('name', 'Name'), year: g('year', 'Year'),
-      size_bytes: parseSizeBytes(g('size_bytes', 'Size')), size: g('size', 'Size'), seed: g('seed', 'Seed'), peer: g('peer', 'Peer'),
-      magnet: g('magnet', 'Magnet'), hash: g('hash', 'Hash'), poster: g('poster', 'Poster'), imdb_id: g('imdb_id', 'IMDBID'), link: g('link', 'Link'), data: it,
+      _p: 'torznab', title: g('title', 'Title') || g('name', 'Name'), name: g('title', 'Title') || g('name', 'Name'),
+      size: g('size', 'Size'), size_bytes: parseSizeBytes(g('size', 'Size')),
+      seed: g('seed', 'Seed'), peer: g('peer', 'Peer'),
+      magnet: g('magnet', 'Magnet'), hash: g('hash', 'Hash'), link: g('link', 'Link'),
+      imdb_id: g('imdb', 'IMDB') || g('imdb_id', 'IMDBID'),
+      categories: g('categories', 'Categories'),
+      data: it,
     };
   });
 }
@@ -1749,11 +2078,20 @@ function paintResults(el) {
   const qual = QUAL[qualOn()] || QUAL['fhd'];
   const status = state.searchState.status || [];
   if (!rows.length) {
-    if (needProvider) needProvider.innerHTML = '<div class="empty">Нет результатов.' + (status.length ? '' : ' Включите поиск на сервере (вкладка Сервер → rutor/Torznab).') + '</div>'
+    if (needProvider) needProvider.innerHTML = '<div class="empty">Нет результатов.' + (status.length ? '' : ' Проверьте индексаторы: Настройки → Torznab.') + '</div>'
       + (status.length ? html`<div class="hint" style="text-align:center;margin-top:8px">${status.join(' · ')}</div>` : '');
     return;
   }
-  let rows2 = rows.filter(r => qual.ok(r.title || r.name || ''));
+  /* Фильтр качества включён по умолчанию, и на живом блоке суток он снимает
+     несколько раздач: 720p и HDTVRip не 1080p. Раньше заголовок писал число
+     уже отфильтрованных строк, из-за чего «ТОП-24 за последние 24 часа (24)»
+     читалось как «трекер отдал двадцать четыре раздачи» — и человек искал
+     ограничение там, где его нет. Теперь показываются оба числа, отсев
+     называется своим фильтром, и его можно снять одной кнопкой. */
+  const qualTotal = rows.length;
+  const qualFilter = qualOn() && !(state.searchState && state.searchState.showAnyQual);
+  let rows2 = qualFilter ? rows.filter(r => qual.ok(r.title || r.name || '')) : rows.slice();
+  const hiddenQual = qualTotal - rows2.length;
   /* Не-видео скрывается при «всех категориях»: выбрав «Игры» или «Софт»,
      пользователь просит именно их. Скрытые раздачи из выдачи не выбрасываются —
      их вернёт «показать всё». */
@@ -1792,12 +2130,20 @@ function paintResults(el) {
     return (b.seed || 0) - (a.seed || 0);
   });
   const isTop = rows2.length && rows2.every(r => r.provider === 'top24' || r.provider === 'topcat');
-  const fhdNote = qualOn() ? ' · ' + qual.label : '';
+  const fhdNote = qualFilter ? ' · ' + qual.label : '';
   const topLabel = state.searchState.topLabel || '';
   const sortLabel = sort === 'peer' ? 'по личам' : 'по сидам';
   // В заголовке видно, сколько раздач в блоке суток: иначе «ТОП-24» читается
-  // как «двадцать четыре строки», и обрыв выдачи выглядит нормой.
-  const head = topLabel ? 'ТОП раздела: ' + topLabel + ' (' + sortLabel + ')' : (isTop ? 'ТОП-24 за последние 24 часа (' + rows2.length + ')' : 'Результаты (' + rows2.length + ')' + fhdNote);
+  // как «двадцать четыре строки», и обрыв выдачи выглядит нормой. Число пришло
+  // одно, а показано другое — пишем оба, иначе отсев остаётся невидимым.
+  const shown = rows2.length + (hidden || 0) + hiddenEx;
+  const cnt = hiddenQual ? shown + ' из ' + qualTotal : '' + shown;
+  const head = topLabel ? 'ТОП раздела: ' + topLabel + ' (' + sortLabel + ')' : (isTop ? 'ТОП-24 за последние 24 часа (' + cnt + ')' : 'Результаты (' + cnt + ')' + fhdNote);
+  // Индекс строки в полной выдаче: по нему карточка находит свой data-ix.
+  // Прежде он искался через rows.indexOf внутри map — проход по всей выдаче на
+  // каждую показанную строку, то есть квадрат на больших выдачах.
+  const rowIx = new Map();
+  rows.forEach((r, i) => { if (!rowIx.has(r)) rowIx.set(r, i); });
   needProvider.innerHTML = html`<h2 class="section">${head}
     <select id="resSort" style="width:auto" title="Сортировка">
       <option value="seed" ${sort === 'seed' ? 'selected' : ''}>по сидам</option>
@@ -1807,16 +2153,18 @@ function paintResults(el) {
     </select>
     ${raw(hasMore() ? '<button id="moreBtn" class="primary" style="margin-left:8px" title="Следующая страница выдачи">Показать ещё</button>' : '')}
     ${raw(hidden ? html`<span class="hint" style="margin:0">скрыто ${hidden} не-видео</span><button id="showAllBtn" style="width:auto" title="Вернуть игры, софт и книги в выдачу">показать всё</button>` : '')}
+    ${raw(hiddenQual ? html`<span class="hint" style="margin:0">отсеяно ${hiddenQual} фильтром «${qual.label}»</span><button id="anyQualBtn" style="width:auto" title="Показать раздачи ниже выбранного качества — например, 720p и HDTVRip">показать без фильтра качества</button>` : '')}
     ${raw(hiddenEx ? html`<span class="hint" style="margin:0">скрыто ${hiddenEx} по «${excl.map(w => '-' + w).join(' ')}»</span>` : '')}
     ${raw(state.searchState.tznabOff ? html`<span class="hint" style="margin:0">${state.searchState.tznabOff}</span>` : '')}
     ${raw(status.length ? html`<span class="hint" style="margin:0">${status.join(' · ')}</span>` : '')}
   </h2>
   <div class="grid results">` +
-    sorted.map((res, i) => resultRow(res, rows.indexOf(res))).join('') +
+    sorted.map(res => resultRow(res, rowIx.has(res) ? rowIx.get(res) : -1)).join('') +
     `</div>`;
   const so = $('#resSort'); if (so) so.addEventListener('change', () => { state.searchState.sort = so.value; paintResults($('#searchResults')); });
   const mb = $('#moreBtn'); if (mb) mb.addEventListener('click', loadMore);
   const sab = $('#showAllBtn'); if (sab) sab.addEventListener('click', () => { state.searchState.showAll = true; paintResults($('#searchResults')); });
+  const aqb = $('#anyQualBtn'); if (aqb) aqb.addEventListener('click', () => { state.searchState.showAnyQual = true; paintResults($('#searchResults')); });
   $$('.result', needProvider).forEach(row => bindResult(row));
   updateFavMarks();
   enrichPosters(sorted, rows);
@@ -2023,10 +2371,15 @@ async function enrichPosters(visible, all) {
   const base = all || visible;
   const items = [];
   const byKey = new Map();
+  // Индекс строки в полном списке — по карте, а не поиском: прежде на каждой
+  // показанной строке просматривалась вся выдача целиком (200 × N сравнений на
+  // каждую перерисовку постеров).
+  const ixOf = new Map();
+  base.forEach((r, i) => { if (!ixOf.has(r)) ixOf.set(r, i); });
   (visible || []).slice(0, POSTER_MAX).forEach(r => {
     const c = cleanSearchTitle(r.title || r.name || '');
     if (!c.q) return;
-    const ix = base.indexOf(r);
+    const ix = ixOf.has(r) ? ixOf.get(r) : -1;
     if (ix < 0) return;
     const key = c.q + '|' + c.year;
     // Одно и то же кино в разном качестве спрашивается один раз: строка
@@ -2612,7 +2965,6 @@ function bindTorrentPlay(ov, t, files) {
   el.querySelector('[data-pk="bm"]').addEventListener('click', () => { addBookmark(t, curFile.id, basename(curFile.path), estimatePos(t.hash, curFile.id)); });
 }
 function basename(p) { const i = p.lastIndexOf('/'); return i >= 0 ? p.slice(i + 1) : p; }
-function urlSafe(p) { return p.replace(/[\s]/g, '%20'); }
 function makeStreamUrlFor(t, f) {
   // Ссылка на один файл: плейлист всей раздачи собирает демон, когда получает
   // раздачу и номер файла. Продолжение с места остановки ставит плеер флагом
@@ -2766,7 +3118,7 @@ function openEpisodesPicker(t, files) {
     <div class="eps-list" style="max-height:60vh;overflow:auto">
       ${raw(seasons.map(sn => html`<div class="eps-season" data-sn="${sn}">
         <div class="eps-season-h">${sn ? 'Сезон ' + sn : 'Эпизоды'}</div>
-        ${groups.get(sn).map(f => epRow(t, f, next, sn)).join('')}
+        ${raw(groups.get(sn).map(f => epRow(t, f, next, sn)).join(''))}
       </div>`).join(''))}
     </div>
   </div>`;
@@ -2807,6 +3159,43 @@ function epLabel(f, t) {
   }
   return basename(f.path);
 }
+/* epFileName — название серии из имени файла. Релиз пишет его в скобках сразу
+   после номера: «S02 E01 (Тихая жизнь) WEB-DL 1080p». TMDB отвечает не всегда
+   (у него своя сеть и ключ), а имя серии нужно всегда, поэтому это запасной
+   источник: разметку и год релизера именем серии не считаем. Когда TMDB ответит,
+   loadEpDetails подставит своё, каноническое название. */
+const RE_EP_NAME_JUNK = /^(?:\d{4}|2160p?|1080p?|720p?|480p?|4k|uhd|bdrip|blu-?ray|web-?dl|web-?rip|hdrip|hdtv|dvdrip|remux|sdr|hdr10?|hevc|x26[45]|mkv|avi|mp4|mov)$/i;
+function epFileName(path) {
+  const s = basename(path);
+  const m = s.match(RE_SXEX) || s.match(RE_RU_EP);
+  if (!m) return '';
+  const tail = s.slice(m.index + m[0].length);
+  const clean = x => x.replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const junk = w => !w || RE_EP_NAME_JUNK.test(w) || /^\d+$/.test(w);
+  // Скобки сразу после номера: «S02E01 (Тихая жизнь)». В скобках может
+  // оказаться год или разрешение — тогда ищем дальше, а не выдаём мусор.
+  const g = tail.match(/[[(]([^[\]()]{2,60})[\])]/);
+  if (g) {
+    const inBrackets = clean(g[1]);
+    if (inBrackets && !junk(inBrackets)) return inBrackets;
+  }
+  // Иначе — слова после номера до первой технической приметы: год,
+  // разрешение, кодек, «WEB-DL». Название может идти через дефис или точки,
+  // поэтому режем только по пробелу и точке: «Sci-Fi» и «WEB-DL» останутся
+  // целыми, а мусор справа отбросится.
+  let rest = tail.replace(/\.[A-Za-z0-9]{2,4}$/, '').replace(/^[\s\-–—:]+/, '');
+  const words = [];
+  for (const w of rest.split(/[.\s·]+/)) {
+    const t = w.trim();
+    if (!t) continue;
+    if (/^[[(]/.test(t) || junk(t)) break;
+    words.push(t);
+    if (words.join(' ').length > 60) break;
+  }
+  const name = clean(words.join(' '));
+  if (!name || junk(name) || !/[\p{L}]/u.test(name)) return '';
+  return name;
+}
 /* epRow — строка списка серий: подпись, название, дата выхода, длительность,
    описание и кадр из метаданных, состояние (просмотрено / продолжение / не
    начата) и отметка просмотра. Номер серии стоит и на строке, и на кнопке:
@@ -2821,11 +3210,12 @@ function epRow(t, f, next, season) {
   if (tc > 0) cls.push('started');
   if (isNext) cls.push('next');
   const p = parseSeriesEp(basename(f.path)) || {};
+  const fb = epFileName(f.path);
   return html`<div class="${cls.join(' ')}" data-ep-row="${f.id}" data-ep-num="${p.e || 0}" data-sn="${season}">
     <button class="ep-main" data-ep="${f.id}" data-ep-num="${p.e || 0}" data-sn="${season}" title="${basename(f.path)}">
       <span class="ep-still"></span>
       <span class="ep-body">
-        <span class="ep-line1"><span class="ep-label">${epLabel(f, t)}</span><span class="epname"></span></span>
+        <span class="ep-line1"><span class="ep-label">${epLabel(f, t)}</span><span class="epname">${fb ? ' · ' + fb : ''}</span></span>
         <span class="ep-meta"></span>
         <span class="ep-over"></span>
         <span class="ep-state">${stateText}</span>
@@ -3104,8 +3494,14 @@ function paintPlayersList(root) {
     if (!p) return;
     card.querySelector('[data-save]').addEventListener('click', async () => {
       p.path = getVal('path'); p.args = getVal('args'); p.found = !!p.path;
-      await fetch('/api/player/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state.players) });
-      toast('Сохранено'); route();
+      // «Сохранено» показывается только по успешному ответу: прежде надпись
+      // появлялась и при 500, и человек уходил с мыслью, что путь записан.
+      try {
+        const r = await fetch('/api/player/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state.players) });
+        if (!r.ok) { toast('Не сохранилось: HTTP ' + r.status, true); return; }
+        toast('Сохранено');
+        route();
+      } catch (e) { toast('Не сохранилось: ' + e.message, true); }
     });
     const browse = card.querySelector('[data-browse]'); if (browse) browse.addEventListener('click', () => {
       const inp = card.querySelector('[data-f="path"]');
@@ -3287,6 +3683,153 @@ function paintDownloads() {
   }));
 }
 
+/* ================= ПОДПИСКИ НА СЕРИАЛЫ =================
+   Демон сам спрашивает трекер о новых сериях и присылает событие subs: своей
+   проверки у интерфейса нет. Здесь только список подписок, число непрочитанных
+   находок и кнопки «завести», «проверить», «прочитано», «снять».
+
+   Первая проверка новой подписки ничего не объявляет — она запоминает, что уже
+   вышло. Иначе свежая подписка принесла бы разом все серии сериала как новые. */
+
+/* subsKey приводит название к виду сравнения — так же, как это делает демон:
+   без регистра, без знаков и с «ё», приведённой к «е». Нужен, чтобы повторная
+   подписка на тот же сериал не заводилась второй раз молча. */
+function subsKey(s) {
+  return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
+}
+function subsKnown(title) {
+  const key = subsKey(title);
+  return (state.subs || []).some(s => subsKey(s.title) === key || subsKey(s.query) === key);
+}
+async function loadSubs() {
+  try {
+    const j = await api('/api/subs');
+    state.subs = Array.isArray(j.subs) ? j.subs.filter(s => s && s.id) : [];
+  } catch { state.subs = []; }
+  paintSubsBadge();
+  return state.subs;
+}
+function subsNewTotal() { return (state.subs || []).reduce((n, s) => n + (Number(s.new_count) || 0), 0); }
+/* paintSubsBadge — число непрочитанных находок на самой вкладке: без него о
+   новой серии узнают, только заглянув в раздел. */
+function paintSubsBadge() {
+  const btn = $('#nav [data-view="subs"]');
+  if (!btn) return;
+  const n = subsNewTotal();
+  btn.textContent = n ? 'Подписки (' + n + ')' : 'Подписки';
+  btn.classList.toggle('hasnew', n > 0);
+}
+async function subsAction(action, body) {
+  return api('/api/subs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action }, body || {})) });
+}
+async function subsAdd(title, query) {
+  const t = String(title || '').trim();
+  if (!t) { toast('Нечего отслеживать: пустое название', true); return; }
+  const was = subsKnown(t);
+  try {
+    await subsAction('add', { title: t, query: query || '' });
+    await loadSubs();
+    toast(was ? 'Уже отслеживается: ' + t : 'Следим за «' + t + '»');
+    if (state.view === 'subs') route();
+  } catch (e) { toast('Не удалось подписаться: ' + e.message, true); }
+}
+async function subsRemove(id) {
+  try {
+    await subsAction('remove', { id });
+    state.subs = (state.subs || []).filter(s => s.id !== id);
+    paintSubsBadge();
+    if (state.view === 'subs') route();
+    toast('Подписка снята');
+  } catch (e) { toast('Не удалось снять подписку: ' + e.message, true); }
+}
+async function subsSeen(id) {
+  try { await subsAction('seen', { id }); await loadSubs(); if (state.view === 'subs') paintSubsBody(); }
+  catch (e) { toast('Не удалось сбросить новизну: ' + e.message, true); }
+}
+async function subsCheck() {
+  try {
+    await subsAction('check');
+    // Проверка идёт на демоне и отвечает сразу, а список обновится позже: ответ
+    // ручки означает «принято», а не «проверено». Поэтому список перечитывается
+    // ещё раз через несколько секунд, и о находках сообщает событие subs.
+    toast('Проверяю трекер — о новых сериях сообщу');
+    setTimeout(loadSubs, 4000);
+    setTimeout(loadSubs, 15000);
+  } catch (e) { toast('Проверка не запустилась: ' + e.message, true); }
+}
+
+function fmtWhen(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+function subsCard(s) {
+  const known = s.season ? 'известно: сезон ' + s.season + (s.episode ? ', серия ' + s.episode : '') : 'ещё не проверялась';
+  const check = fmtWhen(s.checked);
+  return html`<div class="card sub-card" data-sub="${s.id}">
+    <div class="row wrap">
+      <h3 style="flex:1;margin:0">${s.title}</h3>
+      ${raw(s.new_count ? html`<span class="chip hasnew">${s.new_count} ${plural(s.new_count, 'новая серия', 'новые серии', 'новых серий')}</span>` : '')}
+      <button data-sub-check>Проверить</button>
+      ${raw(s.new_count ? html`<button data-sub-seen>Прочитано</button>` : '')}
+      <button data-sub-del class="danger">Снять</button>
+    </div>
+    <div class="page-sub" style="margin:6px 0 0">Запрос на трекере: ${s.query || s.title} · ${known}${check ? ' · проверено ' + check : ''}</div>
+    ${raw(s.last_seen ? html`<div class="page-sub" style="margin:0">Последняя находка: ${s.last_seen}</div>` : '')}
+  </div>`;
+}
+function renderSubs(root) {
+  root.innerHTML = html`
+    <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
+      <div class="page-sub">Демон сам спрашивает трекер о новых сериях и сообщает о них в живую ленту — проверять руками ничего не надо.</div></div>
+      <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
+      <button id="subAdd" class="primary">＋ Следить</button>
+      <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>
+    </div>
+    <div id="subBody"><div class="empty">Загрузка подписок...</div></div>`;
+  const add = () => { const inp = $('#subNew'); subsAdd(inp.value).then(() => { inp.value = ''; }); };
+  $('#subAdd').addEventListener('click', add);
+  $('#subNew').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+  $('#subCheck').addEventListener('click', subsCheck);
+  paintSubsBody();
+  // Список спрашивается у демона, а не берётся из памяти: подписки живут с ним
+  // и меняются в том числе пока страница была закрыта.
+  loadSubs().then(paintSubsBody).catch(() => {});
+}
+function paintSubsBody() {
+  const body = $('#subBody'); if (!body) return;
+  const list = state.subs || [];
+  if (!list.length) {
+    body.innerHTML = html`<div class="empty">Подписок нет. Заведите её здесь или в карточке сериала: демон сам проверит трекер и сообщит о новой серии.</div>`;
+    return;
+  }
+  body.innerHTML = html`<div class="page-sub">Подписок: ${list.length}${subsNewTotal() ? ' · новых серий: ' + subsNewTotal() : ''}</div>` + list.map(subsCard).join('');
+  $$('[data-sub]', body).forEach(card => {
+    const id = card.dataset.sub;
+    const b = (sel, fn) => { const el = card.querySelector(sel); if (el) el.addEventListener('click', fn); };
+    b('[data-sub-check]', subsCheck);
+    b('[data-sub-seen]', () => subsSeen(id));
+    b('[data-sub-del]', () => subsRemove(id));
+  });
+}
+/* subsArrived — демон нашёл новые серии. Счётчик подписки растёт сразу, чтобы
+   вкладка показала это без перезагрузки, а полный список перечитывается только
+   тогда, когда открыт раздел подписок. */
+function subsArrived(d) {
+  if (!d || !d.id) return;
+  const s = (state.subs || []).find(x => x.id === d.id);
+  if (!s) { loadSubs(); return; }
+  s.new_count = (Number(s.new_count) || 0) + (Number(d.count) || 0);
+  if (d.season) s.season = d.season;
+  if (d.episode) s.episode = d.episode;
+  if (d.items && d.items[0]) s.last_seen = d.items[0].title;
+  paintSubsBadge();
+  const where = d.season ? ' — сезон ' + d.season + (d.episode ? ', серия ' + d.episode : '') : '';
+  toast('Новые серии: ' + (d.title || '') + where);
+  if (state.view === 'subs') paintSubsBody();
+}
+
 /* ================= SERIES ================= */
 function renderSeries(root) {
   root.innerHTML = html`
@@ -3398,6 +3941,9 @@ function paintSeriesBody() {
     const t = state.lib.find(x => x.hash === b.dataset.watch);
     if (t) watchNow(t);
   }));
+  // Слежение за сериалом заводится по названию без сезона и раздачи: новая
+  // серия выходит отдельной раздачей, и подписка на конкретную её не найдёт.
+  $$('[data-subseries]', body).forEach(b => b.addEventListener('click', e => { e.stopPropagation(); subsAdd(b.dataset.subseries); }));
   // Названия серий подгружаются по каждой карточке отдельно: ключ запроса — имя
   // сериала, и для всех карточек сразу он был бы один.
   $$('.card[data-sername]', body).forEach(card => {
@@ -3435,7 +3981,7 @@ function seriesCard(g) {
     const vids = playableOf(stat).filter(v => isVideo(v.path));
     const eps = vids.map(v => {
       const pe = parseSeriesEp(basename(v.path));
-      return { fid: v.id, s: (pe && pe.s) || s, e: (pe && pe.e) || 0 };
+      return { fid: v.id, s: (pe && pe.s) || s, e: (pe && pe.e) || 0, name: epFileName(v.path) };
     });
     // Список файлов ещё не пришёл: показываем одну кнопку сезона, по ней
     // откроется список серий — он и запросит сведения у сервера.
@@ -3462,7 +4008,8 @@ function seriesCard(g) {
     <div class="row wrap"><h3 style="flex:1;margin:0">${cleanSeriesName(head.title)}</h3>
       <span class="chip">${g.items.length} ${plural(g.items.length, 'торрент', 'торрента', 'торрентов')}</span>
       ${raw(all ? html`<span class="chip">${seen} из ${all} ${plural(all, 'серии', 'серий', 'серий')}</span>` : '')}
-      <button data-watch="${head.hash}">▶ Смотреть</button></div>
+      <button data-watch="${head.hash}">▶ Смотреть</button>
+      <button data-subseries="${cleanSeriesName(head.title)}" title="Демон сам сообщит о новых сериях">Следить</button></div>
     <div style="margin-top:10px">` + sels.map(sn => {
       const srows = seasons.get(sn);
       return html`<div class="eps-season" data-sn="${sn}">
@@ -3475,7 +4022,7 @@ function seriesCard(g) {
           const lab = ep.e ? 'Серия ' + ep.e : (sn ? 'Сезон ' + sn : 'Сезон');
           const state = watched ? ' · просмотрено' : (tc > 0 ? ' · с ' + fmtPos(tc) : '');
           const title = (sn ? 'Сезон ' + sn + ' · ' : '') + lab + ' — ' + (it.t.title || '') + state;
-          return html`<button data-series="${it.t.hash}|${sn}|${ep.e}|${ep.fid}" data-ep-num="${ep.e || 0}" data-sn="${sn}" class="${cls}" title="${title}">${lab}<span class="epname"></span>${raw(tc > 0 ? html` <span class="epstate">${fmtPos(tc)}</span>` : '')}</button>`;
+          return html`<button data-series="${it.t.hash}|${sn}|${ep.e}|${ep.fid}" data-ep-num="${ep.e || 0}" data-sn="${sn}" class="${cls}" title="${title}">${lab}<span class="epname">${ep.name ? ' · ' + ep.name : ''}</span>${raw(tc > 0 ? html` <span class="epstate">${fmtPos(tc)}</span>` : '')}</button>`;
         }).join('')).join(''))}</span></div>`;
     }).join('') + `</div></div></div>`;
 }
@@ -3504,6 +4051,18 @@ function renderSettings(root) {
         <span id="tmdbStat" class="chip grey"></span>
       </div>
     </div>
+    <div class="card"><h3>Индексаторы Torznab</h3>
+      <p class="page-sub">Поиск идёт напрямую в индексатор, без TorrServer. Обычно это Jackett или Prowlarr: у него есть кнопка копирования адреса Torznab вместе с ключом — вставьте эту строку целиком, ключ выделится сам.</p>
+      <div id="tzList"></div>
+      <div class="row wrap" style="margin-top:8px">
+        <input id="tzName" placeholder="Название" style="flex:1;min-width:110px">
+        <input id="tzUrl" placeholder="http://127.0.0.1:9117/results/torznab/api" style="flex:2;min-width:220px">
+        <input id="tzKey" placeholder="API key (если есть)" style="flex:1;min-width:130px">
+        <button id="tzTest">Проверить</button>
+        <button id="tzAdd" class="primary">Добавить</button>
+      </div>
+      <div id="tzNote" class="page-sub" style="margin-top:6px"></div>
+    </div>
     <div class="card"><h3>Автодобавление .torrent</h3>
       <p class="page-sub">Файлы .torrent, которые сохранены вашим браузером (Firefox/Chrome) из «Просмотровать в приложениях», автоматически добавятся через watch-папку.</p>
       <div class="row wrap">
@@ -3524,6 +4083,7 @@ function renderSettings(root) {
         <button id="cfBrowse">Обзор</button>
       </div>
       ${raw(folderNoticeHTML('cache'))}
+      ${raw(folderOverlapHTML())}
       <div class="divider"></div>
       <p class="page-sub">Постоянные данные — отметки просмотра («продолжить просмотр») и избранное с закладками. Заново их не собрать, поэтому папка должна лежать на постоянном диске. Сами настройки остаются рядом с программой: в них записаны обе эти папки.</p>
       <div class="row wrap">
@@ -3546,6 +4106,18 @@ function renderSettings(root) {
     </div>
     <div class="card"><h3>Автооткрытие и встроенные</h3>
       <label style="margin:0"><input type="checkbox" id="autoOpen" ${localStorage.getItem('tc_autoopen') !== '0' ? 'checked' : ''}> Автоматически открывать UI после добавления торрента</label>
+    </div>
+    <div class="card"><h3>О программе</h3>
+      <div class="stat-line">
+        <div><b>TorrClient</b> ${state.hello.version || 'версия неизвестна'}</div>
+        <div><b>Система:</b> ${state.hello.os || ''}</div>
+        <div><b>Папка программы:</b> <span class="mono">${state.hello.exe || '—'}</span></div>
+      </div>
+      <p class="page-sub">Версия подставляется при сборке. По ней видно, какая копия запущена, когда на диске лежит несколько сборок.</p>
+      <div class="row wrap">
+        <button id="diagBtn" class="primary">Собрать отчёт о состоянии</button>
+        <span class="page-sub" style="margin:0">Версии, папки, серверы и файлы данных разом. Ключ TMDB и пароли в отчёт не попадают.</span>
+      </div>
     </div>`;
 
   const pp = state.profiles.map(p => html`
@@ -3582,6 +4154,8 @@ function renderSettings(root) {
   // показывает сохранение файла.
   if (bd) bd.addEventListener('click', () => { window.location.href = '/api/backup'; });
   $('#autoOpen').addEventListener('change', e => localStorage.setItem('tc_autoopen', e.target.checked ? '1' : '0'));
+  const diagBtn = $('#diagBtn');
+  if (diagBtn) diagBtn.addEventListener('click', () => showDiagnostics(diagBtn));
   // Папки меняются одним и тем же диалогом: различаются только подпись и поле
   // настройки, поэтому отдельная ветка на каждую папку ничего не добавляла бы,
   // кроме повода забыть про новую.
@@ -3605,6 +4179,87 @@ function renderSettings(root) {
     }
     catch (e) { toast('Ошибка сохранения: ' + e.message, true); }
   });
+
+  /* ---------- индексаторы Torznab ----------
+     Проверка идёт по тому, что человек ввёл в поля, а не по сохранённому:
+     иначе «Проверить» перед добавлением было бы некуда нажать. И проверка
+     ничего не сохраняет — иначе кнопка «проверить» была бы кнопкой
+     «применить», и об этом нигде не написано. */
+  let tzSources = [];
+  const tzDraw = () => {
+    const rows = tzSources.map(s => html`
+      <div class="row wrap" style="align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line,#eee)">
+        <b style="flex:1;min-width:110px">${s.name}</b>
+        <span class="mono page-sub" style="flex:2;min-width:180px">${s.url}</span>
+        ${raw(s.has_key ? html`<span class="chip grey" title="ключ сохранён">ключ ${s.key_hint || '••••'}</span>` : html`<span class="chip grey">без ключа</span>`)}
+        <button data-tz="test" data-name="${s.name}">Проверить</button>
+        <button data-tz="del" data-name="${s.name}" class="danger">Удалить</button>
+      </div>`).join('');
+    $('#tzList').innerHTML = rows || '<div class="empty">Индексаторы не заданы — поиск по Torznab сейчас ничего не вернёт.</div>';
+    $$('#tzList [data-tz]').forEach(b => b.addEventListener('click', () => {
+      const name = b.dataset.name;
+      if (b.dataset.tz === 'del') {
+        if (!confirm('Удалить индексатор ' + name + '?')) return;
+        return tzSave(tzSources.filter(s => s.name !== name), name)
+          .then(() => { toast('Индексатор удалён'); renderSettings(root); })
+          .catch(e => toast('Не удалось удалить: ' + e.message, true));
+      }
+      const btn = b; btn.disabled = true; btn.textContent = 'Проверка...';
+      tzTest({ name })
+        .then(res => { tzTestShow(res); })
+        .catch(e => { $('#tzNote').innerHTML = html`<span style="color:#c0392b">Проверка не удалась: ${e.message}</span>`; })
+        .finally(() => { btn.disabled = false; btn.textContent = 'Проверить'; });
+    }));
+  };
+  /* tzSave шлёт весь список: составной PUT без чтения здесь был бы источником
+     тихой потери — удалил одну строку в интерфейсе, а на сервере пропала
+     соседняя. */
+  const tzSave = (list, remove) => api('/api/torznab/sources', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(remove ? { remove } : { sources: list.map(s => ({ name: s.name, url: s.url, api_key: s.api_key || '' })) }),
+  }).then(j => { tzSources = j.sources || []; tzDraw(); return j; });
+  const tzTest = body => api('/api/torznab/test', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const tzTestShow = res => {
+    const caps = res.caps || {};
+    const kinds = [
+      caps.search && 'обычный', caps.tv_search && 'сериалы', caps.movie_search && 'фильмы',
+      caps.music_search && 'музыка', caps.book_search && 'книги',
+    ].filter(Boolean).join(', ');
+    const bits = [`<b>${res.name || 'Индексатор'}</b> ${res.ok ? 'отвечает' : 'не отвечает'} за ${res.ms || 0} мс`];
+    if (res.ok) bits.push(`раздач на пробный запрос: ${res.items}${kinds ? ' · поиск: ' + kinds : ''}`);
+    if ((res.notes || []).length) bits.push('<div class="page-sub" style="margin-top:4px">' + res.notes.join('<br>') + '</div>');
+    if (!res.ok && res.error) bits.push(`<div style="color:#c0392b;margin-top:4px">${res.error}</div>`);
+    $('#tzNote').innerHTML = bits.join(' ');
+  };
+  const tzFromForm = () => ({
+    name: ($('#tzName').value || '').trim(),
+    url: ($('#tzUrl').value || '').trim(),
+    api_key: ($('#tzKey').value || '').trim(),
+  });
+  api('/api/torznab/sources').then(j => { tzSources = j.sources || []; tzDraw(); }).catch(() => { $('#tzList').innerHTML = '<div class="empty">Не удалось прочитать список индексаторов</div>'; });
+  $('#tzTest').addEventListener('click', async () => {
+    const f = tzFromForm();
+    if (!f.url) return toast('Укажите адрес индексатора', true);
+    const btn = $('#tzTest'); btn.disabled = true; btn.textContent = 'Проверка...';
+    try { tzTestShow(await tzTest(f)); } catch (e) { $('#tzNote').innerHTML = html`<span style="color:#c0392b">Проверка не удалась: ${e.message}</span>`; }
+    finally { btn.disabled = false; btn.textContent = 'Проверить'; }
+  });
+  $('#tzAdd').addEventListener('click', async () => {
+    const f = tzFromForm();
+    if (!f.url) return toast('Укажите адрес индексатора', true);
+    if (tzSources.some(s => s.name && s.name.toLowerCase() === f.name.toLowerCase()))
+      return toast('Индексатор с таким именем уже есть', true);
+    try {
+      /* Ключ приходит из формы, а у уже сохранённых источников форма его не
+         знает: сервер оставит прежний ключ, когда в записи ключ пуст. */
+      await tzSave(tzSources.concat([{ name: f.name, url: f.url, api_key: f.api_key }]));
+      toast('Индексатор добавлен');
+      $('#tzName').value = ''; $('#tzUrl').value = ''; $('#tzKey').value = '';
+      renderSettings(root);
+    } catch (e) { toast('Не удалось добавить: ' + e.message, true); }
+  });
   refreshWatchLog();
 }
 function editProfileModal(p) {
@@ -3617,9 +4272,22 @@ function editProfileModal(p) {
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button data-close>Отмена</button><button id="epGo" class="primary">Сохранить</button></div></div>`;
   document.body.appendChild(ov);
   ov.querySelector('#epGo').addEventListener('click', async () => {
+    const was = { name: p.name, url: p.url, user: p.user, pass: p.pass };
     p.name = ov.querySelector('#epName').value; p.url = ov.querySelector('#epUrl').value; p.user = ov.querySelector('#epUser').value; p.pass = ov.querySelector('#epPass').value;
-    await api('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set', profile: p }) });
-    ov.remove(); state.profiles = await (await api('/api/profiles')).profiles; renderTopbar(); route();
+    // Окно не закрывается до ответа и ошибка называется: прежде окно исчезало
+    // сразу, а отказ демона терялся в консоли — правка выглядела сохранённой.
+    const go = ov.querySelector('#epGo');
+    go.disabled = true;
+    try {
+      await api('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set', profile: p }) });
+      ov.remove(); state.profiles = await (await api('/api/profiles')).profiles; renderTopbar(); route();
+    } catch (e) {
+      // Правка откатывается вместе с отказом: иначе в памяти остался бы сервер,
+      // которого нет на диске, и следующее сохранение записало бы его молча.
+      Object.assign(p, was);
+      toast('Сервер не сохранён: ' + e.message, true);
+      go.disabled = false;
+    }
   });
 }
 async function addProfile() {
@@ -3640,8 +4308,18 @@ function importList(file) {
   if (!file) return;
   const r = new FileReader();
   r.onload = () => {
-    try { const arr = JSON.parse(r.result); if (Array.isArray(arr)) { localStorage.setItem('tc_userlist', JSON.stringify(arr)); toast('Импортировано ' + arr.length + ' позиций'); } } catch (e) { toast('Ошибка импорта: ' + e.message, true); }
+    try {
+      const arr = JSON.parse(r.result);
+      if (!Array.isArray(arr)) { toast('В файле не список избранного', true); return; }
+      // Через saveFavList, а не прямо в localStorage: он же отправляет список
+      // демону. Прежде импорт жил только в браузере и исчезал при первом
+      // обновлении склада — «Импортировано N» и пустое избранное.
+      saveFavList(arr);
+      toast('Импортировано ' + arr.length + ' позиций');
+      if (state.view === 'favorites') route();
+    } catch (e) { toast('Ошибка импорта: ' + e.message, true); }
   };
+  r.onerror = () => toast('Не удалось прочитать файл', true);
   r.readAsText(file);
 }
 async function refreshWatchLog() {
@@ -3794,9 +4472,11 @@ async function renderServerPane(tab) {
   if (tab === 'info') {
     pane.innerHTML = html`<div class="stat-line">
       <div><b>TorrClient:</b> ${state.hello.version || ''} · ОС ${state.hello.os || ''}</div>
+      <div><b>Папка программы:</b> <span class="mono">${state.hello.exe || '—'}</span></div>
       <div><b>Демон:</b> локальный компаньон на порту 8099</div>
       <div class="divider"></div>
-      <div class="mono" style="white-space:pre-wrap">${JSON.stringify(state.hello, null, 2)}</div></div>`;
+      <div class="mono" style="white-space:pre-wrap">${JSON.stringify(state.hello, null, 2)}</div>
+    </div>`;
     return;
   }
   pane.innerHTML = '<div class="empty">Загрузка настроек BitTorr...</div>';
@@ -3855,13 +4535,83 @@ async function renderServerPane(tab) {
 }
 
 /* ---------- modal helpers ---------- */
-function closeModal() { const o = $('.overlay'); if (o) o.remove(); }
-function openModal(html) {
-  const ov = document.createElement('div'); ov.className = 'overlay'; ov.innerHTML = html; document.body.appendChild(ov); return ov;
+/* Закрывается верхнее окно, а не первое найденное: окна открываются друг из
+   друга (например, «Инфо о раздаче» → выбор плеера), и прежде закрывалось то,
+   что лежит ниже, — верхнее оставалось висеть поверх страницы. */
+function closeModal() { const all = $$('body > .overlay'); if (all.length) all[all.length - 1].remove(); }
+
+/* ---------- отчёт о состоянии ---------- */
+/* Отчёт собирают, когда что-то уже сломалось, и разбираться будут не здесь, а
+   там, куда его ушлют. Поэтому он обязан быть цельным: текст, а не «посмотрите
+   в консоли». Копирование в буфер — основной путь, и оно сделано вручную через
+   execCommand, потому что navigator.clipboard у file:// и wails.localhost
+   недоступен без разрешения, а спрашивать его посреди поломки лишне. */
+function diagFallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  return ok;
 }
 
-/* ---------- magnet/url fallback: open stream/save ---------- */
-async function refreshServerOnView() {}
+async function showDiagnostics(btn) {
+  const old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Собираю…'; }
+  let text = '';
+  try {
+    const r = await fetch('/api/diagnostics?format=text');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    text = await r.text();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = old; }
+    toast('Не удалось собрать отчёт: ' + e.message, true);
+    return;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = old; }
+
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = html`<div class="modal diag">
+    <h2>Отчёт о состоянии</h2>
+    <p class="page-sub">Скопируйте и приложите к письму. Ключ TMDB и пароли серверов в отчёт не попадают.</p>
+    <div class="mono diag-text">${text}</div>
+    <div class="row" style="justify-content:flex-end;gap:8px">
+      <button data-d="copy" class="primary">Скопировать</button>
+      <button data-d="save">Сохранить файл</button>
+      <button data-d="close">Закрыть</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+
+  ov.querySelector('[data-d="copy"]').addEventListener('click', async () => {
+    // Сначала пробуем современный буфер, и только потом запасной путь: первый
+    // надёжнее, второй работает везде.
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) { ok = false; }
+    if (!ok) ok = diagFallbackCopy(text);
+    toast(ok ? 'Отчёт скопирован' : 'Не удалось скопировать — выделите текст вручную', !ok);
+  });
+  ov.querySelector('[data-d="save"]').addEventListener('click', () => {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'torrclient-diagnostic-' + stamp + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Освобождение отложено: освобождать сразу — значит отменить скачивание в
+    // некоторых браузерах, файл не успевает начать качаться.
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  });
+  ov.querySelector('[data-d="close"]').addEventListener('click', () => ov.remove());
+}
+
 
 /* ---------- auto-open added hint ---------- */
 document.addEventListener('DOMContentLoaded', () => { if (localStorage.getItem('tc_first') !== '1') { localStorage.setItem('tc_first', '1'); } });

@@ -108,7 +108,7 @@ func TestWaitReadyReturnsAsSoonAsReady(t *testing.T) {
 		t.Error("живость спрашивают, когда готовность уже есть")
 		return true
 	}
-	if !waitReady(5, time.Millisecond, ready, alive) {
+	if !waitReady(time.Second, time.Millisecond, ready, alive) {
 		t.Error("готовность не замечена")
 	}
 	if calls != 1 {
@@ -119,33 +119,60 @@ func TestWaitReadyReturnsAsSoonAsReady(t *testing.T) {
 // Процесс завершился — ждать нечего, и срок тут ни при чём. Ради этого ожидание
 // и разделено на «готов» и «жив».
 //
-// Число попыток намеренно маленькое, а пауза большая: без проверки живости
-// ожидание отработало бы все попытки и проверка упала бы по времени, а не
-// зависла на тысячи секунд.
+// Пауза намеренно большая, а срок — заметно больше неё: без проверки живости
+// ожидание отработало бы срок целиком и проверка упала бы по времени, а не по
+// факту смерти процесса.
 func TestWaitReadyGivesUpAsSoonAsTheProcessIsGone(t *testing.T) {
 	ready := func() bool { return false }
 	alive := func() bool { return false }
 
 	start := time.Now()
-	if waitReady(3, time.Second, ready, alive) {
+	if waitReady(10*time.Second, time.Second, ready, alive) {
 		t.Error("мёртвый процесс признан готовым")
 	}
-	if elapsed := time.Since(start); elapsed > time.Second {
-		t.Errorf("ожидание заняло %v — живость проверена, а срок отработан", elapsed)
+	if elapsed := time.Since(start); elapsed > 500*time.Millisecond {
+		t.Errorf("ожидание заняло %v — срок в 10 с отработан вместо отказа по живости", elapsed)
 	}
 }
 
 // Срок вышел — отказ, а не бесконечное ожидание.
-func TestWaitReadyGivesUpAfterTheTriesRunOut(t *testing.T) {
+//
+// Первый аргумент — срок в настоящих единицах, а не число попыток: срок
+// задаётся временем, потому что одна проба может занять сама healthTimeout
+// (сервер принял соединение и не отвечает), и счёт попыток тогда означал бы
+// «минуты вместо секунд». Проб здесь несколько, но не 48.
+func TestWaitReadyGivesUpAfterTheDeadline(t *testing.T) {
 	calls := 0
 	ready := func() bool { calls++; return false }
 	alive := func() bool { return true }
 
-	if waitReady(4, time.Millisecond, ready, alive) {
+	if waitReady(30*time.Millisecond, 5*time.Millisecond, ready, alive) {
 		t.Error("отсутствующая готовность признана готовностью")
 	}
-	if calls != 4 {
-		t.Errorf("готовность спрошена %d раз, ожидалось 4", calls)
+	if calls < 2 {
+		t.Errorf("готовность спрошена %d раз — ожидание вышло раньше первой паузы", calls)
+	}
+	if calls > 12 {
+		t.Errorf("готовность спрошена %d раз — срок не ограничивает число проб", calls)
+	}
+}
+
+// Регресс на исходный дефект: пока срок задавался числом попыток, медленная
+// проба съедала healthTimeout на каждой и «12 секунд» оборачивались минутой с
+// лишним. Теперь срок настоящий — медленные пробы не могут его растянуть.
+func TestWaitReadyKeepsTheDeadlineEvenWhenProbesAreSlow(t *testing.T) {
+	slow := func() bool { time.Sleep(40 * time.Millisecond); return false }
+	alive := func() bool { return true }
+
+	start := time.Now()
+	if waitReady(120*time.Millisecond, time.Millisecond, slow, alive) {
+		t.Error("медленно отвечающий сервер признан готовым")
+	}
+	elapsed := time.Since(start)
+	// Три медленные пробы (3×40 мс) — с запасом на паузу. Прежде здесь стояли
+	// десятки проб по 2 с.
+	if elapsed > 400*time.Millisecond {
+		t.Errorf("срок 120 мс обернулся %v — медленная проба растянула ожидание", elapsed)
 	}
 }
 
@@ -153,8 +180,11 @@ func TestWaitReadyGivesUpAfterTheTriesRunOut(t *testing.T) {
 func TestWaitReadyWaitsForALateAnswer(t *testing.T) {
 	tries := 0
 	ready := func() bool { tries++; return tries >= 3 }
-	if !waitReady(10, time.Millisecond, ready, func() bool { return true }) {
+	if !waitReady(time.Second, time.Millisecond, ready, func() bool { return true }) {
 		t.Error("запоздалая готовность не замечена")
+	}
+	if tries != 3 {
+		t.Errorf("готовность спрошена %d раз, ожидалось 3", tries)
 	}
 }
 

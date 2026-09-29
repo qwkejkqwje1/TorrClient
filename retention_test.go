@@ -106,12 +106,11 @@ func TestViewedLoadPrunesTheFileOnDisk(t *testing.T) {
 		t.Error("свежая отметка не прочитана")
 	}
 
-	raw, err := os.ReadFile(viewedPath())
-	if err != nil {
-		t.Fatalf("файл отметок не читается: %v", err)
-	}
+	// Файл читается тем же способом, что и при загрузке: обёртка с номером
+	// формата — часть файла, а не деталь записи. Разбор наизусть здесь означал
+	// бы проверку внутренней разметки, а не поведения.
 	var onDisk map[string]map[int]*viewedMark
-	if err := json.Unmarshal(raw, &onDisk); err != nil {
+	if err := readStateDoc(viewedPath(), &onDisk); err != nil {
 		t.Fatalf("файл отметок не разобран: %v", err)
 	}
 	if _, ok := onDisk["старая"]; ok {

@@ -56,6 +56,9 @@ type Comp struct {
 	httpSrv *http.Server
 	dl      *DLManager
 	watch   *Watcher
+	// subSearch — куда ходить за выдачей трекера. Пусто в настоящей работе, а в
+	// проверках подменяется: проверка подписок не должна ходить в сеть.
+	subSearch subSearch
 }
 
 func main() {
@@ -73,6 +76,10 @@ func main() {
 	applyStoragePaths(cur)
 	setCfg(cur)
 	loadUserDataStore()
+	// Подписки на сериалы — постоянные данные: они набираются долго, и потерять
+	// их нечем восстановить. Читаются до запуска службы, иначе первый же запрос
+	// интерфейса вернул бы пустой список и стёр бы его на диске.
+	loadSubs()
 	// Отметки просмотра читаются до запуска службы: ими пользуется и плейлист,
 	// и продолжение с места остановки.
 	viewedMarks.load()
@@ -102,6 +109,9 @@ func main() {
 	// Сторож раздач: он один спрашивает сервер, а интерфейсы получают готовое
 	// событие — вместо того чтобы опрашивать сервер каждый сам.
 	go c.torrentsWatcher()
+	// Сторож подписок: демон сам спрашивает трекер о новых сериях и сообщает о
+	// них событием. Интерфейс может быть закрыт — подписка продолжает работать.
+	go c.subsWatcher()
 	c.watch = NewWatcher(curCfg().WatchFolder, func(path string) { c.addTorrentFromFile(path, true) })
 
 	mux := http.NewServeMux()
@@ -129,8 +139,15 @@ func main() {
 	mux.HandleFunc("/api/kinozal/search", limitSearch(c.apiKinozalSearch))
 
 	mux.HandleFunc("/api/rutor/search", limitSearch(c.apiRutorSearch))
+	// Torznab-поиск идёт напрямую в индексаторы, поэтому ограничитель здесь
+	// обязателен: иначе один человек с кнопкой «ещё» уронит и трекер, и себя.
+	mux.HandleFunc("/api/torznab/search", limitSearch(c.apiTorznabSearch))
+	mux.HandleFunc("/api/torznab/test", c.apiTorznabTest)
+	mux.HandleFunc("/api/torznab/sources", c.apiTorznabSources)
 	mux.HandleFunc("/api/kinozal/add", c.apiKinozalAdd)
 	mux.HandleFunc("/api/userdata", c.apiUserData)
+	// Подписки на сериалы: список, добавление, снятие и проверка по кнопке.
+	mux.HandleFunc("/api/subs", c.apiSubs)
 	mux.HandleFunc("/api/download", c.apiDownload)
 	// Доступны ли папки загрузок и наблюдения: путь на отключённом диске
 	// выглядит правильным, а писать в него нельзя.
@@ -141,6 +158,8 @@ func main() {
 	// Резервная копия состояния одним архивом и её возврат.
 	mux.HandleFunc("/api/backup", c.apiBackup)
 	mux.HandleFunc("/api/restore", c.apiRestore)
+	// Отчёт о состоянии установки: версии, папки, серверы и файлы данных разом.
+	mux.HandleFunc("/api/diagnostics", c.apiDiagnostics)
 
 	c.httpSrv = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", *flagHost, *flagPort),

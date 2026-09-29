@@ -34,6 +34,17 @@ func NewWatcher(folder string, onAdd func(path string)) *Watcher {
 	return &Watcher{folder: folder, onAdd: onAdd, seen: map[string]bool{}, started: time.Now()}
 }
 
+// LastError отдаёт последнюю жалобу на папку наблюдения под замком.
+//
+// Отдельным методом, потому что lastErr читают теперь не только внутри
+// наблюдателя: отчёт о состоянии спрашивает его снаружи, и чтение поля мимо
+// замка ловило бы гонку с noteFolderError.
+func (w *Watcher) LastError() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.lastErr
+}
+
 func (w *Watcher) SetFolder(f string) {
 	w.mu.Lock()
 	w.folder = f
