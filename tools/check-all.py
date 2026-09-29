@@ -62,6 +62,7 @@ STEPS = [
     ("go test: демон", [GO, "test", "."], ROOT),
     ("node --check: интерфейс", [NODE, "--check", os.path.join("web", "app.js")], ROOT),
     ("проверки интерфейса на образцах", [NODE, os.path.join("tools", "check-series.js")], ROOT),
+    ("оценка качества раздач и вердикт ffprobe", [NODE, os.path.join("tools", "check-quality.cjs")], ROOT),
     ("go vet: оболочка", [GO, "vet", "./..."], os.path.join(ROOT, "app")),
     ("go test: оболочка", [GO, "test", "./..."], os.path.join(ROOT, "app")),
 ]
