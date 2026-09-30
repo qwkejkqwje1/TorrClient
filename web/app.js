@@ -208,6 +208,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.13.0', ['Рекомендации по библиотеке: «✨ Рекомендации» в Библиотеке и «✨ Для вас» в Поиске (нужен ключ TMDB)', 'Что советуют сразу к нескольким вашим фильмам — выше; видно, на что похоже; лишнее прячется ✕', 'Щелчок по рекомендации сразу ищет лучшую раздачу']],
   ['1.12.0', ['Крестик «×» в полях поиска и фильтра (или Esc) — очистить одним щелчком', 'Кнопка ⟳ в шапке (клавиша R) — обновить раздел или повторить поиск', 'Лоток: «Выход» в меню теперь действительно закрывает программу; щелчок по иконке открывает окно (меню раньше не работало)']],
   ['1.11.1', ['Окно в релизе называется TorrClientDesktop.exe: на Windows TorrClient.exe затирал демон torrclient.exe при распаковке', 'Автообновление без окна: программа перезапускается сама уже новой версией (раньше просто закрывалась)', 'Доступ с телефона сохраняется после перезапуска при обновлении']],
   ['1.11.0', ['Автообновление: кнопка ⬆ рядом с версией, установка в один клик (архив сверяется с SHA256)', 'В релизе есть окно программы (Wails)', 'Настройки → О программе: «Проверить обновления» и автопроверка']],
@@ -681,6 +682,7 @@ async function renderLibrary(root) {
       <button id="collNew" class="iconbtn" title="Новая подборка">＋</button>
       <button id="libReset" class="iconbtn hidden" title="Сбросить фильтры">✕</button>
       <button data-act="refresh" class="iconbtn" title="Обновить">⟳</button>
+      <button id="libRec" title="Фильмы и сериалы, похожие на те, что в библиотеке (нужен ключ TMDB)">✨ Рекомендации</button>
       <span class="spacer"></span>
       <div class="seg" id="libViewSeg">
         <button data-vw="grid" class="${lv === 'grid' ? 'on' : ''}" title="Сетка">▦</button>
@@ -713,6 +715,7 @@ async function renderLibrary(root) {
     paintLibrary();
     toast('Подборка создана');
   });
+  $('#libRec').addEventListener('click', () => showRecommendations());
   $('#libReset').addEventListener('click', () => {
     state.query = ''; state.category = 'all'; state.seen = 'all'; state.coll = '';
     $('#libQuery').value = ''; $('#libCat').value = 'all';
@@ -1932,6 +1935,7 @@ async function renderSearch(root) {
       <button id="top24Btn" class="top24btn">ТОП-24</button>
       <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
       <button id="popBtn" class="top24btn" title="Раздачи выбранной категории rutor за всё время, по числу сидов">Популярное</button>
+      <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">✨ Для вас</button>
       <span class="spacer"></span>
       <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
     </div>
@@ -1956,6 +1960,7 @@ async function renderSearch(root) {
   $('#searchCat').value = sd.cat || '';
   $('#searchQual').value = qualOn();
   $('#searchBtn').addEventListener('click', () => doSearch());
+  $('#recBtn').addEventListener('click', () => showRecommendations());
   $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   $('#searchProv').addEventListener('change', () => sd.provider = $('#searchProv').value);
@@ -1984,7 +1989,9 @@ async function renderSearch(root) {
   $('[data-open="add"]').addEventListener('click', openAddModal);
   updateTopBtnLabel();
   paintResults($('#searchResults'));
-  if (!state.searchState.results.length && !sd.q) onTopClick();
+  // Раздел открыт ради рекомендаций — ТОП-24 не загружается поверх них.
+  if (state.skipAutoTop) state.skipAutoTop = false;
+  else if (!state.searchState.results.length && !sd.q) onTopClick();
 }
 
 // Категории поиска.
@@ -3174,6 +3181,74 @@ function openPoster(p) {
   document.body.appendChild(ov); ov.addEventListener('click', () => ov.remove());
 }
 
+// ── Рекомендации по библиотеке ──
+// Названия из библиотеки уходят демону, он сопоставляет их с TMDB и
+// складывает рекомендации: что советуют сразу к нескольким вашим — выше.
+// Щелчок по карточке ищет лучшую раздачу (findBest). Лишнее прячется «✕».
+
+const REC_HIDE = 'tc_rec_hide';
+const recState = { items: [], matched: 0, seeds: 0 };
+
+function recHidden() { try { return new Set(JSON.parse(localStorage.getItem(REC_HIDE) || '[]')); } catch { return new Set(); } }
+function recHide(key) {
+  const s = recHidden(); s.add(key);
+  try { localStorage.setItem(REC_HIDE, JSON.stringify([...s].slice(-500))); } catch {}
+}
+
+async function librarySeeds() {
+  if (!(state.lib || []).length) { try { await loadLibrary(false); } catch {} }
+  const out = []; const seen = new Set();
+  for (const t of state.lib || []) {
+    const c = cleanSearchTitle(t.title || t.name || '');
+    if (!c.q) continue;
+    const k = c.q.toLowerCase() + '|' + (c.year || '');
+    if (seen.has(k)) continue;
+    seen.add(k); out.push({ q: c.q, year: +c.year || 0 });
+  }
+  return out;
+}
+
+async function showRecommendations() {
+  if (state.view !== 'search') { state.skipAutoTop = true; setView('search'); await new Promise(r => setTimeout(r, 30)); }
+  const el = $('#searchResults'); if (!el) return;
+  el.innerHTML = skeleton('Подбираю рекомендации по вашей библиотеке…', 12, true);
+  const seeds = await librarySeeds();
+  if (!seeds.length) { el.innerHTML = '<div class="empty">Библиотека пуста — рекомендовать не к чему. Добавьте пару фильмов.</div>'; return; }
+  try {
+    const r = await api('/api/recommend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: seeds }) });
+    recState.items = r.items || []; recState.matched = r.matched || 0; recState.seeds = r.seeds || 0;
+  } catch (e) {
+    el.innerHTML = html`<div class="empty">Не удалось подобрать: ${e.message}</div>`;
+    return;
+  }
+  paintRecommendations(el);
+}
+
+function paintRecommendations(el) {
+  const hidden = recHidden();
+  const list = recState.items.filter(it => !hidden.has(it.kind + ':' + it.id));
+  if (!list.length) {
+    el.innerHTML = html`<div class="empty">Рекомендаций нет${recState.matched ? '' : ': ни одно название из библиотеки не нашлось в TMDB'}.</div>`;
+    return;
+  }
+  const cards = list.map(it => html`
+    <div class="disc-card" data-rk="${it.kind + ':' + it.id}" title="${it.overview || 'Подобрать лучшую раздачу из всех источников'}">
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}
+        <button class="rec-x" data-hide="${it.kind + ':' + it.id}" title="Не показывать">✕</button></div>
+      <div class="disc-title">${it.title}</div>
+      <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
+      ${raw((it.because || []).length ? html`<div class="rec-why">Похоже на: ${it.because.join(', ')}</div>` : '')}
+    </div>`).join('');
+  el.innerHTML = html`<div class="disc-head">Рекомендации по библиотеке (${list.length}) <span class="page-sub" style="font-weight:400">— по ${recState.matched} из ${recState.seeds} названий, найденных в TMDB</span></div>
+    <div class="disc-grid">${raw(cards)}</div>`;
+  el.querySelector('.disc-grid').addEventListener('click', e => {
+    const x = e.target.closest('[data-hide]');
+    if (x) { e.stopPropagation(); recHide(x.dataset.hide); paintRecommendations(el); return; }
+    const c = e.target.closest('[data-rk]'); if (!c) return;
+    const it = recState.items.find(i => i.kind + ':' + i.id === c.dataset.rk);
+    if (it) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0);
+  });
+}
 /* ---------- лучшая раздача из всех источников ---------- */
 // По нажатию: rutor, Кинозал и Torznab опрашиваются разом, одинаковые раздачи
 // (тот же хэш, а без хэша — то же название и размер) сливаются в одну со
