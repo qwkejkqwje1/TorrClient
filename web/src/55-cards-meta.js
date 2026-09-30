@@ -307,6 +307,8 @@ let posterStoreTimer = 0;
    потратить запрос впустую. Сорок плиток библиотеки иначе превращаются в сорок
    запросов при каждом заходе. */
 const META_TTL = 24 * 60 * 60 * 1000;
+// META_VER — версия правил поиска: записи прежних правил перепроверяются.
+const META_VER = 2;
 
 /* Оценки держатся рядом с постерами, а не в разметке: после подгрузки постеров
    плитка перерисовывается целиком, и чипы, поставленные прямо в DOM, пропадали
@@ -356,6 +358,7 @@ function rememberMeta(c, j) {
     d: j.imdb_id || prev.d || '',
     t: j.title || prev.t || '',
     s: Date.now(),
+    v: META_VER,
   };
   const same = prev.p === next.p && prev.r === next.r && prev.i === next.i && prev.d === next.d && prev.t === next.t;
   posterStore.set(k, next);
@@ -369,6 +372,10 @@ function storedFresh(c) {
   loadPosterStore();
   const rec = posterStore.get(posterKey(c));
   if (!rec || !rec.s) return null;
+  // Запись без постера свежей не считается: прежде такой ответ на сутки
+  // закрывал плитке дорогу к обложке («Rick and Morty» без постера, хотя в
+  // поиске он был). Демон держит свой кэш, так что спросить его дёшево.
+  if (!rec.p || (rec.v || 0) < META_VER) return null;
   return (Date.now() - rec.s) < META_TTL ? rec : null;
 }
 // storedAnswer превращает запись хранилища в ответ того же вида, что даёт

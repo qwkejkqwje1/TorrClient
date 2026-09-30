@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 // ---------- TMDB metadata (posters for search results) ----------
@@ -29,6 +30,9 @@ type TMDBRes struct {
 	IMDBID string  `json:"imdb_id,omitempty"`
 	IMDB   float64 `json:"imdb,omitempty"`
 	Error  string  `json:"error,omitempty"`
+	// exact — название совпало с запросом дословно: по нему выбирается,
+	// какой из поисков (фильмы или всё подряд) ответил вернее.
+	exact bool
 }
 
 type tmdbItem struct {
@@ -334,7 +338,7 @@ func (c *Comp) apiTmdb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	year := strings.TrimSpace(r.URL.Query().Get("year"))
-	cacheK := strings.ToLower(q) + "|" + year
+	cacheK := "t2|" + strings.ToLower(q) + "|" + year
 	if it, ok := tmdbGet(cacheK); ok {
 		jj(w, it.res)
 		return
@@ -352,30 +356,66 @@ func (c *Comp) apiTmdb(w http.ResponseWriter, r *http.Request) {
 
 func (c *Comp) queryTmdb(q, year string) TMDBRes {
 	res := c.queryTmdbSearch("movie", q, year)
-	if res.OK {
-		return res
-	}
 	// Отказ по ключу повторится и на втором запросе: сервис отвечает на
 	// учётные данные, а не на вид поиска. Спрашивать второй раз незачем.
 	if res.Error == errTMDBNoKey || res.Error == errTMDBBadKey {
 		return res
 	}
-	if multi := c.queryTmdbSearch("multi", q, ""); multi.OK {
-		return multi
+	// Фильм с тем же названием и постером — ответ. Иначе спрашиваем поиск по
+	// всему: «Rick and Morty» среди фильмов находит чужой фильм без постера,
+	// а сериал — только общий поиск. Прежде первый попавшийся фильм считался
+	// ответом, и у сериала в библиотеке не было обложки.
+	if res.OK && res.exact && res.Poster != "" {
+		return res
+	}
+	multi := c.queryTmdbSearch("multi", q, "")
+	if best, ok := pickTmdb(res, multi); ok {
+		return best
 	}
 	// Русское название латиницей — «Trudno.byt.bogom», «Slovo.patsana»:
 	// так называют папки релизёры. TMDB такое не узнаёт, а по-русски
 	// находит. Пробуется только после неудачи: английское название уже
 	// нашлось бы выше.
 	if cyr := translitToCyr(q); cyr != "" {
-		if tr := c.queryTmdbSearch("movie", cyr, year); tr.OK {
-			return tr
-		}
-		if tr := c.queryTmdbSearch("multi", cyr, ""); tr.OK {
-			return tr
+		if best, ok := pickTmdb(c.queryTmdbSearch("movie", cyr, year), c.queryTmdbSearch("multi", cyr, "")); ok && best.Poster != "" {
+			return best
 		}
 	}
-	return res
+	if res.OK || !multi.OK {
+		return res
+	}
+	return multi
+}
+
+// pickTmdb выбирает из ответов лучший: дословное совпадение с постером, потом
+// любой с постером, потом дословное без постера. Пустые ответы не в счёт.
+func pickTmdb(list ...TMDBRes) (TMDBRes, bool) {
+	for _, want := range []func(TMDBRes) bool{
+		func(r TMDBRes) bool { return r.exact && r.Poster != "" },
+		func(r TMDBRes) bool { return r.Poster != "" },
+		func(r TMDBRes) bool { return r.exact },
+	} {
+		for _, r := range list {
+			if r.OK && want(r) {
+				return r, true
+			}
+		}
+	}
+	return TMDBRes{}, false
+}
+
+// tmdbNorm — название без регистра, знаков и «ё»: для сравнения с запросом.
+func tmdbNorm(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case r == 'ё':
+			b.WriteRune('е')
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // translitPairs — латиница русских релизов, сначала длинные сочетания.
@@ -460,17 +500,51 @@ func (c *Comp) queryTmdbSearch(kind, q, year string) TMDBRes {
 			FirstAirDate string  `json:"first_air_date"`
 			PosterPath   string  `json:"poster_path"`
 			VoteAverage  float64 `json:"vote_average"`
+			OrigTitle    string  `json:"original_title"`
+			OrigName     string  `json:"original_name"`
 		} `json:"results"`
 	}
 	if json.Unmarshal(body, &sr) != nil || len(sr.Results) == 0 {
 		return TMDBRes{OK: false, Error: "not found"}
 	}
-	it := sr.Results[0]
+	// Первый результат — не всегда нужный: TMDB ставит выше популярное, а
+	// в общем поиске попадаются и люди. Берём лучший: название дословно
+	// совпадает с запросом, есть постер; при равенстве — порядок TMDB.
+	nq := tmdbNorm(q)
+	best, bestScore, exact := -1, -1, false
+	for i, r := range sr.Results {
+		if kind == "multi" && r.MediaType != "movie" && r.MediaType != "tv" {
+			continue
+		}
+		ex := false
+		for _, n := range []string{r.Title, r.Name, r.OrigTitle, r.OrigName} {
+			if n != "" && tmdbNorm(n) == nq {
+				ex = true
+			}
+		}
+		score := 0
+		if ex {
+			score += 2
+		}
+		if r.PosterPath != "" {
+			score++
+		}
+		if score > bestScore {
+			best, bestScore, exact = i, score, ex
+		}
+	}
+	if best < 0 {
+		return TMDBRes{OK: false, Error: "not found"}
+	}
+	it := sr.Results[best]
 	title := it.Title
 	if title == "" {
 		title = it.Name
 	}
 	typ := it.MediaType
+	if kind == "movie" || kind == "tv" {
+		typ = kind
+	}
 	if typ != "movie" && typ != "tv" {
 		typ = "movie"
 	}
@@ -488,7 +562,7 @@ func (c *Comp) queryTmdbSearch(kind, q, year string) TMDBRes {
 	if it.PosterPath != "" {
 		p = "https://image.tmdb.org/t/p/w342" + it.PosterPath
 	}
-	return TMDBRes{OK: true, ID: it.ID, Type: typ, Title: title, Year: y, Poster: p, Rating: it.VoteAverage}
+	return TMDBRes{OK: true, ID: it.ID, Type: typ, Title: title, Year: y, Poster: p, Rating: it.VoteAverage, exact: exact}
 }
 
 // ---------- ratings (TMDB + Cinemeta IMDb) ----------
@@ -522,7 +596,9 @@ func (c *Comp) apiRatings(w http.ResponseWriter, r *http.Request) {
 		jj(w, TMDBRes{OK: false, Error: errTMDBNoKey})
 		return
 	}
-	cacheK := "rat|" + strings.ToLower(q) + "|" + year + "|" + strings.ToLower(imdb)
+	// «rat2»: ответы прежних версий выбирали первый попавшийся фильм, и
+	// сериал оставался без постера на сутки — их не берём.
+	cacheK := "rat2|" + strings.ToLower(q) + "|" + year + "|" + strings.ToLower(imdb)
 	if it, ok := tmdbGet(cacheK); ok {
 		jj(w, it.res)
 		return

@@ -151,7 +151,7 @@ function progressPanel(t, f, next) {
   const started = Date.now();
   let stopped = false;
   let announced = false;
-  let lastBytes = 0, lastMove = Date.now();
+  let lastBytes = 0, lastLoaded = 0, lastMove = Date.now(), sawPreload = false;
 
   const panel = {
     stop() {
@@ -205,6 +205,9 @@ function progressPanel(t, f, next) {
   // своего девяностасекундного срока, и после второго запуска их висело две.
   activePanel = panel;
   el('[data-hide]').addEventListener('click', () => panel.stop());
+  // Кнопка следующей серии видна сразу, а не только после старта показа:
+  // о старте демон судит по цифрам TorrServer, и они бывают неточны.
+  if (next) panel.showNextButton();
 
   const tick = async () => {
     if (stopped || announced) return;
@@ -219,8 +222,18 @@ function progressPanel(t, f, next) {
     // байте — и самое интересное, ход предзагрузки, увидеть было нельзя.
     // bytes_read у TorrServer — принятое от пиров, а не прочитанное плеером,
     // поэтому по нему о старте судить нельзя.
-    if (fig.pre > 0 ? fig.preBytes >= fig.pre * 0.97 : (stat === 3 && fig.loaded > 0 && Date.now() - started > 4000)) { panel.ready(); return; }
-    if (fig.preBytes > lastBytes) { lastBytes = fig.preBytes; lastMove = Date.now(); }
+    // Признаки старта: буфер набран; или предзагрузка шла (стадия 2) и
+    // закончилась; или стадии предзагрузки так и не было (она выключена или
+    // прошла между опросами), а раздача работает уже 15 секунд. Прежде
+    // панель ждала буфер до конца, TorrServer же часто заканчивает
+    // предзагрузку раньше и обнуляет счётчик — и панель вместе с кнопкой
+    // «Следующая серия» уходила по сроку, так и не показав её.
+    if (stat === 2) sawPreload = true;
+    const age = Date.now() - started;
+    if ((fig.pre > 0 && fig.preBytes >= fig.pre * 0.97)
+      || (stat === 3 && sawPreload)
+      || (stat === 3 && age > 15000 && (fig.loaded > 0 || fig.sp > 0))) { panel.ready(); return; }
+    if (fig.preBytes > lastBytes || fig.loaded > lastLoaded) { lastBytes = fig.preBytes; lastLoaded = fig.loaded; lastMove = Date.now(); }
     if (seeds === 0 && peers === 0) {
       el('[data-hint]').textContent = 'Раздающих нет: показ не начнётся, пока не появятся сиды. Попробуйте другую раздачу.';
     } else if (stat <= 1) {
@@ -232,7 +245,9 @@ function progressPanel(t, f, next) {
     }
     // Долгое ожидание без движения не должно висеть вечно; пока буфер
     // растёт, панель остаётся.
-    if (Date.now() - lastMove > 90000) panel.stop();
+    // Для серии панель не пропадает молча: кнопка следующей серии нужна и тогда,
+    // когда о старте судить не по чему.
+    if (Date.now() - lastMove > 90000) { if (next) panel.ready(); else panel.stop(); }
   };
   const timer = setInterval(tick, 1500);
   tick();
