@@ -208,6 +208,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.17.1', ['Доступ с телефона: кнопка «Разрешить в брандмауэре» (Windows) — снимает запрет, который Windows ставит после «Отмены», и открывает порт для всех сетей', 'QR строится по адресу Wi-Fi/Ethernet, а не виртуального адаптера (WSL, VirtualBox, VPN); адрес можно выбрать', 'Подсказки «Не открывается на телефоне или планшете?»']],
   ['1.17.0', ['Онлайн-JacRed без установки Jackett: Настройки → Torznab → «＋ JacRed» — rutor, Кинозал, NNM-Club, RuTracker и др. одним источником', 'Поддержка JSON-ручки Jackett: источники без Torznab (jac-red.ru) тоже ищут']],
   ['1.16.0', ['С телефона «Смотреть» теперь спрашивает, где играть: в плеере телефона (VLC, MX Player), в браузере телефона или на компьютере — раньше плеер молча открывался на компьютере', '«🔥 Сейчас смотрят» — тренды TMDB за неделю (Поиск → панель топа)', '«Продолжить просмотр»: по карточке на сериал, после досмотренной серии сразу предлагается следующая, с постером', 'Рекомендации учитывают всю библиотеку и Избранное; досмотренное и Избранное весят больше']],
   ['1.15.0', ['«Топ за всё время»: разделы Аниме, Мультфильмы и Документальное — фильмы или сериалы', 'В Мультфильмах нет аниме, в Аниме — только японская анимация']],
@@ -5388,34 +5389,59 @@ function initSettingsFilter(root) {
 // Установка и запуск Jackett/Prowlarr из настроек (winget на Windows).
 function initRemote() {
   const box = $('#remoteBox'); if (!box) return;
+  let pick = 0;
   const draw = st => {
     const on = st.enabled;
+    const addrs = st.addrs || [];
+    if (pick >= addrs.length) pick = 0;
+    const cur = addrs[pick];
+    const fw = st.firewall || {};
     box.innerHTML = html`
       <label style="margin:0"><input type="checkbox" id="remoteOn" ${on ? 'checked' : ''}> Разрешить вход с телефона</label>
       ${raw(on ? html`
         <div class="row wrap" style="margin-top:10px;align-items:flex-start;gap:16px">
-          ${raw(st.qr ? html`<img src="${st.qr}" alt="QR-код для телефона" width="180" height="180" style="background:#fff;border-radius:8px;padding:6px">` : '')}
+          ${raw(cur && cur.qr ? html`<img src="${cur.qr}" alt="QR-код для телефона" width="180" height="180" style="background:#fff;border-radius:8px;padding:6px">` : '')}
           <div style="flex:1;min-width:220px">
             <div><b>PIN:</b> <span class="mono" style="font-size:1.4em;letter-spacing:3px">${st.pin}</span></div>
-            <div style="margin-top:6px"><b>Адрес:</b> ${raw((st.urls || []).map(u => html`<div class="mono">${u.replace(/\?pin=.*$/, '')}</div>`).join('') || '<div class="hint">Компьютер не подключён к локальной сети.</div>')}</div>
+            <div style="margin-top:6px"><b>Адрес${addrs.length > 1 ? ' (выберите сеть, в которой телефон)' : ''}:</b>
+              ${raw(addrs.length ? addrs.map((x, i) => html`<label class="addr-pick"><input type="radio" name="remoteAddr" value="${i}" ${i === pick ? 'checked' : ''}>
+                <span class="mono">http://${x.ip}:${st.port}</span><span class="page-sub">${x.iface}${x.virtual ? ' · виртуальный, телефон его не увидит' : ''}</span></label>`).join('') : '<div class="hint">Компьютер не подключён к локальной сети.</div>')}</div>
             ${raw(st.error ? html`<div class="hint" style="color:var(--red)">Не удалось открыть порт ${st.port}: ${st.error}</div>` : '')}
+            ${raw(fw.supported ? (fw.rule
+              ? '<div style="margin-top:6px;color:var(--acc2)">🛡 Брандмауэр Windows: вход разрешён</div>'
+              : '<div style="margin-top:6px;color:var(--gold)">🛡 Брандмауэр Windows может не пускать телефон</div><button id="remoteFw" class="primary" style="margin-top:4px">Разрешить в брандмауэре</button><span class="page-sub"> — Windows спросит права администратора</span>') : '')}
             <div class="row wrap" style="margin-top:8px"><button id="remotePin">Новый PIN</button>
               <label style="margin:0">Порт <input id="remotePort" type="number" min="1024" max="65535" value="${st.port}" style="width:90px"></label></div>
-            <p class="page-sub" style="margin:6px 0 0">Windows может спросить разрешение для брандмауэра — разрешите для частных сетей. Новый PIN отключает все телефоны, вошедшие по старому.</p>
+            <details style="margin-top:8px"><summary>Не открывается на телефоне или планшете?</summary>
+              <ol class="page-sub" style="margin:6px 0 0 18px;padding:0">
+                <li>Нажмите «Разрешить в брандмауэре» (Windows). Если при первом запуске нажали «Отмена», Windows запретила вход сама.</li>
+                <li>Телефон — в той же сети Wi-Fi, что и компьютер, и не в «гостевой»: гостевая сеть не пускает к другим устройствам.</li>
+                <li>Если адресов несколько — выберите другой и отсканируйте QR заново.</li>
+                <li>Выключите VPN на компьютере и на телефоне.</li>
+                <li>Откройте адрес на телефоне вручную: <span class="mono">${cur ? 'http://' + cur.ip + ':' + st.port : ''}</span>. Если не открывается даже страница PIN — мешает сеть или брандмауэр, а не PIN.</li>
+                <li>В роутере бывает «изоляция клиентов» (AP isolation) — её нужно выключить.</li>
+              </ol></details>
           </div>
         </div>` : '')}`;
   };
+  let last = null;
+  const show = st => { last = st; draw(st); };
   const send = async body => {
-    try { draw(await api('/api/remote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); }
-    catch (e) { toast(e.message, true); load(); }
+    try { show(await api('/api/remote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })); return true; }
+    catch (e) { toast(e.message, true); load(); return false; }
   };
-  const load = () => api('/api/remote').then(draw).catch(() => { $('#remoteCard') && $('#remoteCard').remove(); });
+  const load = () => api('/api/remote').then(show).catch(() => { $('#remoteCard') && $('#remoteCard').remove(); });
   box.addEventListener('change', e => {
     if (e.target.id === 'remoteOn') send({ enabled: e.target.checked });
     if (e.target.id === 'remotePort') send({ port: +e.target.value });
+    if (e.target.name === 'remoteAddr') { pick = +e.target.value; if (last) draw(last); }
   });
-  box.addEventListener('click', e => {
+  box.addEventListener('click', async e => {
     if (e.target.id === 'remotePin' && confirm('Сменить PIN? Телефоны, вошедшие по старому, придётся подключить заново.')) send({ new_pin: true });
+    if (e.target.id === 'remoteFw') {
+      e.target.disabled = true; e.target.textContent = 'Жду подтверждения Windows…';
+      if (await send({ firewall: true })) toast('Брандмауэр пускает телефон — отсканируйте QR ещё раз');
+    }
   });
   load();
 }
