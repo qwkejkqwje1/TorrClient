@@ -218,6 +218,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['1.18.1', ['Постеры в библиотеке: их стирала статистика TorrServer через секунду после показа — больше не стирает', 'Постеры находятся и для раздач с именем файла или папки («Курьер.2026.MVO.WEB-DLRip…», «Игра.престолов.S01…») и для русских названий латиницей («Trudno.byt.bogom»)', '«Продолжить просмотр» показывает и начатое, у которого плеер не сообщил позицию, и раздачи, чей список файлов ещё не загружен', 'Понятное сообщение, если постер не нашёлся: с каким названием искали и что сделать']],
   ['1.18.0', ['Обложки идут через TorrClient: если image.tmdb.org у провайдера не открывается, берутся с зеркала и сохраняются на диске — библиотека открывается сразу и с постерами', '«Продолжить просмотр» больше не пропадает после обновления списка', 'Запуск фильма на компьютере с телефона или планшета снова работает', 'Значок в трее: появляется надёжнее (и после перезапуска Проводника), с иконкой программы; автозапуск открывает окно свёрнутым в трей, повторный запуск показывает уже открытое окно', 'Подробная статистика предзагрузки: буфер в процентах, сколько осталось ждать, пиры, отдача, всего скачано — панель не исчезает, пока буфер не набран', '«Сейчас смотрят»: за неделю или за сегодня, по 60 карточек за раз, по умолчанию и русское', 'Поиск запоминает источник, категорию и выбор в панели подборок']],
   ['1.17.1', ['Доступ с телефона: кнопка «Разрешить в брандмауэре» (Windows) — снимает запрет, который Windows ставит после «Отмены», и открывает порт для всех сетей', 'QR строится по адресу Wi-Fi/Ethernet, а не виртуального адаптера (WSL, VirtualBox, VPN); адрес можно выбрать', 'Подсказки «Не открывается на телефоне или планшете?»']],
   ['1.17.0', ['Онлайн-JacRed без установки Jackett: Настройки → Torznab → «＋ JacRed» — rutor, Кинозал, NNM-Club, RuTracker и др. одним источником', 'Поддержка JSON-ручки Jackett: источники без Torznab (jac-red.ru) тоже ищут']],
@@ -661,11 +662,22 @@ async function statTorrent(hash) {
   return j;
 }
 const statCache = {};
+/* mergeStat кладёт статистику TorrServer поверх раздачи, не затирая известное
+   пустым. TorrServer отдаёт poster: "" (и бывает title: "") у каждой раздачи,
+   добавленной без постера, — а постеры библиотеки приходят из TMDB и хранятся
+   у нас. Прежде Object.assign(cur, stat) через секунду после показа стирал
+   только что поставленные обложки: в поиске они были, в библиотеке — нет. */
+const STAT_KEEP = ['poster', 'title', 'category'];
+function mergeStat(t, s) {
+  const keep = {};
+  for (const k of STAT_KEEP) if (t[k] && !(s && s[k])) keep[k] = t[k];
+  return Object.assign(t, s, keep);
+}
 async function enrichStats(t) {
   const c = statCache[t.hash];
-  if (c && Date.now() - c.at < 30000) { return Object.assign({}, t, c.data); }
+  if (c && Date.now() - c.at < 30000) { return mergeStat(Object.assign({}, t), c.data); }
   const s = await statTorrent(t.hash).catch(() => null);
-  if (s && typeof s === 'object') { statCache[t.hash] = { at: Date.now(), data: s }; return Object.assign({}, t, s); }
+  if (s && typeof s === 'object') { statCache[t.hash] = { at: Date.now(), data: s }; return mergeStat(Object.assign({}, t), s); }
   return Object.assign({}, t);
 }
 async function torrentAction(a, o = {}) { return tsJson('/torrents', Object.assign({ action: a }, o)); }
@@ -784,7 +796,11 @@ async function loadLibrary(paint) {
   await loadPositions();
   state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
-  const need = state.lib.filter(t => !t.hasStat && !statCache[t.hash]);
+  // Сначала — раздачи с отметками просмотра: их файлы нужны полосе
+  // «Продолжить просмотр», и ждать очереди из сотни плиток им незачем.
+  const marked = new Set((state.viewed || []).map(v => v && v.hash));
+  const need = state.lib.filter(t => !t.hasStat && !statCache[t.hash])
+    .sort((a, b) => (marked.has(b.hash) ? 1 : 0) - (marked.has(a.hash) ? 1 : 0));
   if (need.length) enrichBackground(need);
   return state.lib;
 }
@@ -798,7 +814,7 @@ function keepFiles(t) {
   if (!t || (Array.isArray(t.file_stats) && t.file_stats.length)) return;
   const c = statCache[t.hash];
   if (c && c.data && Array.isArray(c.data.file_stats) && c.data.file_stats.length) {
-    Object.assign(t, Object.assign({}, c.data, t), { file_stats: c.data.file_stats, hasStat: true });
+    Object.assign(t, mergeStat(Object.assign({}, c.data), t), { file_stats: c.data.file_stats, hasStat: true });
     return;
   }
   if (typeof t.data !== 'string' || t.data.indexOf('Files') < 0) return;
@@ -848,7 +864,7 @@ async function enrichBackground(need) {
       if (s && typeof s === 'object') {
         statCache[t.hash] = { at: Date.now(), data: s };
         const cur = state.lib.find(x => x.hash === t.hash);
-        if (cur) { Object.assign(cur, s); cur.hasStat = true; }
+        if (cur) { mergeStat(cur, s); cur.hasStat = true; }
       }
     }
   };
@@ -955,16 +971,22 @@ function continueItems() {
     const files = t.file_stats || [];
     const fileOf = v => files.find(x => x.id === v.file_index);
     const list = groups[hash].slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    // Список файлов раздачи приходит не сразу (а у закрытой раздачи — только
+    // после запроса к TorrServer). Карточка от этого не пропадает: файл
+    // известен по номеру, а имя подтянется при запуске.
     const resume = v => {
-      const f = fileOf(v);
+      const f = fileOf(v) || (files.length ? null : { id: v.file_index, path: '', unknown: true });
       return f ? {
-        t, f, kind: 'resume', pos: v.timecode, duration: v.duration || 0,
-        share: v.duration > 0 ? Math.min(1, v.timecode / v.duration) : 0, updated: v.updated || 0,
+        t, f, kind: 'resume', pos: v.timecode || 0, duration: v.duration || 0,
+        share: v.duration > 0 ? Math.min(1, (v.timecode || 0) / v.duration) : 0, updated: v.updated || 0,
       } : null;
     };
     const last = list[0];
     let it = null;
-    if (!last.done && last.timecode > 0) it = resume(last);
+    // Последней открыли недосмотренную серию — к ней и возвращаемся, даже если
+    // плеер не сообщил позицию (отметка с нулём): прежде такая раздача из
+    // полосы выпадала целиком.
+    if (!last.done) it = resume(last);
     else if (last.done && fileOf(last)) {
       const vids = files.filter(x => isVideo(x.path));
       const nf = vids.length > 1 ? nextAfter(t, vids, fileOf(last)) : null;
@@ -974,7 +996,7 @@ function continueItems() {
       }
     }
     // Последняя серия досмотрена, а следующей нет — но могла остаться начатая.
-    if (!it) { const v = list.find(x => !x.done && x.timecode > 0); if (v) it = resume(v); }
+    if (!it) { const v = list.find(x => !x.done); if (v) it = resume(v); }
     if (it) out.push(it);
   });
   return out.sort((a, b) => b.updated - a.updated);
@@ -988,12 +1010,12 @@ function continueCard(it) {
       ${raw(it.t.poster ? html`<img class="cont-poster" src="${pimg(it.t.poster)}" loading="lazy" alt="" onerror="this.remove()">` : '')}
       <div class="cont-txt">
         <div class="cont-title" title="${title}">${title}</div>
-        <div class="cont-sub">${next ? 'Дальше: ' : ''}${epLabel(it.f, it.t)}</div>
+        <div class="cont-sub">${next ? 'Дальше: ' : ''}${it.f.unknown ? 'с места остановки' : epLabel(it.f, it.t)}</div>
       </div>
     </div>
     <div class="cont-bar"><i style="width:${Math.round(it.share * 100)}%"></i></div>
     <div class="cont-foot">
-      <span class="cont-pos">${next ? 'следующая серия' : fmtPos(it.pos) + (it.duration ? ' из ' + fmtPos(it.duration) : '')}</span>
+      <span class="cont-pos">${next ? 'следующая серия' : (it.pos > 0 ? fmtPos(it.pos) + (it.duration ? ' из ' + fmtPos(it.duration) : '') : 'начато')}</span>
       <button class="chip-btn" data-cont-play>${next ? '▶ Смотреть' : '▶ Продолжить'}</button>
       <button class="chip-btn" data-cont-done title="Отметить просмотренной">✓</button>
     </div>
@@ -1023,7 +1045,13 @@ function bindContinue() {
       savePosition(it.t.hash, it.f.id, 0, it.duration, true).then(() => { paintContinue(); paintLibrary(); });
       return;
     }
-    playSelected(it.t, it.f);
+    if (!it.f.unknown) { playSelected(it.t, it.f); return; }
+    // Файлы раздачи ещё не известны — сначала спрашиваем их у TorrServer.
+    waitForFiles(it.t).then(st => {
+      const f = st && (st.file_stats || []).find(x => x.id === it.f.id);
+      if (f) playSelected(Object.assign(it.t, { file_stats: st.file_stats }), f);
+      else if (st) toast('Файл не найден в раздаче', true);
+    });
   });
 }
 
@@ -1272,7 +1300,8 @@ async function autoPoster(t) {
     noteMetaError(j.error);
     // Причину по-русски называет metaErrText; остальное — отказ самого
     // сервиса, и он показывается как есть.
-    return toast(metaErrText(j.error) || ('Постер не найден: ' + (j.error || 'нет в TMDB')), true);
+    if (metaErrText(j.error)) return toast(metaErrText(j.error), true);
+    return toast('В TMDB не нашлось «' + c.q + (c.year ? ' (' + c.year + ')' : '') + '». Поправьте название через «Изменить» — и попробуйте снова', true);
   }
   try {
     await torrentAction('set', { hash: t.hash, poster: j.poster, title: j.title || t.title || t.name });
@@ -2856,15 +2885,37 @@ function resultRow(r, ix) {
     </div>
   </div>`;
 }
+/* Названия раздач приходят в двух видах. С трекера — «Название / Original
+   (2008) WEB-DL 1080p», их разбирать просто. А в библиотеке TorrServer
+   хранит и имя папки или файла: «Игра.престолов.S01.WEB-DL.2160p»,
+   «Курьер.2026.MVO.WEB-DLRip.x264.seleZen.mkv». Прежде из такого имени
+   в TMDB уходило «Курьер 2026 MVO seleZen mkv» — и постера не находилось:
+   в поиске обложки были, а в библиотеке нет. Поэтому имя-файл сначала
+   приводится к словам, а название обрезается на первом техническом слове. */
+const VIDEO_EXT_RE = /\.(mkv|avi|mp4|m4v|ts|m2ts|wmv|mov|webm|flv|mpe?g|vob|iso)$/i;
+const TITLE_STOP_RE = /(?:^|[\s\-])(?:S\d{1,2}(?:\s*E\d{1,3})?|сезон|season|серии|\d{3,4}[pi]|4k|uhd|web-?dl\w*|web-?rip|bd-?rip|bdremux|blu-?ray|hdrip|dvdrip|hdtvrip|hdtv|remux|x26[45]|h26[45]|hevc|avc|mvo|dvo|avo|itunes|amzn|10\s?bit)(?=$|[\s\-])/i;
 function cleanSearchTitle(t) {
-  let s0 = String(t || '');
-  const ym = s0.match(/(19|20)\d{2}/);
-  const year = ym ? ym[0] : '';
+  let s0 = String(t || '').trim().replace(VIDEO_EXT_RE, '');
+  // Имя папки или файла: слова через точки или подчёркивания.
+  if ((s0.match(/[0-9A-Za-zА-Яа-яЁё][._][0-9A-Za-zА-Яа-яЁё]/g) || []).length >= 2) s0 = s0.replace(/[._]+/g, ' ');
+  // Год — отдельное число, лучше в скобках: «Бегущий по лезвию 2049 (2017)».
+  const yp = s0.match(/[(\[]((?:19|20)\d{2})[)\]]/);
+  const ym = yp || s0.match(/(?:^|[^\dxх])((?:19|20)\d{2})(?![\dpрxх])/i);
+  const year = ym ? ym[1] : '';
   const parts = s0.split('/').map(p => p.trim()).filter(Boolean);
   let pick = '';
   for (const p of parts) { if (/[а-яёЁ]/.test(p)) { pick = p; break; } }
   if (!pick) pick = parts[0] || s0;
   let s = pick;
+  // Обрезаем на первом техническом слове, скобке или (если скобок нет) годе.
+  let cut = s.search(TITLE_STOP_RE);
+  const br = s.search(/[(\[]/);
+  if (br > 0 && (cut < 0 || br < cut)) cut = br;
+  if (!yp && year) {
+    const yi = s.search(new RegExp('(?:^|\\s)' + year + '(?!\\d)'));
+    if (yi > 0 && (cut < 0 || yi < cut)) cut = yi;
+  }
+  if (cut > 1) s = s.slice(0, cut);
   s = s.replace(/[\[\(][^\]]*?[\]\)]/g, ' ');
   s = s.replace(/(?:^|\s)(от|from)\s+[\wа-яёЁ-]+/gi, ' ');
   s = s.replace(/\b(сезон|листа|из)\s*\d+|S\d{1,2}\s*E\d{1,3}|\d+x\d{1,3}\b|\bобновл\.?\b|\bраздача\b|\bпостер\b|\bлицензи[яе]\b/gi, ' ');
@@ -3593,7 +3644,7 @@ async function waitForFiles(t, waitMs) {
 function rememberStat(hash, st) {
   statCache[hash] = { at: Date.now(), data: st };
   const cur = state.lib.find(x => x.hash === hash);
-  if (cur) Object.assign(cur, st, { hasStat: true });
+  if (cur) { mergeStat(cur, st); cur.hasStat = true; }
   return st;
 }
 /* Предупреждение после запуска: без раздающих показ не начнётся, и молчащий

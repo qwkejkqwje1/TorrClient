@@ -147,7 +147,8 @@ async function autoPoster(t) {
     noteMetaError(j.error);
     // Причину по-русски называет metaErrText; остальное — отказ самого
     // сервиса, и он показывается как есть.
-    return toast(metaErrText(j.error) || ('Постер не найден: ' + (j.error || 'нет в TMDB')), true);
+    if (metaErrText(j.error)) return toast(metaErrText(j.error), true);
+    return toast('В TMDB не нашлось «' + c.q + (c.year ? ' (' + c.year + ')' : '') + '». Поправьте название через «Изменить» — и попробуйте снова', true);
   }
   try {
     await torrentAction('set', { hash: t.hash, poster: j.poster, title: j.title || t.title || t.name });
