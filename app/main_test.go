@@ -122,3 +122,10 @@ func TestWebviewDataPathCreatesTheChosenFolder(t *testing.T) {
 		}
 	}
 }
+
+// Автозапуск при входе в систему — сразу в лоток; обычный запуск — с окном.
+func TestStartInTray(t *testing.T) {
+	if !startInTray([]string{"--tray"}) || startInTray(nil) || startInTray([]string{"--open=false"}) {
+		t.Error("разбор --tray")
+	}
+}

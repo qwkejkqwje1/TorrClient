@@ -12,6 +12,7 @@ package main
 // плееров разбираются из строк.
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -686,5 +687,16 @@ func TestViewedPathIsNextToTheDaemon(t *testing.T) {
 	}
 	if got, want := viewedPath(), filepath.Join(filepath.Dir(exe), "viewed.json"); got != want {
 		t.Errorf("путь отметок = %q, ожидался %q", got, want)
+	}
+}
+
+// С телефона «На компьютере»: плеер на компьютере получает локальный адрес,
+// а не адрес телефона с входом по PIN — иначе он получал отказ.
+func TestLaunchURLFromThePhoneUsesTheLocalAddress(t *testing.T) {
+	req := httptest.NewRequest("POST", "http://192.168.1.34:8100/api/player/launch", nil)
+	req = req.WithContext(context.WithValue(req.Context(), remoteCtxKey{}, true))
+	got, _ := (&Comp{}).launchURL(req, "", "", "http://192.168.1.34:8100/ts/stream/a.mkv?link=h&index=1&play", 1)
+	if got != localBase()+"/ts/stream/a.mkv?link=h&index=1&play" {
+		t.Errorf("адрес для плеера = %q", got)
 	}
 }

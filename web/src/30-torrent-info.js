@@ -13,7 +13,7 @@ function openTorrentModal(t) {
         ${raw(isSeries(t.title || '') ? html`<span class="chip series">${seriesTag(t.title || '')}</span>` : '')}
         ${raw(t.bit_rate ? html`<span class="chip">${t.bit_rate}</span>` : '')}
       </div></div>
-      ${raw(t.poster ? html`<img src="${t.poster}" style="height:110px; border-radius:8px" onerror="this.remove()">` : '')}
+      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" style="height:110px; border-radius:8px" onerror="this.remove()">` : '')}
     </div>
     <div class="divider"></div>
     <div class="tabs" id="infoTabs">

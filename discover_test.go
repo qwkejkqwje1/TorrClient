@@ -135,3 +135,15 @@ func TestDiscoverURLTrending(t *testing.T) {
 		t.Errorf("тренды: %q", u)
 	}
 }
+
+func TestDiscoverTrendingToday(t *testing.T) {
+	u, ok := discoverURL("movie", "", "any", "trending_day", 3)
+	if !ok || !strings.Contains(u, "/trending/movie/day?") || !strings.Contains(u, "page=3") {
+		t.Fatalf("тренды за сегодня: %q %v", u, ok)
+	}
+	body := []byte(`{"total_pages":5,"results":[{"id":1,"title":"Фильм","original_language":"en"},{"id":2,"title":"Кино","original_language":"ru"}]}`)
+	items, _, err := parseDiscover(body, "movie", "ru", "trending_day")
+	if err != nil || len(items) != 1 || items[0].ID != 2 {
+		t.Fatalf("русское в трендах за сегодня: %+v %v", items, err)
+	}
+}

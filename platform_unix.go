@@ -141,3 +141,6 @@ func platformSetAutostart(exe string, on bool) error {
 	return writeDesktop(autostartPath(), "[Desktop Entry]\nType=Application\nName=TorrClient\nExec="+desktopExec(exe)+" --open=false\n"+
 		"X-GNOME-Autostart-enabled=true\n")
 }
+
+// migrateAutostart — только для Windows: там окно с лотком заменяет демон.
+func migrateAutostart(exe string) {}

@@ -127,10 +127,12 @@ func (a *App) setupTray() {
 	if p, err := os.Executable(); err == nil {
 		exe = p
 	}
-	t := &trayIcon{onOpen: a.showWindow, onQuit: a.quitApp}
+	t := &trayIcon{onOpen: a.showWindow, onQuit: a.quitApp, exe: exe}
 	if err := t.start("TorrClient", trayIconPath(exe)); err != nil {
 		// Лоток не поднялся — молчим: окно и так работает, а сообщение о
-		// неудавшейся иконке только пугает.
+		// неудавшейся иконке только пугает. Но окно, запущенное сразу в лоток
+		// (--tray), надо показать: иначе программу не увидеть вовсе.
+		a.showWindow()
 		return
 	}
 	a.mu.Lock()

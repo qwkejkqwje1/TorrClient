@@ -14,7 +14,7 @@ function resultRow(r, ix) {
   <div class="tile result" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (r.poster ? 'hidden' : '') + '"'))}
-      ${raw(r.poster ? html`<img src="${r.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-sa="play" title="Смотреть"><span class="tri"></span></button>
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
@@ -251,7 +251,7 @@ function setPosterImage(el, url) {
     el.insertBefore(img, el.firstChild);
   }
   img.onerror = function(){ this.remove(); const s = el.querySelector('svg.ph'); if (s) s.classList.remove('hidden'); };
-  img.src = url;
+  img.src = pimg(url);
 }
 // libRatings подтягивает постеры и оценки к плиткам библиотеки.
 //
@@ -260,7 +260,7 @@ function setPosterImage(el, url) {
 // очередь не доходила до конца. Теперь запросы идут в несколько дорожек, а ответ
 // на одно и то же название берётся один раз: в библиотеке оно встречается в
 // разных качествах, и спрашивать его столько же раз незачем.
-const LIB_RATINGS_MAX = 60;
+const LIB_RATINGS_MAX = 300;
 
 /* ---------- Постеры и оценки библиотеки ----------
    TorrServer ни постеров, ни оценок не хранит: /torrents их не отдаёт, и
@@ -490,7 +490,7 @@ function openTrailer(r) {
 }
 function openPoster(p) {
   const ov = document.createElement('div'); ov.className = 'overlay'; ov.style.alignItems = 'center';
-  ov.innerHTML = html`<img src="${p}" style="max-width:90vw; max-height:90vh; border-radius:10px" onclick="this.parentElement.remove()">`;
+  ov.innerHTML = html`<img src="${pimg(p)}" style="max-width:90vw; max-height:90vh; border-radius:10px" onclick="this.parentElement.remove()">`;
   document.body.appendChild(ov); ov.addEventListener('click', () => ov.remove());
 }
 

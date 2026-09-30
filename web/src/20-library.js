@@ -104,10 +104,31 @@ async function loadLibrary(paint) {
   try { state.lib = await listTorrents(); }
   catch (e) { toast('Ошибка загрузки библиотеки: ' + e.message, true); state.lib = []; }
   await loadPositions();
+  state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
   const need = state.lib.filter(t => !t.hasStat && !statCache[t.hash]);
   if (need.length) enrichBackground(need);
   return state.lib;
+}
+
+/* keepFiles возвращает раздаче список файлов, если свежий список пришёл без
+   него. Без file_stats «Продолжить просмотр» не может найти серию и молча
+   пропадал: после перезагрузки списка файлы терялись, а повторно их не
+   спрашивали — раздача уже числилась в кэше. Берём из кэша статистики, а если
+   его нет — из поля data, в котором TorrServer хранит список файлов. */
+function keepFiles(t) {
+  if (!t || (Array.isArray(t.file_stats) && t.file_stats.length)) return;
+  const c = statCache[t.hash];
+  if (c && c.data && Array.isArray(c.data.file_stats) && c.data.file_stats.length) {
+    Object.assign(t, Object.assign({}, c.data, t), { file_stats: c.data.file_stats, hasStat: true });
+    return;
+  }
+  if (typeof t.data !== 'string' || t.data.indexOf('Files') < 0) return;
+  try {
+    const d = JSON.parse(t.data);
+    const files = d && d.TorrServer && d.TorrServer.Files;
+    if (Array.isArray(files) && files.length) t.file_stats = files;
+  } catch {}
 }
 
 /* Отметки просмотра ведёт демон: он один знает позицию от самого плеера, а не
@@ -286,7 +307,7 @@ function continueCard(it) {
   return html`
   <div class="cont-card${next ? ' is-next' : ''}" data-cont data-cont-hash="${it.t.hash}" data-cont-file="${it.f.id}">
     <div class="cont-top">
-      ${raw(it.t.poster ? html`<img class="cont-poster" src="${it.t.poster}" loading="lazy" alt="" onerror="this.remove()">` : '')}
+      ${raw(it.t.poster ? html`<img class="cont-poster" src="${pimg(it.t.poster)}" loading="lazy" alt="" onerror="this.remove()">` : '')}
       <div class="cont-txt">
         <div class="cont-title" title="${title}">${title}</div>
         <div class="cont-sub">${next ? 'Дальше: ' : ''}${epLabel(it.f, it.t)}</div>
@@ -362,7 +383,7 @@ function tile(t) {
   <div class="tile" data-hash="${t.hash}">
     <div class="poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (t.poster ? 'hidden' : '') + '"'))}
-      ${raw(t.poster ? html`<img src="${t.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}

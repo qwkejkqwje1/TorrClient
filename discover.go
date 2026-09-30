@@ -66,13 +66,18 @@ func discoverURL(kind, genre, origin, cat string, page int) (string, bool) {
 		page = 1
 	}
 	switch cat {
-	case "trending":
-		// «Сейчас смотрят» — тренды TMDB за неделю: что больше всего смотрят и
-		// ищут прямо сейчас, а не за всё время. Жанра у трендов нет.
+	case "trending", "trending_day":
+		// «Сейчас смотрят» — тренды TMDB за неделю или за сегодня: что больше
+		// всего смотрят и ищут прямо сейчас, а не за всё время. Жанра у
+		// трендов нет.
+		span := "week"
+		if cat == "trending_day" {
+			span = "day"
+		}
 		q := url.Values{}
 		q.Set("language", "ru-RU")
 		q.Set("page", strconv.Itoa(page))
-		return tmdbAPIBase + "/trending/" + kind + "/week?" + q.Encode(), true
+		return tmdbAPIBase + "/trending/" + kind + "/" + span + "?" + q.Encode(), true
 	case "":
 	case "anime", "cartoon":
 		genre = tmdbGenreAnimation
@@ -143,7 +148,7 @@ func parseDiscover(body []byte, kind, origin, cat string) ([]discoverItem, int, 
 			continue
 		}
 		// У трендов нет фильтра по языку в запросе — русское отбирается здесь.
-		if cat == "trending" && origin == "ru" && r.OriginalLanguage != "ru" {
+		if strings.HasPrefix(cat, "trending") && origin == "ru" && r.OriginalLanguage != "ru" {
 			continue
 		}
 		title, orig, date := r.Title, r.OriginalTitle, r.ReleaseDate
@@ -169,7 +174,7 @@ func parseDiscover(body []byte, kind, origin, cat string) ([]discoverItem, int, 
 	return out, resp.TotalPages, nil
 }
 
-// apiDiscover — GET /api/discover?kind=movie|tv&genre=<id>&origin=any|foreign|ru&cat=anime|cartoon|doc|trending&page=N
+// apiDiscover — GET /api/discover?kind=movie|tv&genre=<id>&origin=any|foreign|ru&cat=anime|cartoon|doc|trending|trending_day&page=N
 func (c *Comp) apiDiscover(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	kind := strings.TrimSpace(q.Get("kind"))

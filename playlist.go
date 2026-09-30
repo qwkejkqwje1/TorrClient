@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -224,6 +225,17 @@ func fetchTorrentStatus(hash string) (*torrentStatus, error) {
 //
 // Второе значение — способ запуска, он уходит интерфейсу для показа.
 func (c *Comp) launchURL(r *http.Request, hash, title, url string, index int) (string, string) {
+	base := m3uBase(r)
+	// Команда пришла с телефона, а плеер запускается на компьютере: адрес
+	// телефона (http://192.168.…:8100) плееру не годится — там вход по PIN, и
+	// плеер получал отказ. Плееру на компьютере — свой, локальный адрес.
+	if isRemoteRequest(r) {
+		local := localBase()
+		if strings.HasPrefix(url, base+"/") {
+			url = local + strings.TrimPrefix(url, base)
+		}
+		base = local
+	}
 	if hash == "" {
 		return url, "file"
 	}
@@ -231,7 +243,12 @@ func (c *Comp) launchURL(r *http.Request, hash, title, url string, index int) (s
 	if err != nil || len(playableFiles(st.Files)) == 0 {
 		return url, "file"
 	}
-	return playlistURL(m3uBase(r), hash, title, index), "playlist"
+	return playlistURL(base, hash, title, index), "playlist"
+}
+
+// localBase — адрес демона для программ на этом же компьютере.
+func localBase() string {
+	return "http://127.0.0.1:" + strconv.Itoa(*flagPort)
 }
 
 // apiPlaylist отдаёт плейлист раздачи: все воспроизводимые файлы подряд,

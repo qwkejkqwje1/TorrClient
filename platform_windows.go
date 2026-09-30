@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Корни ключей — переменные, а не константы: тест подменяет их на свою ветку
@@ -54,7 +55,32 @@ func platformSetAutostart(exe string, on bool) error {
 		exec.Command(regExe(), "delete", autostartRunKey, "/v", "TorrClient", "/f").CombinedOutput()
 		return nil
 	}
-	return regAdd(autostartRunKey, "/v", "TorrClient", "/t", "REG_SZ", "/d", `"`+exe+`" --open=false`)
+	return regAdd(autostartRunKey, "/v", "TorrClient", "/t", "REG_SZ", "/d", autostartCommand(exe))
+}
+
+// autostartCommand — что запускать при входе в систему. Если рядом лежит окно
+// программы, запускается оно — сразу в лоток (--tray): у голого демона нет
+// иконки в лотке, и после входа программу было не найти. Окно поднимает демон
+// само. Без окна — демон, как раньше.
+func autostartCommand(exe string) string {
+	desk := filepath.Join(filepath.Dir(exe), "TorrClientDesktop.exe")
+	if st, err := os.Stat(desk); err == nil && !st.IsDir() {
+		return `"` + desk + `" --tray`
+	}
+	return `"` + exe + `" --open=false`
+}
+
+// migrateAutostart переводит старую запись автозапуска (голый демон) на окно
+// с лотком, если окно лежит рядом. Трогает только свою запись и только если она
+// уже включена: включать автозапуск за пользователя нельзя.
+func migrateAutostart(exe string) {
+	cur := regQueryString(autostartRunKey, "TorrClient")
+	if cur == "" || strings.Contains(cur, "--tray") {
+		return
+	}
+	if want := autostartCommand(exe); want != cur && strings.Contains(want, "--tray") {
+		_ = regAdd(autostartRunKey, "/v", "TorrClient", "/t", "REG_SZ", "/d", want)
+	}
 }
 
 func unixPlayerDirs() []string { return nil }
