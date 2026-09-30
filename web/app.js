@@ -208,6 +208,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.14.0', ['Исправлено: следующая серия в плейлисте начиналась с позиции прошлой — теперь каждая продолжается со своего места (mpv, VLC)', 'Отметки просмотра записываются той серии, что играет сейчас, а не первой', 'Сериалы с многими сезонами: вкладки сезонов с прогрессом, открывается сезон следующей серии, «Отметить сезон» одним нажатием', 'Во время просмотра не показываются неверные цифры подгрузки, а сервер опрашивается реже', 'Кнопка «Следующая серия» на панели показа снова появляется']],
   ['1.13.0', ['Рекомендации по библиотеке: «✨ Рекомендации» в Библиотеке и «✨ Для вас» в Поиске (нужен ключ TMDB)', 'Что советуют сразу к нескольким вашим фильмам — выше; видно, на что похоже; лишнее прячется ✕', 'Щелчок по рекомендации сразу ищет лучшую раздачу']],
   ['1.12.0', ['Крестик «×» в полях поиска и фильтра (или Esc) — очистить одним щелчком', 'Кнопка ⟳ в шапке (клавиша R) — обновить раздел или повторить поиск', 'Лоток: «Выход» в меню теперь действительно закрывает программу; щелчок по иконке открывает окно (меню раньше не работало)']],
   ['1.11.1', ['Окно в релизе называется TorrClientDesktop.exe: на Windows TorrClient.exe затирал демон torrclient.exe при распаковке', 'Автообновление без окна: программа перезапускается сама уже новой версией (раньше просто закрывалась)', 'Доступ с телефона сохраняется после перезапуска при обновлении']],
@@ -980,7 +981,9 @@ function tile(t) {
   if (t.torrent_size) metaBits.push(fmtSize(t.torrent_size));
   if (t.connected_seeders != null) metaBits.push('⬆ ' + t.connected_seeders);
   if (t.total_peers != null) metaBits.push('👥 ' + t.total_peers);
-  if (t.download_speed || t.upload_speed) metaBits.push((t.download_speed ? '↓ ' + fmtSpeed(t.download_speed) : '') + (t.upload_speed ? ' ↑ ' + fmtSpeed(t.upload_speed) : ''));
+  // Скорость в карточке не показывается: это снимок на момент открытия
+  // библиотеки, и во время просмотра он застывал на случайной цифре. Живые
+  // скорости — в окне «Закачки».
   if (!metaBits.length && fmtDate(t.timestamp)) metaBits.push('добавлен ' + fmtDate(t.timestamp));
   const pg = hasMedia ? `<div class="progress"${sp ? ` title="просмотрено ${sp.done} из ${sp.total}"` : ''}><i style="width:${Math.min(100, (sp ? sp.share : loaded) * 100).toFixed(0)}%"></i></div>` : '';
   const pgNote = sp ? `<div class="page-sub">просмотрено ${sp.done} из ${sp.total}${sp.started ? ' · начато ' + sp.started : ''}</div>` : '';
@@ -3397,7 +3400,9 @@ function prepOverlay(title) {
       el('[data-st="seeds"]').textContent = 'сиды: ' + seeds;
       el('[data-st="peers"]').textContent = 'пиры: ' + peers;
       el('[data-st="speed"]').textContent = 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0');
-      el('[data-st="loaded"]').textContent = total > 0 ? 'загружено: ' + fmtSize(loaded) + ' из ' + fmtSize(total) : 'загружено: —';
+      // До начала показа важен буфер, а не вся раздача: у сезона целиком
+    // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
+    el('[data-st="loaded"]').textContent = pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —');
       el('[data-st="time"]').textContent = 'прошло: ' + fmtPos((Date.now() - started) / 1000);
       if (stat <= 1 && seeds === 0) el('[data-hint]').textContent = 'Сервер ищет раздающих. Если сидов нет, показ не начнётся — можно попробовать другую раздачу.';
     },
@@ -3496,14 +3501,19 @@ function progressPanel(t, f, next) {
     ready() {
       if (stopped || announced) return;
       announced = true;
-      el('[data-st="stage"]').textContent = 'Показ идёт';
+      // Во время показа цифры подгрузки только врут: плеер читает с опережением,
+      // скорость скачет, а «загружено» относится ко всей раздаче. Поэтому они
+      // убираются, и опрос сервера прекращается — просмотру ничего не мешает.
+      clearInterval(timer);
+      ['.prep-bar', '.prep-stats', '[data-hint]'].forEach(s => { const x = el(s); if (x) x.remove(); });
+      const sp = ov.querySelector('.spin'); if (sp) sp.remove();
+      el('[data-sub]').textContent = 'Показ идёт · ' + el('[data-sub]').textContent;
       ov.classList.add('done');
       if (next) {
         // Серия с серией: панель не уходит, а предлагает следующую. Искать
         // раздачу и серию заново после каждой серии — обычная работа, которую
         // тут делает одна кнопка.
-        showNextButton();
-        clearInterval(timer);
+        panel.showNextButton();
         return;
       }
       setTimeout(() => panel.stop(), 4000);
@@ -3552,7 +3562,9 @@ function progressPanel(t, f, next) {
     el('[data-st="seeds"]').textContent = 'сиды: ' + seeds;
     el('[data-st="peers"]').textContent = 'пиры: ' + peers;
     el('[data-st="speed"]').textContent = 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0');
-    el('[data-st="loaded"]').textContent = total > 0 ? 'загружено: ' + fmtSize(loaded) + ' из ' + fmtSize(total) : 'загружено: —';
+    // До начала показа важен буфер, а не вся раздача: у сезона целиком
+    // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
+    el('[data-st="loaded"]').textContent = pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —');
     // Плеер начал читать данные — значит показ пошёл.
     if (preBytes > 0 || read > 0) { panel.ready(); return; }
     if (seeds === 0 && peers === 0) {
@@ -3751,7 +3763,8 @@ function nextAfter(t, vids, cur) {
   const i = sorted.findIndex(f => f.id === cur.id);
   return i >= 0 ? (sorted[i + 1] || null) : null;
 }
-function openEpisodesPicker(t, files) {
+function openEpisodesPicker(t, files, opts) {
+  opts = opts || {};
   if (!files) {
     const cached = statCache[t.hash] && statCache[t.hash].data;
     if (cached && cached.file_stats) { files = playableOf(cached); }
@@ -3781,14 +3794,29 @@ function openEpisodesPicker(t, files) {
   const seasons = [...groups.keys()].sort((a, b) => a - b);
   seasons.forEach(s => groups.get(s).sort((a, b) => epIdx(a.path) - epIdx(b.path) || basename(a.path).localeCompare(basename(b.path), 'ru', { numeric: true })));
   const done = files.filter(f => isWatched(t, f.id)).length;
+  // Много сезонов — вкладки: одним списком в сотню серий приходилось листать
+  // до нужного сезона. Открывается сезон следующей серии (или тот, что был
+  // выбран до перерисовки), остальные — одним нажатием.
+  const tabs = seasons.length > 1;
+  const nextSn = ((p => (p && p.s) || 0)(parseSeriesEp(basename(next.path))));
+  let cur = tabs ? (opts.season != null && groups.has(opts.season) ? opts.season : (groups.has(nextSn) ? nextSn : seasons[0])) : null;
+  const tabHtml = !tabs ? '' : html`<div class="eps-tabs">${raw(seasons.map(sn => {
+    const list = groups.get(sn);
+    const w = list.filter(f => isWatched(t, f.id)).length;
+    const full = w === list.length;
+    return html`<button class="eps-tab${sn === cur ? ' on' : ''}${full ? ' full' : ''}" data-sn-tab="${sn}" title="просмотрено ${w} из ${list.length}">${sn ? 'Сезон ' + sn : 'Прочее'} <small>${full ? '✓' : w + '/' + list.length}</small></button>`;
+  }).join(''))}</div>
+    <div class="row eps-tools"><span class="page-sub" data-sn-sum></span><span style="flex:1"></span>
+      <button class="ghost" data-sn-mark>✓ Отметить сезон</button></div>`;
   ov.innerHTML = html`<div class="modal wide">
     <button class="modal-close" data-close>✕</button>
     <div class="row"><div style="flex:1"><h2 style="margin-top:0">${t.title || t.name || t.hash}</h2>
       <div class="page-sub">Серий: ${files.length} · просмотрено: ${done} · следующая — ${epLabel(next, t)}</div></div>
       <button data-next>▶ Смотреть следующую</button></div>
     <div class="divider"></div>
+    ${raw(tabHtml)}
     <div class="eps-list" style="max-height:60vh;overflow:auto">
-      ${raw(seasons.map(sn => html`<div class="eps-season" data-sn="${sn}">
+      ${raw(seasons.map(sn => html`<div class="eps-season${tabs && sn !== cur ? ' hidden' : ''}" data-sn="${sn}">
         <div class="eps-season-h">${sn ? 'Сезон ' + sn : 'Эпизоды'}</div>
         ${raw(groups.get(sn).map(f => epRow(t, f, next, sn)).join(''))}
       </div>`).join(''))}
@@ -3815,9 +3843,47 @@ function openEpisodesPicker(t, files) {
     b.disabled = false;
     if (!ok) return;
     toast(wasWatched ? 'Отметка снята' : 'Отмечено просмотренным');
-    close(); openEpisodesPicker(t, files);
+    close(); openEpisodesPicker(t, files, { season: cur });
   }));
-  loadEpDetails(ov, t);
+  const list = ov.querySelector('.eps-list');
+  const showSeason = sn => {
+    cur = sn;
+    $$('.eps-season', ov).forEach(b => b.classList.toggle('hidden', parseInt(b.dataset.sn, 10) !== sn));
+    $$('[data-sn-tab]', ov).forEach(b => b.classList.toggle('on', parseInt(b.dataset.snTab, 10) === sn));
+    const g = groups.get(sn) || [];
+    const w = g.filter(f => isWatched(t, f.id)).length;
+    const sum = ov.querySelector('[data-sn-sum]');
+    if (sum) sum.textContent = 'Серий в сезоне: ' + g.length + ' · просмотрено: ' + w;
+    const mk = ov.querySelector('[data-sn-mark]');
+    if (mk) mk.textContent = w === g.length ? '↺ Снять отметки сезона' : '✓ Отметить сезон';
+    // Прокрутка — к следующей серии, если она в этом сезоне, иначе к началу.
+    const row = ov.querySelector('.eps-season[data-sn="' + sn + '"] .eprow.next');
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: 'center' }); else list.scrollTop = 0;
+    loadEpDetails(ov, t, sn);
+  };
+  $$('[data-sn-tab]', ov).forEach(b => b.addEventListener('click', () => showSeason(parseInt(b.dataset.snTab, 10))));
+  // Сезон целиком — одно нажатие, а не двадцать галочек: так начинают
+  // смотреть с середины сериала или отмечают уже увиденное.
+  const mark = ov.querySelector('[data-sn-mark]');
+  if (mark) mark.addEventListener('click', async () => {
+    const g = groups.get(cur) || [];
+    const all = g.every(f => isWatched(t, f.id));
+    mark.disabled = true;
+    let ok = true;
+    for (const f of g) {
+      if (isWatched(t, f.id) !== all) continue;
+      if (!(await savePosition(t.hash, f.id, all ? 0 : null, 0, !all))) { ok = false; break; }
+    }
+    mark.disabled = false;
+    if (ok) toast(all ? 'Отметки сезона сняты' : 'Сезон отмечен просмотренным');
+    close(); openEpisodesPicker(t, files, { season: cur });
+  });
+  if (tabs) showSeason(cur);
+  else {
+    const row = ov.querySelector('.eprow.next');
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: 'center' });
+    loadEpDetails(ov, t);
+  }
 }
 /* epLabel — человеческая подпись серии: «Сезон 1 · Серия 2». Так же называл
    серии прежний клиент, и так их понятнее искать глазами, чем «S01E02». */
@@ -3966,13 +4032,16 @@ async function loadEpNames(ov, t) {
 /* loadEpDetails наполняет окно выбора серии: заголовок сезона, дата выхода,
    длительность, оценка, описание и кадр. Список серий в карточке остаётся
    коротким — там для этого нет места. */
-async function loadEpDetails(ov, t) {
+async function loadEpDetails(ov, t, only) {
   const q = cleanSeriesName(t.title || t.name || '');
   if (!q) return;
-  const blocks = $$('.eps-season', ov);
+  // Сезоны подгружаются по мере открытия вкладок: у сериала на десять сезонов
+  // десять запросов подряд задерживали как раз тот, что открыт.
+  const blocks = $$('.eps-season', ov).filter(b => only == null || parseInt(b.dataset.sn, 10) === only);
   for (const block of blocks) {
     const sn = parseInt(block.dataset.sn, 10);
-    if (!sn) continue;
+    if (!sn || block.dataset.loaded) continue;
+    block.dataset.loaded = '1';
     const season = await seasonInfo(q, sn);
     if (!season) continue;
     const head = block.querySelector('.eps-season-h');

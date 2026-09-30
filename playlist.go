@@ -111,16 +111,22 @@ func buildPlaylist(base, hash string, files []*torrentFile, from int) string {
 			continue
 		}
 		started = true
-		name := path.Base(strings.ReplaceAll(f.Path, "\\", "/"))
-		if name == "" {
-			name = f.Path
-		}
+		name := playlistEntryName(f)
 		b.WriteString("#EXTINF:0," + name + "\n")
 		link := base + "/ts/stream/" + url.PathEscape(name) +
 			"?link=" + url.QueryEscape(hash) + "&index=" + fmt.Sprint(f.ID) + "&play"
 		b.WriteString(link + "\n")
 	}
 	return b.String()
+}
+
+// playlistEntryName — имя файла в плейлисте: без папок раздачи.
+func playlistEntryName(f *torrentFile) string {
+	name := path.Base(strings.ReplaceAll(f.Path, "\\", "/"))
+	if name == "" || name == "." {
+		name = f.Path
+	}
+	return name
 }
 
 // hasFile ищет файл по номеру.
