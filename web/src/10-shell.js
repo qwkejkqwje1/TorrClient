@@ -211,6 +211,13 @@ function openExternal(url) {
   if (!url) return;
   launchPlayer('browser', url, 'TorrClient');
 }
+// pimg — картинку TMDB берём через демон: у части провайдеров image.tmdb.org
+// не открывается, а демон умеет зеркало и держит кэш на диске.
+function pimg(u) {
+  const m = /^https?:\/\/image\.tmdb\.org(\/t\/p\/[^?#]+)$/.exec(String(u || ''));
+  return m ? '/api/img?p=' + encodeURIComponent(m[1]) : (u || '');
+}
+
 const PH_SVG = `<svg class="ph" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></svg>`;
 function kpSearchUrl(title) {
   const c = cleanSearchTitle(title || '');

@@ -68,7 +68,7 @@ function paintRecommendations(el) {
   }
   const cards = list.map(it => html`
     <div class="disc-card" data-rk="${it.kind + ':' + it.id}" title="${it.overview || 'Подобрать лучшую раздачу из всех источников'}">
-      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}
         <button class="rec-x" data-hide="${it.kind + ':' + it.id}" title="Не показывать">✕</button></div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>

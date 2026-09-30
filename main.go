@@ -77,6 +77,10 @@ type Comp struct {
 
 func main() {
 	flag.Parse()
+	// Автозапуск старых версий поднимал голый демон — без иконки в лотке.
+	if exe, err := os.Executable(); err == nil {
+		go migrateAutostart(exe)
+	}
 
 	// Вне loopback API открывается без пароля: профили (включая пароли к
 	// серверу), позиции просмотра и управление раздачами доступны любому, кто
@@ -144,6 +148,7 @@ func main() {
 	mux.HandleFunc("/api/meta", c.apiMeta)
 	mux.HandleFunc("/api/tmdb", c.apiTmdb)
 	mux.HandleFunc("/api/ratings", c.apiRatings)
+	mux.HandleFunc("/api/img", c.apiImg)
 
 	mux.HandleFunc("/api/tv_eps", c.apiTvEps)
 	// Поисковые эндпоинты придерживаются ограничителем: частые обращения

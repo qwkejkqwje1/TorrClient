@@ -3,7 +3,9 @@
 package main
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -68,5 +70,21 @@ func TestWindowsAutostartOnOff(t *testing.T) {
 	platformSetAutostart(exe, false)
 	if on, _ := platformAutostartState(); on {
 		t.Fatal("автозапуск не выключился")
+	}
+}
+
+// Рядом лежит окно — автозапуск поднимает его сразу в лоток; окна нет — демон.
+func TestAutostartCommandPrefersTheWindow(t *testing.T) {
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "torrclient.exe")
+	if got := autostartCommand(exe); got != `"`+exe+`" --open=false` {
+		t.Errorf("без окна: %q", got)
+	}
+	desk := filepath.Join(dir, "TorrClientDesktop.exe")
+	if err := os.WriteFile(desk, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := autostartCommand(exe); got != `"`+desk+`" --tray` {
+		t.Errorf("с окном: %q", got)
 	}
 }

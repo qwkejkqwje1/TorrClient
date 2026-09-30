@@ -33,7 +33,7 @@ const fmtDur = s => { if (!s) return ''; s = Math.round(s); const h = Math.floor
 const state = {
   view: 'library', hello: null, profiles: [], active: null, players: [],
   lib: [], viewed: [], dlJobs: [], settings: null, watch: { folder: '', log: [] }, folders: null,
-  query: '', category: 'all', searchState: { loading: false, results: [], provider: 'rutor', q: '' },
+  query: '', category: 'all', searchState: { loading: false, results: [], provider: savedPref('tc_prov', ['rutor', 'torznab', 'kinozal', 'both'], 'rutor'), cat: savedPref('tc_cat', null, ''), q: '' },
   // seen — фильтр по состоянию просмотра, coll — выбранная подборка. Пустая
   // подборка означает «вся библиотека», 'fav' — избранное. Отдельно от query и
   // category: те фильтруют и поиск, а эти два — только библиотеку.
@@ -207,7 +207,18 @@ async function initKinozalMirrors() {
 
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
+/* savedPref — выбор, запомненный в браузере: источник поиска, категория,
+   раздел подборки. ok — допустимые значения (null — любое непустое). */
+function savedPref(key, ok, def) {
+  let v = null;
+  try { v = localStorage.getItem(key); } catch {}
+  if (v == null) return def;
+  return !ok || ok.includes(v) ? v : def;
+}
+function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
+
 const WHATSNEW = [
+  ['1.18.0', ['Обложки идут через TorrClient: если image.tmdb.org у провайдера не открывается, берутся с зеркала и сохраняются на диске — библиотека открывается сразу и с постерами', '«Продолжить просмотр» больше не пропадает после обновления списка', 'Запуск фильма на компьютере с телефона или планшета снова работает', 'Значок в трее: появляется надёжнее (и после перезапуска Проводника), с иконкой программы; автозапуск открывает окно свёрнутым в трей, повторный запуск показывает уже открытое окно', 'Подробная статистика предзагрузки: буфер в процентах, сколько осталось ждать, пиры, отдача, всего скачано — панель не исчезает, пока буфер не набран', '«Сейчас смотрят»: за неделю или за сегодня, по 60 карточек за раз, по умолчанию и русское', 'Поиск запоминает источник, категорию и выбор в панели подборок']],
   ['1.17.1', ['Доступ с телефона: кнопка «Разрешить в брандмауэре» (Windows) — снимает запрет, который Windows ставит после «Отмены», и открывает порт для всех сетей', 'QR строится по адресу Wi-Fi/Ethernet, а не виртуального адаптера (WSL, VirtualBox, VPN); адрес можно выбрать', 'Подсказки «Не открывается на телефоне или планшете?»']],
   ['1.17.0', ['Онлайн-JacRed без установки Jackett: Настройки → Torznab → «＋ JacRed» — rutor, Кинозал, NNM-Club, RuTracker и др. одним источником', 'Поддержка JSON-ручки Jackett: источники без Torznab (jac-red.ru) тоже ищут']],
   ['1.16.0', ['С телефона «Смотреть» теперь спрашивает, где играть: в плеере телефона (VLC, MX Player), в браузере телефона или на компьютере — раньше плеер молча открывался на компьютере', '«🔥 Сейчас смотрят» — тренды TMDB за неделю (Поиск → панель топа)', '«Продолжить просмотр»: по карточке на сериал, после досмотренной серии сразу предлагается следующая, с постером', 'Рекомендации учитывают всю библиотеку и Избранное; досмотренное и Избранное весят больше']],
@@ -520,6 +531,13 @@ function openExternal(url) {
   if (!url) return;
   launchPlayer('browser', url, 'TorrClient');
 }
+// pimg — картинку TMDB берём через демон: у части провайдеров image.tmdb.org
+// не открывается, а демон умеет зеркало и держит кэш на диске.
+function pimg(u) {
+  const m = /^https?:\/\/image\.tmdb\.org(\/t\/p\/[^?#]+)$/.exec(String(u || ''));
+  return m ? '/api/img?p=' + encodeURIComponent(m[1]) : (u || '');
+}
+
 const PH_SVG = `<svg class="ph" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></svg>`;
 function kpSearchUrl(title) {
   const c = cleanSearchTitle(title || '');
@@ -764,10 +782,31 @@ async function loadLibrary(paint) {
   try { state.lib = await listTorrents(); }
   catch (e) { toast('Ошибка загрузки библиотеки: ' + e.message, true); state.lib = []; }
   await loadPositions();
+  state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
   const need = state.lib.filter(t => !t.hasStat && !statCache[t.hash]);
   if (need.length) enrichBackground(need);
   return state.lib;
+}
+
+/* keepFiles возвращает раздаче список файлов, если свежий список пришёл без
+   него. Без file_stats «Продолжить просмотр» не может найти серию и молча
+   пропадал: после перезагрузки списка файлы терялись, а повторно их не
+   спрашивали — раздача уже числилась в кэше. Берём из кэша статистики, а если
+   его нет — из поля data, в котором TorrServer хранит список файлов. */
+function keepFiles(t) {
+  if (!t || (Array.isArray(t.file_stats) && t.file_stats.length)) return;
+  const c = statCache[t.hash];
+  if (c && c.data && Array.isArray(c.data.file_stats) && c.data.file_stats.length) {
+    Object.assign(t, Object.assign({}, c.data, t), { file_stats: c.data.file_stats, hasStat: true });
+    return;
+  }
+  if (typeof t.data !== 'string' || t.data.indexOf('Files') < 0) return;
+  try {
+    const d = JSON.parse(t.data);
+    const files = d && d.TorrServer && d.TorrServer.Files;
+    if (Array.isArray(files) && files.length) t.file_stats = files;
+  } catch {}
 }
 
 /* Отметки просмотра ведёт демон: он один знает позицию от самого плеера, а не
@@ -946,7 +985,7 @@ function continueCard(it) {
   return html`
   <div class="cont-card${next ? ' is-next' : ''}" data-cont data-cont-hash="${it.t.hash}" data-cont-file="${it.f.id}">
     <div class="cont-top">
-      ${raw(it.t.poster ? html`<img class="cont-poster" src="${it.t.poster}" loading="lazy" alt="" onerror="this.remove()">` : '')}
+      ${raw(it.t.poster ? html`<img class="cont-poster" src="${pimg(it.t.poster)}" loading="lazy" alt="" onerror="this.remove()">` : '')}
       <div class="cont-txt">
         <div class="cont-title" title="${title}">${title}</div>
         <div class="cont-sub">${next ? 'Дальше: ' : ''}${epLabel(it.f, it.t)}</div>
@@ -1022,7 +1061,7 @@ function tile(t) {
   <div class="tile" data-hash="${t.hash}">
     <div class="poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (t.poster ? 'hidden' : '') + '"'))}
-      ${raw(t.poster ? html`<img src="${t.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
@@ -1457,7 +1496,7 @@ function openTorrentModal(t) {
         ${raw(isSeries(t.title || '') ? html`<span class="chip series">${seriesTag(t.title || '')}</span>` : '')}
         ${raw(t.bit_rate ? html`<span class="chip">${t.bit_rate}</span>` : '')}
       </div></div>
-      ${raw(t.poster ? html`<img src="${t.poster}" style="height:110px; border-radius:8px" onerror="this.remove()">` : '')}
+      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" style="height:110px; border-radius:8px" onerror="this.remove()">` : '')}
     </div>
     <div class="divider"></div>
     <div class="tabs" id="infoTabs">
@@ -1728,7 +1767,7 @@ function favCard(it, ix) {
   <div class="tile result fav" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (it.poster ? 'hidden' : '') + '"'))}
-      ${raw(it.poster ? html`<img src="${it.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-fa="play" title="Смотреть"><span class="tri"></span></button>
       <div class="badges"><span class="chip grey">избранное</span></div>
       <div class="rate-stack">
@@ -1798,7 +1837,7 @@ async function favEnrich(list) {
           it.poster = j.poster;
           saveFavList(list);
           const el = document.querySelector(`.tile.fav[data-ix="${i}"] .result-poster`);
-          if (el) { const svg = el.querySelector('svg'); if (svg) svg.classList.add('hidden'); el.insertAdjacentHTML('beforeend', html`<img src="${j.poster}" loading="lazy" onerror="this.remove()">`); }
+          if (el) { const svg = el.querySelector('svg'); if (svg) svg.classList.add('hidden'); el.insertAdjacentHTML('beforeend', html`<img src="${pimg(j.poster)}" loading="lazy" onerror="this.remove()">`); }
         }
         applyRatingChips(`.tile.fav[data-ix="${i}"]`, j);
       }
@@ -1867,7 +1906,7 @@ function bookmarkCard(b, ix) {
   <div class="tile result bm" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (b.poster ? 'hidden' : '') + '"'))}
-      ${raw(b.poster ? html`<img src="${b.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(b.poster ? html`<img src="${pimg(b.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-bm="resume" title="${pos ? 'Продолжить' : 'Смотреть'}"><span class="tri"></span></button>
       <div class="badges"><span class="chip series">закладка</span></div>
       <div class="rate-stack">
@@ -1982,7 +2021,7 @@ async function renderSearch(root) {
     ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<span class="hq-chip"><button data-hq="${h}">${h}</button><button class="hq-x" data-hqx="${h}" title="Удалить из истории">×</button></span>`).join(''))}<button id="hqClear" class="hq-x" title="Очистить историю">очистить</button></div>` : '')}
     <div class="quick" id="discBar">
       <span class="qlabel">Топ за всё время:</span>
-      <select id="dKind" style="width:auto"><option value="trending">🔥 Сейчас смотрят</option><option value="movie" selected>Фильмы</option><option value="tv">Сериалы</option><option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="doc">Документальное</option></select>
+      <select id="dKind" style="width:auto"><option value="trending">🔥 Сейчас смотрят (неделя)</option><option value="trending_day">🔥 Сейчас смотрят (сегодня)</option><option value="movie" selected>Фильмы</option><option value="tv">Сериалы</option><option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="doc">Документальное</option></select>
       <select id="dOrigin" style="width:auto"><option value="foreign">Зарубежное</option><option value="any">Любое</option><option value="ru">Русское</option></select>
       <select id="dGenre" style="width:auto"></select>
       <button id="dGo" title="Самое популярное по числу голосов TMDB. Нужен ключ TMDB">Показать</button>
@@ -1997,8 +2036,10 @@ async function renderSearch(root) {
   $('#recBtn').addEventListener('click', () => showRecommendations());
   $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-  $('#searchProv').addEventListener('change', () => sd.provider = $('#searchProv').value);
-  $('#searchCat').addEventListener('change', () => { sd.cat = $('#searchCat').value; sd.showAll = false; updateTopBtnLabel(); paintResults($('#searchResults')); });
+  // Источник и категория запоминаются: после перезапуска поиск шёл снова по
+  // rutor, и выбор «Все источники» приходилось делать каждый раз.
+  $('#searchProv').addEventListener('change', () => { sd.provider = $('#searchProv').value; savePref('tc_prov', sd.provider); });
+  $('#searchCat').addEventListener('change', () => { sd.cat = $('#searchCat').value; savePref('tc_cat', sd.cat); sd.showAll = false; updateTopBtnLabel(); paintResults($('#searchResults')); });
   $('#searchQual').addEventListener('change', () => { setQual($('#searchQual').value); state.searchState.showAnyQual = false; paintResults($('#searchResults')); });
   const vidBox = $('#searchVid');
   if (vidBox) {
@@ -2011,6 +2052,7 @@ async function renderSearch(root) {
   }
   $$('[data-cat]').forEach(b => b.addEventListener('click', () => {
     $('#searchCat').value = b.dataset.cat;
+    savePref('tc_cat', b.dataset.cat);
     sd.cat = b.dataset.cat;
     updateTopBtnLabel();
     doSearch();
@@ -2498,12 +2540,14 @@ const DISC_GENRES = {
   tv: [['', 'Любой жанр'], [10759, 'Боевик и приключения'], [16, 'Мультсериал'], [35, 'Комедия'], [80, 'Криминал'], [99, 'Документальный'], [18, 'Драма'], [10751, 'Семейный'], [10762, 'Детский'], [9648, 'Детектив'], [10765, 'Фантастика и фэнтези'], [10768, 'Война и политика'], [37, 'Вестерн'], [10764, 'Реалити']],
 };
 const discState = { items: [], page: 0, hasMore: false, params: null, busy: false };
+const DISC_BATCH = 60;
 
 /* Разделы «Аниме», «Мультфильмы», «Документальное» сами задают жанр, поэтому
    второй список у них выбирает не жанр, а вид: фильмы или сериалы. Аниме чаще
    смотрят сериалами, остальное — фильмами. У аниме нет выбора происхождения:
    оно японское по определению. */
-const DISC_SECTIONS = { anime: 'tv', cartoon: 'movie', doc: 'movie', trending: 'movie' };
+const DISC_SECTIONS = { anime: 'tv', cartoon: 'movie', doc: 'movie', trending: 'movie', trending_day: 'movie' };
+const isTrending = k => k === 'trending' || k === 'trending_day';
 function fillDiscGenres() {
   const kind = $('#dKind').value;
   const sec = DISC_SECTIONS[kind];
@@ -2513,9 +2557,15 @@ function fillDiscGenres() {
   if (sec) $('#dGenre').value = sec;
   // «Сейчас смотрят» — тренды недели: подпись панели говорит об этом прямо.
   const lab = $('#discBar .qlabel');
-  if (lab) lab.textContent = kind === 'trending' ? 'Сейчас смотрят (за неделю):' : 'Топ за всё время:';
+  if (lab) lab.textContent = isTrending(kind) ? 'Сейчас смотрят:' : 'Топ за всё время:';
   const o = $('#dOrigin');
-  if (o) { o.disabled = kind === 'anime'; o.classList.toggle('hidden', kind === 'anime'); }
+  if (o) {
+    o.disabled = kind === 'anime'; o.classList.toggle('hidden', kind === 'anime');
+    // В трендах «Зарубежное» по умолчанию выбрасывало всё русское, и выдача
+    // выглядела урезанной. Здесь по умолчанию — всё подряд.
+    if (isTrending(kind) && !o.dataset.touched) o.value = 'any';
+    else if (!isTrending(kind) && !o.dataset.touched) o.value = 'foreign';
+  }
 }
 /* discQuery — параметры запроса подборки по выбору в панели. */
 function discQuery(p) {
@@ -2525,8 +2575,17 @@ function discQuery(p) {
 }
 function initDiscoverBar() {
   if (!$('#dKind')) return;
+  // Раздел, вид и происхождение подборки помнятся, как и источник поиска.
+  const kinds = [...$('#dKind').options].map(o => o.value);
+  $('#dKind').value = savedPref('tc_dkind', kinds, 'movie');
+  const org = savedPref('tc_dorigin', ['foreign', 'any', 'ru'], '');
+  if (org) { $('#dOrigin').value = org; $('#dOrigin').dataset.touched = '1'; }
   fillDiscGenres();
-  $('#dKind').addEventListener('change', fillDiscGenres);
+  const g = savedPref('tc_dgenre', null, '');
+  if (g && [...$('#dGenre').options].some(o => o.value === g)) $('#dGenre').value = g;
+  $('#dKind').addEventListener('change', () => { fillDiscGenres(); savePref('tc_dkind', $('#dKind').value); savePref('tc_dgenre', $('#dGenre').value); });
+  $('#dGenre').addEventListener('change', () => savePref('tc_dgenre', $('#dGenre').value));
+  $('#dOrigin').addEventListener('change', () => { $('#dOrigin').dataset.touched = '1'; savePref('tc_dorigin', $('#dOrigin').value); });
   $('#dGo').addEventListener('click', () => fetchDiscover(true));
 }
 async function fetchDiscover(reset) {
@@ -2541,19 +2600,24 @@ async function fetchDiscover(reset) {
   if (!p) return;
   discState.busy = true;
   try {
-    const url = '/api/discover?' + discQuery(p) + '&page=' + (discState.page + 1);
-    const resp = await apiGetJSON(url);
-    if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
-    discState.page = resp.page;
-    discState.hasMore = !!resp.has_more;
-    const seen = new Set(discState.items.map(x => x.id));
-    for (const it of resp.items || []) if (!seen.has(it.id)) discState.items.push(it);
-    // Зарубежный фильтр может опустошить страницу целиком — идём дальше сами.
-    if (!(resp.items || []).length && discState.hasMore) { discState.busy = false; return fetchDiscover(false); }
+    // За одно нажатие набирается не меньше DISC_BATCH карточек: страница TMDB —
+    // двадцать названий, а после фильтра по происхождению бывает и две.
+    // Пять страниц — предел, чтобы кнопка не превращалась в долгую загрузку.
+    const want = discState.items.length + DISC_BATCH;
+    for (let n = 0; n < 5; n++) {
+      const url = '/api/discover?' + discQuery(p) + '&page=' + (discState.page + 1);
+      const resp = await apiGetJSON(url);
+      if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
+      discState.page = resp.page;
+      discState.hasMore = !!resp.has_more;
+      const seen = new Set(discState.items.map(x => x.id + ':' + x.kind));
+      for (const it of resp.items || []) if (!seen.has(it.id + ':' + it.kind)) discState.items.push(it);
+      if (discState.items.length >= want || !discState.hasMore) break;
+    }
   } catch (e) {
     discState.busy = false;
-    if (reset) el.innerHTML = html`<div class="empty">Не удалось получить подборку: ${e.message}</div>`;
-    else toast(e.message, true);
+    if (reset && !discState.items.length) el.innerHTML = html`<div class="empty">Не удалось получить подборку: ${e.message}</div>`;
+    else { toast(e.message, true); paintDiscover(el); }
     return;
   }
   discState.busy = false;
@@ -2563,11 +2627,11 @@ function paintDiscover(el) {
   if (!discState.items.length) { el.innerHTML = '<div class="empty">В подборке пусто</div>'; return; }
   const cards = discState.items.map((it, i) => html`
     <div class="disc-card" data-di="${i}" title="Подобрать лучшую раздачу из всех источников">
-      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}</div>
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}</div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
-  el.innerHTML = html`<div class="disc-head">${discState.params && discState.params.kind === 'trending' ? 'Сейчас смотрят — тренды недели' : 'Популярное за всё время'} (${discState.items.length})</div>
+  el.innerHTML = html`<div class="disc-head">${discState.params && isTrending(discState.params.kind) ? (discState.params.kind === 'trending_day' ? 'Сейчас смотрят — тренды дня' : 'Сейчас смотрят — тренды недели') : 'Популярное за всё время'} (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>
     ${raw(discState.hasMore ? '<div style="text-align:center;margin:14px"><button id="discMore" class="primary">Показать ещё</button></div>' : '')}`;
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
@@ -2755,7 +2819,7 @@ function resultRow(r, ix) {
   <div class="tile result" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (r.poster ? 'hidden' : '') + '"'))}
-      ${raw(r.poster ? html`<img src="${r.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-sa="play" title="Смотреть"><span class="tri"></span></button>
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
@@ -2992,7 +3056,7 @@ function setPosterImage(el, url) {
     el.insertBefore(img, el.firstChild);
   }
   img.onerror = function(){ this.remove(); const s = el.querySelector('svg.ph'); if (s) s.classList.remove('hidden'); };
-  img.src = url;
+  img.src = pimg(url);
 }
 // libRatings подтягивает постеры и оценки к плиткам библиотеки.
 //
@@ -3001,7 +3065,7 @@ function setPosterImage(el, url) {
 // очередь не доходила до конца. Теперь запросы идут в несколько дорожек, а ответ
 // на одно и то же название берётся один раз: в библиотеке оно встречается в
 // разных качествах, и спрашивать его столько же раз незачем.
-const LIB_RATINGS_MAX = 60;
+const LIB_RATINGS_MAX = 300;
 
 /* ---------- Постеры и оценки библиотеки ----------
    TorrServer ни постеров, ни оценок не хранит: /torrents их не отдаёт, и
@@ -3231,7 +3295,7 @@ function openTrailer(r) {
 }
 function openPoster(p) {
   const ov = document.createElement('div'); ov.className = 'overlay'; ov.style.alignItems = 'center';
-  ov.innerHTML = html`<img src="${p}" style="max-width:90vw; max-height:90vh; border-radius:10px" onclick="this.parentElement.remove()">`;
+  ov.innerHTML = html`<img src="${pimg(p)}" style="max-width:90vw; max-height:90vh; border-radius:10px" onclick="this.parentElement.remove()">`;
   document.body.appendChild(ov); ov.addEventListener('click', () => ov.remove());
 }
 
@@ -3305,7 +3369,7 @@ function paintRecommendations(el) {
   }
   const cards = list.map(it => html`
     <div class="disc-card" data-rk="${it.kind + ':' + it.id}" title="${it.overview || 'Подобрать лучшую раздачу из всех источников'}">
-      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}
         <button class="rec-x" data-hide="${it.kind + ':' + it.id}" title="Не показывать">✕</button></div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
@@ -3428,6 +3492,43 @@ const PREP_STAGES = [
   'Торрент в базе',
 ];
 
+/* prepFigures — цифры ожидания в одном месте: и окно подготовки, и панель в
+   углу показывают одно и то же. Буфер — то, сколько плееру нужно до старта;
+   по скорости считается, сколько ещё ждать. */
+function prepFigures(st, started) {
+  const n = k => Number(st && st[k]) || 0;
+  const stat = Number(st && st.stat);
+  const pre = n('preload_size'), preBytes = n('preloaded_bytes');
+  const total = n('torrent_size'), loaded = n('loaded_size');
+  const sp = n('download_speed'), up = n('upload_speed');
+  const seeds = n('connected_seeders'), active = n('active_peers'), all = n('total_peers');
+  const pending = n('pending_peers') + n('half_open_peers');
+  const part = pre > 0 ? preBytes / pre : (total > 0 ? loaded / total : 0);
+  const left = pre > 0 ? Math.max(0, pre - preBytes) : 0;
+  const eta = left > 0 && sp > 0 ? left / sp : 0;
+  return {
+    stat, pre, preBytes, total, loaded, sp, seeds, active, all, part,
+    stage: PREP_STAGES[stat] || 'Раздача',
+    text: {
+      seeds: 'сиды: ' + seeds,
+      peers: 'пиры: ' + active + (all > active ? ' из ' + all : '') + (pending > 0 ? ' · ждут ' + pending : ''),
+      speed: 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0') + (up > 0 ? ' · отдача ' + fmtSize(up) + '/с' : ''),
+      // До начала показа важен буфер, а не вся раздача: у сезона целиком
+      // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
+      loaded: pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) + ' (' + Math.round(Math.min(1, part) * 100) + '%)'
+        : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —'),
+      eta: eta > 0 ? 'осталось ≈ ' + fmtPos(Math.max(1, eta)) : (pre > 0 && left === 0 ? 'буфер готов' : 'осталось: —'),
+      total: total > 0 ? 'скачано: ' + fmtSize(loaded) + ' из ' + fmtSize(total) : 'скачано: —',
+      time: 'прошло: ' + fmtPos((Date.now() - started) / 1000),
+    },
+  };
+}
+function paintPrepStats(el, fig) {
+  Object.keys(fig.text).forEach(k => { const x = el('[data-st="' + k + '"]'); if (x) x.textContent = fig.text[k]; });
+  const bar = el('[data-bar]'); if (bar) bar.style.width = Math.round(Math.max(0, Math.min(1, fig.part)) * 100) + '%';
+}
+const PREP_STAT_SPANS = ['seeds', 'peers', 'speed', 'loaded', 'eta', 'total', 'time'];
+
 /* Пока сервер не сообщил сведения о раздаче, плееру нечего играть: он
    откроется на пустом месте. Поэтому ожидание показывается: этап, сиды, пиры,
    скорость и ход подгрузки, — а рядом кнопка отказа. */
@@ -3437,13 +3538,7 @@ function prepOverlay(title) {
     <h2>${title || 'Раздача'}</h2>
     <div class="prep-stage"><span class="spin"></span><span data-stage>Торрент добавлен</span></div>
     <div class="prep-bar"><i data-bar></i></div>
-    <div class="prep-stats">
-      <span data-st="seeds">сиды: —</span>
-      <span data-st="peers">пиры: —</span>
-      <span data-st="speed">скорость: —</span>
-      <span data-st="loaded">загружено: —</span>
-      <span data-st="time">прошло: 0:00</span>
-    </div>
+    <div class="prep-stats">${raw(PREP_STAT_SPANS.map(k => '<span data-st="' + k + '">—</span>').join(''))}</div>
     <div class="prep-hint" data-hint>Плеер откроется сам, когда появятся файлы раздачи.</div>
     <div class="btn-group"><button data-cancel>Отмена</button></div>
   </div>`;
@@ -3453,26 +3548,10 @@ function prepOverlay(title) {
   const api = {
     cancelled: false,
     update(st) {
-      const stat = Number(st && st.stat);
-      el('[data-stage]').textContent = PREP_STAGES[stat] || 'Раздача';
-      const total = Number(st && st.torrent_size) || 0;
-      const loaded = Number(st && st.loaded_size) || 0;
-      const pre = Number(st && st.preload_size) || 0;
-      const preBytes = Number(st && st.preloaded_bytes) || 0;
-      // Полоса показывает то, что известно: ход предзагрузки, а без него —
-      // долю загруженного от всего размера.
-      const part = pre > 0 ? preBytes / pre : (total > 0 ? loaded / total : 0);
-      el('[data-bar]').style.width = Math.round(Math.max(0, Math.min(1, part)) * 100) + '%';
-      const seeds = Number(st && st.connected_seeders) || 0;
-      const peers = Number(st && st.active_peers) || 0;
-      const sp = Number(st && st.download_speed) || 0;
-      el('[data-st="seeds"]').textContent = 'сиды: ' + seeds;
-      el('[data-st="peers"]').textContent = 'пиры: ' + peers;
-      el('[data-st="speed"]').textContent = 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0');
-      // До начала показа важен буфер, а не вся раздача: у сезона целиком
-    // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
-    el('[data-st="loaded"]').textContent = pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —');
-      el('[data-st="time"]').textContent = 'прошло: ' + fmtPos((Date.now() - started) / 1000);
+      const fig = prepFigures(st, started);
+      el('[data-stage]').textContent = fig.stage;
+      paintPrepStats(el, fig);
+      const stat = fig.stat, seeds = fig.seeds;
       if (stat <= 1 && seeds === 0) el('[data-hint]').textContent = 'Сервер ищет раздающих. Если сидов нет, показ не начнётся — можно попробовать другую раздачу.';
     },
     hint(text) { el('[data-hint]').textContent = text; },
@@ -3543,13 +3622,7 @@ function progressPanel(t, f, next) {
       <button data-hide title="Скрыть">✕</button></div>
     <div class="dlpanel-sub" data-sub>${epSuffix(f).replace(/^ — /, '') || basename(f.path)}</div>
     <div class="prep-bar"><i data-bar></i></div>
-    <div class="prep-stats">
-      <span data-st="stage">—</span>
-      <span data-st="seeds">сиды: —</span>
-      <span data-st="peers">пиры: —</span>
-      <span data-st="speed">скорость: —</span>
-      <span data-st="loaded">загружено: —</span>
-    </div>
+    <div class="prep-stats"><span data-st="stage">—</span>${raw(PREP_STAT_SPANS.map(k => '<span data-st="' + k + '">—</span>').join(''))}</div>
     <div class="prep-hint" data-hint></div>
     <div class="prep-next hidden" data-nextbox></div>`;
   document.body.appendChild(ov);
@@ -3557,6 +3630,7 @@ function progressPanel(t, f, next) {
   const started = Date.now();
   let stopped = false;
   let announced = false;
+  let lastBytes = 0, lastMove = Date.now();
 
   const panel = {
     stop() {
@@ -3616,35 +3690,28 @@ function progressPanel(t, f, next) {
     const st = await statTorrent(t.hash).catch(() => null);
     if (stopped || !st || typeof st !== 'object') return;
     if (Array.isArray(st.file_stats) && st.file_stats.length) rememberStat(t.hash, st);
-    const stat = Number(st.stat);
-    el('[data-st="stage"]').textContent = PREP_STAGES[stat] || 'Раздача';
-    const total = Number(st.torrent_size) || 0;
-    const loaded = Number(st.loaded_size) || 0;
-    const pre = Number(st.preload_size) || 0;
-    const preBytes = Number(st.preloaded_bytes) || 0;
-    const read = Number(st.bytes_read) || 0;
-    const part = pre > 0 ? preBytes / pre : (total > 0 ? loaded / total : 0);
-    el('[data-bar]').style.width = Math.round(Math.max(0, Math.min(1, part)) * 100) + '%';
-    const seeds = Number(st.connected_seeders) || 0;
-    const peers = Number(st.active_peers) || 0;
-    const sp = Number(st.download_speed) || 0;
-    el('[data-st="seeds"]').textContent = 'сиды: ' + seeds;
-    el('[data-st="peers"]').textContent = 'пиры: ' + peers;
-    el('[data-st="speed"]').textContent = 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0');
-    // До начала показа важен буфер, а не вся раздача: у сезона целиком
-    // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
-    el('[data-st="loaded"]').textContent = pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —');
-    // Плеер начал читать данные — значит показ пошёл.
-    if (preBytes > 0 || read > 0) { panel.ready(); return; }
+    const fig = prepFigures(st, started);
+    const stat = fig.stat, seeds = fig.seeds, peers = fig.active;
+    el('[data-st="stage"]').textContent = fig.stage;
+    paintPrepStats(el, fig);
+    // Показ начался, когда буфер набран. Раньше панель уходила при первом же
+    // байте — и самое интересное, ход предзагрузки, увидеть было нельзя.
+    // bytes_read у TorrServer — принятое от пиров, а не прочитанное плеером,
+    // поэтому по нему о старте судить нельзя.
+    if (fig.pre > 0 ? fig.preBytes >= fig.pre * 0.97 : (stat === 3 && fig.loaded > 0 && Date.now() - started > 4000)) { panel.ready(); return; }
+    if (fig.preBytes > lastBytes) { lastBytes = fig.preBytes; lastMove = Date.now(); }
     if (seeds === 0 && peers === 0) {
       el('[data-hint]').textContent = 'Раздающих нет: показ не начнётся, пока не появятся сиды. Попробуйте другую раздачу.';
     } else if (stat <= 1) {
       el('[data-hint]').textContent = 'Сервер ищет раздающих...';
+    } else if (fig.pre > 0) {
+      el('[data-hint]').textContent = 'Набирается буфер: показ начнётся, когда он заполнится.';
     } else {
       el('[data-hint]').textContent = 'Плеер открыт и ждёт данных.';
     }
-    // Долгое ожидание без движения не должно висеть вечно.
-    if (Date.now() - started > 90000) panel.stop();
+    // Долгое ожидание без движения не должно висеть вечно; пока буфер
+    // растёт, панель остаётся.
+    if (Date.now() - lastMove > 90000) panel.stop();
   };
   const timer = setInterval(tick, 1500);
   tick();
@@ -4136,7 +4203,7 @@ async function loadEpDetails(ov, t, only) {
       const over = row.querySelector('.ep-over');
       if (over && ep.overview) over.textContent = ep.overview;
       const still = row.querySelector('.ep-still');
-      if (still && ep.still) still.innerHTML = html`<img src="${ep.still}" loading="lazy" alt="">`;
+      if (still && ep.still) still.innerHTML = html`<img src="${pimg(ep.still)}" loading="lazy" alt="">`;
       if (ep.name && !row.title.includes(ep.name)) row.title += ' — ' + ep.name;
       if (ep.overview) row.title += '\n' + ep.overview;
     });

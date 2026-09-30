@@ -20,7 +20,7 @@ function favCard(it, ix) {
   <div class="tile result fav" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (it.poster ? 'hidden' : '') + '"'))}
-      ${raw(it.poster ? html`<img src="${it.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-fa="play" title="Смотреть"><span class="tri"></span></button>
       <div class="badges"><span class="chip grey">избранное</span></div>
       <div class="rate-stack">
@@ -90,7 +90,7 @@ async function favEnrich(list) {
           it.poster = j.poster;
           saveFavList(list);
           const el = document.querySelector(`.tile.fav[data-ix="${i}"] .result-poster`);
-          if (el) { const svg = el.querySelector('svg'); if (svg) svg.classList.add('hidden'); el.insertAdjacentHTML('beforeend', html`<img src="${j.poster}" loading="lazy" onerror="this.remove()">`); }
+          if (el) { const svg = el.querySelector('svg'); if (svg) svg.classList.add('hidden'); el.insertAdjacentHTML('beforeend', html`<img src="${pimg(j.poster)}" loading="lazy" onerror="this.remove()">`); }
         }
         applyRatingChips(`.tile.fav[data-ix="${i}"]`, j);
       }
@@ -159,7 +159,7 @@ function bookmarkCard(b, ix) {
   <div class="tile result bm" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (b.poster ? 'hidden' : '') + '"'))}
-      ${raw(b.poster ? html`<img src="${b.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(b.poster ? html`<img src="${pimg(b.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-bm="resume" title="${pos ? 'Продолжить' : 'Смотреть'}"><span class="tri"></span></button>
       <div class="badges"><span class="chip series">закладка</span></div>
       <div class="rate-stack">

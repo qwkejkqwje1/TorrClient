@@ -115,8 +115,21 @@ func webviewDataPath() string {
 
 // NOTE: must be built with -tags production (that's what "wails build" does).
 // Without it, wails compiles a stub that shows an error dialog and exits.
+// startInTray — запущено ли окно с --tray (автозапуск: сразу в лоток).
+func startInTray(args []string) bool {
+	for _, a := range args {
+		if a == "--tray" || a == "-tray" {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	if !acquireSingleInstance() {
+		// Копия уже работает — пусть покажет своё окно: оно могло быть
+		// спрятано в лоток, а иконку в лотке Windows 11 прячет под «^».
+		showRunningWindow()
 		os.Exit(0)
 	}
 	defer procCloseHandle.Call(uintptr(singleInstanceMu))
@@ -135,8 +148,10 @@ func main() {
 			WebviewUserDataPath: webviewDataPath(),
 		},
 		BackgroundColour: &options.RGBA{R: 14, G: 19, B: 26, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		// --tray — запуск при входе в систему: сразу в лоток, без окна.
+		StartHidden: startInTray(os.Args[1:]),
+		OnStartup:   app.startup,
+		OnShutdown:  app.shutdown,
 		// Закрытие окна прячет его в лоток, а не завершает программу: решение
 		// принимает сама оболочка (вернёт false, если лотка нет).
 		OnBeforeClose: app.beforeClose,

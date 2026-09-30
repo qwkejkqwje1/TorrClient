@@ -22,6 +22,7 @@ import (
 	goruntime "runtime"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -33,6 +34,11 @@ const (
 	wmDestroy      = 0x0002
 	wmClose        = 0x0010
 	wmNull         = 0x0000
+
+	// wmShowWindow — просьба второго запуска показать окно. Раньше второй
+	// запуск молча выходил, и спрятанное в лоток окно без иконки было не
+	// вернуть ничем.
+	wmShowWindow = 0x8000 + 2 // WM_APP + 2
 
 	// Клик мышью приходит в lParam сообщения от иконки.
 	wmRbuttonUp     = 0x0205
@@ -98,6 +104,9 @@ var (
 	procSetForeground    = user32.NewProc("SetForegroundWindow")
 	procGetCursorPos     = user32.NewProc("GetCursorPos")
 	procPostMessage      = user32.NewProc("PostMessageW")
+	procRegisterWinMsg   = user32.NewProc("RegisterWindowMessageW")
+	procFindWindowEx     = user32.NewProc("FindWindowExW")
+	procExtractIconEx    = shell32.NewProc("ExtractIconExW")
 )
 
 // notifyIconData — NOTIFYICONDATAW. Поля идут в том же порядке, что в Windows:
@@ -220,6 +229,11 @@ type trayIcon struct {
 	onOpen func()
 	onQuit func()
 
+	// title и exe — чтобы вернуть иконку, когда Проводник перезапустился, и
+	// взять значок из самой программы, если рядом нет app.ico.
+	title string
+	exe   string
+
 	// started — иконка показана. Повторный stop безопасен, как и start,
 	// вызванный дважды: окно и иконка создаются один раз.
 	started bool
@@ -230,7 +244,37 @@ var (
 	trayActive  *trayIcon
 	trayClassOK bool
 	trayWndProc = syscall.NewCallback(trayWindowProc)
+
+	// wmTaskbarCreated — сообщение, которое Проводник рассылает, поднявшись
+	// заново (после сбоя или обновления). Иконки лотка при этом пропадают, и
+	// каждая программа должна добавить свою ещё раз — иначе иконки нет до
+	// перезапуска программы.
+	wmTaskbarCreated = registerTaskbarCreated()
 )
+
+func registerTaskbarCreated() uint32 {
+	p, err := syscall.UTF16PtrFromString("TaskbarCreated")
+	if err != nil {
+		return 0
+	}
+	r, _, _ := procRegisterWinMsg.Call(uintptr(unsafe.Pointer(p)))
+	return uint32(r)
+}
+
+// showRunningWindow просит уже запущенную копию показать окно. Окно иконки
+// — «только для сообщений», поэтому ищется среди них (родитель HWND_MESSAGE).
+func showRunningWindow() bool {
+	name, err := syscall.UTF16PtrFromString("TorrClientTrayWindow")
+	if err != nil {
+		return false
+	}
+	h, _, _ := procFindWindowEx.Call(hwndMessage, 0, uintptr(unsafe.Pointer(name)), 0)
+	if h == 0 {
+		return false
+	}
+	r, _, _ := procPostMessage.Call(h, wmShowWindow, 0, 0)
+	return r != 0
+}
 
 // trayWindowProc — обработка сообщений невидимого окна.
 //
@@ -238,6 +282,19 @@ var (
 // система ничего не знает о методах и получателях. Какую именно иконку
 // относится сообщение, определяется через trayActive.
 func trayWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
+	if m := uint32(msg); m != 0 && (m == wmTaskbarCreated || m == wmShowWindow) {
+		trayMu.Lock()
+		cur := trayActive
+		trayMu.Unlock()
+		if cur != nil {
+			if m == wmTaskbarCreated {
+				cur.add(cur.title)
+			} else {
+				cur.fire(cur.onOpen)
+			}
+		}
+		return 0
+	}
 	switch uint32(msg) {
 	case wmTrayCallback:
 		trayMu.Lock()
@@ -337,8 +394,17 @@ func (t *trayIcon) start(title, iconPath string) error {
 				errc <- e
 				return
 			}
-			t.hicon = loadTrayIcon(iconPath)
-			if !t.add(title) {
+			t.title = title
+			t.hicon = loadTrayIcon(iconPath, t.exe)
+			// При автозапуске программа поднимается раньше Проводника, и
+			// первая попытка отказывает — иконки не было вовсе. Пробуем
+			// минуту, прежде чем сдаться.
+			added := t.add(title)
+			for i := 0; !added && i < 30; i++ {
+				time.Sleep(2 * time.Second)
+				added = t.add(title)
+			}
+			if !added {
 				// Иконка не добавилась — окно без неё не нужно.
 				procDestroyWindow.Call(uintptr(t.hwnd))
 				t.hwnd = 0
@@ -457,13 +523,24 @@ func (t *trayIcon) stop() {
 // loadTrayIcon берёт иконку из файла рядом с программой. Нет файла — берётся
 // стандартная иконка системы: пустая иконка в лотке хуже, чем отсутствие
 // иконки, а отсутствие иконки лучше, чем отказ программы запускаться.
-func loadTrayIcon(path string) syscall.Handle {
+func loadTrayIcon(path, exe string) syscall.Handle {
 	if path != "" {
 		p, err := syscall.UTF16PtrFromString(path)
 		if err == nil {
 			h, _, _ := procLoadImage.Call(0, uintptr(unsafe.Pointer(p)), imageIcon, 0, 0, lrLoadFromFile)
 			if h != 0 {
 				return syscall.Handle(h)
+			}
+		}
+	}
+	// Значок самой программы: он вшит в exe при сборке, и файл app.ico рядом
+	// лежит не всегда — тогда в лотке была безликая стандартная иконка, которую
+	// легко не заметить.
+	if exe != "" {
+		if p, err := syscall.UTF16PtrFromString(exe); err == nil {
+			var small syscall.Handle
+			if n, _, _ := procExtractIconEx.Call(uintptr(unsafe.Pointer(p)), 0, 0, uintptr(unsafe.Pointer(&small)), 1); n != 0 && small != 0 {
+				return small
 			}
 		}
 	}

@@ -36,7 +36,7 @@ async function renderSearch(root) {
     ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<span class="hq-chip"><button data-hq="${h}">${h}</button><button class="hq-x" data-hqx="${h}" title="Удалить из истории">×</button></span>`).join(''))}<button id="hqClear" class="hq-x" title="Очистить историю">очистить</button></div>` : '')}
     <div class="quick" id="discBar">
       <span class="qlabel">Топ за всё время:</span>
-      <select id="dKind" style="width:auto"><option value="trending">🔥 Сейчас смотрят</option><option value="movie" selected>Фильмы</option><option value="tv">Сериалы</option><option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="doc">Документальное</option></select>
+      <select id="dKind" style="width:auto"><option value="trending">🔥 Сейчас смотрят (неделя)</option><option value="trending_day">🔥 Сейчас смотрят (сегодня)</option><option value="movie" selected>Фильмы</option><option value="tv">Сериалы</option><option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="doc">Документальное</option></select>
       <select id="dOrigin" style="width:auto"><option value="foreign">Зарубежное</option><option value="any">Любое</option><option value="ru">Русское</option></select>
       <select id="dGenre" style="width:auto"></select>
       <button id="dGo" title="Самое популярное по числу голосов TMDB. Нужен ключ TMDB">Показать</button>
@@ -51,8 +51,10 @@ async function renderSearch(root) {
   $('#recBtn').addEventListener('click', () => showRecommendations());
   $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-  $('#searchProv').addEventListener('change', () => sd.provider = $('#searchProv').value);
-  $('#searchCat').addEventListener('change', () => { sd.cat = $('#searchCat').value; sd.showAll = false; updateTopBtnLabel(); paintResults($('#searchResults')); });
+  // Источник и категория запоминаются: после перезапуска поиск шёл снова по
+  // rutor, и выбор «Все источники» приходилось делать каждый раз.
+  $('#searchProv').addEventListener('change', () => { sd.provider = $('#searchProv').value; savePref('tc_prov', sd.provider); });
+  $('#searchCat').addEventListener('change', () => { sd.cat = $('#searchCat').value; savePref('tc_cat', sd.cat); sd.showAll = false; updateTopBtnLabel(); paintResults($('#searchResults')); });
   $('#searchQual').addEventListener('change', () => { setQual($('#searchQual').value); state.searchState.showAnyQual = false; paintResults($('#searchResults')); });
   const vidBox = $('#searchVid');
   if (vidBox) {
@@ -65,6 +67,7 @@ async function renderSearch(root) {
   }
   $$('[data-cat]').forEach(b => b.addEventListener('click', () => {
     $('#searchCat').value = b.dataset.cat;
+    savePref('tc_cat', b.dataset.cat);
     sd.cat = b.dataset.cat;
     updateTopBtnLabel();
     doSearch();
@@ -552,12 +555,14 @@ const DISC_GENRES = {
   tv: [['', 'Любой жанр'], [10759, 'Боевик и приключения'], [16, 'Мультсериал'], [35, 'Комедия'], [80, 'Криминал'], [99, 'Документальный'], [18, 'Драма'], [10751, 'Семейный'], [10762, 'Детский'], [9648, 'Детектив'], [10765, 'Фантастика и фэнтези'], [10768, 'Война и политика'], [37, 'Вестерн'], [10764, 'Реалити']],
 };
 const discState = { items: [], page: 0, hasMore: false, params: null, busy: false };
+const DISC_BATCH = 60;
 
 /* Разделы «Аниме», «Мультфильмы», «Документальное» сами задают жанр, поэтому
    второй список у них выбирает не жанр, а вид: фильмы или сериалы. Аниме чаще
    смотрят сериалами, остальное — фильмами. У аниме нет выбора происхождения:
    оно японское по определению. */
-const DISC_SECTIONS = { anime: 'tv', cartoon: 'movie', doc: 'movie', trending: 'movie' };
+const DISC_SECTIONS = { anime: 'tv', cartoon: 'movie', doc: 'movie', trending: 'movie', trending_day: 'movie' };
+const isTrending = k => k === 'trending' || k === 'trending_day';
 function fillDiscGenres() {
   const kind = $('#dKind').value;
   const sec = DISC_SECTIONS[kind];
@@ -567,9 +572,15 @@ function fillDiscGenres() {
   if (sec) $('#dGenre').value = sec;
   // «Сейчас смотрят» — тренды недели: подпись панели говорит об этом прямо.
   const lab = $('#discBar .qlabel');
-  if (lab) lab.textContent = kind === 'trending' ? 'Сейчас смотрят (за неделю):' : 'Топ за всё время:';
+  if (lab) lab.textContent = isTrending(kind) ? 'Сейчас смотрят:' : 'Топ за всё время:';
   const o = $('#dOrigin');
-  if (o) { o.disabled = kind === 'anime'; o.classList.toggle('hidden', kind === 'anime'); }
+  if (o) {
+    o.disabled = kind === 'anime'; o.classList.toggle('hidden', kind === 'anime');
+    // В трендах «Зарубежное» по умолчанию выбрасывало всё русское, и выдача
+    // выглядела урезанной. Здесь по умолчанию — всё подряд.
+    if (isTrending(kind) && !o.dataset.touched) o.value = 'any';
+    else if (!isTrending(kind) && !o.dataset.touched) o.value = 'foreign';
+  }
 }
 /* discQuery — параметры запроса подборки по выбору в панели. */
 function discQuery(p) {
@@ -579,8 +590,17 @@ function discQuery(p) {
 }
 function initDiscoverBar() {
   if (!$('#dKind')) return;
+  // Раздел, вид и происхождение подборки помнятся, как и источник поиска.
+  const kinds = [...$('#dKind').options].map(o => o.value);
+  $('#dKind').value = savedPref('tc_dkind', kinds, 'movie');
+  const org = savedPref('tc_dorigin', ['foreign', 'any', 'ru'], '');
+  if (org) { $('#dOrigin').value = org; $('#dOrigin').dataset.touched = '1'; }
   fillDiscGenres();
-  $('#dKind').addEventListener('change', fillDiscGenres);
+  const g = savedPref('tc_dgenre', null, '');
+  if (g && [...$('#dGenre').options].some(o => o.value === g)) $('#dGenre').value = g;
+  $('#dKind').addEventListener('change', () => { fillDiscGenres(); savePref('tc_dkind', $('#dKind').value); savePref('tc_dgenre', $('#dGenre').value); });
+  $('#dGenre').addEventListener('change', () => savePref('tc_dgenre', $('#dGenre').value));
+  $('#dOrigin').addEventListener('change', () => { $('#dOrigin').dataset.touched = '1'; savePref('tc_dorigin', $('#dOrigin').value); });
   $('#dGo').addEventListener('click', () => fetchDiscover(true));
 }
 async function fetchDiscover(reset) {
@@ -595,19 +615,24 @@ async function fetchDiscover(reset) {
   if (!p) return;
   discState.busy = true;
   try {
-    const url = '/api/discover?' + discQuery(p) + '&page=' + (discState.page + 1);
-    const resp = await apiGetJSON(url);
-    if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
-    discState.page = resp.page;
-    discState.hasMore = !!resp.has_more;
-    const seen = new Set(discState.items.map(x => x.id));
-    for (const it of resp.items || []) if (!seen.has(it.id)) discState.items.push(it);
-    // Зарубежный фильтр может опустошить страницу целиком — идём дальше сами.
-    if (!(resp.items || []).length && discState.hasMore) { discState.busy = false; return fetchDiscover(false); }
+    // За одно нажатие набирается не меньше DISC_BATCH карточек: страница TMDB —
+    // двадцать названий, а после фильтра по происхождению бывает и две.
+    // Пять страниц — предел, чтобы кнопка не превращалась в долгую загрузку.
+    const want = discState.items.length + DISC_BATCH;
+    for (let n = 0; n < 5; n++) {
+      const url = '/api/discover?' + discQuery(p) + '&page=' + (discState.page + 1);
+      const resp = await apiGetJSON(url);
+      if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
+      discState.page = resp.page;
+      discState.hasMore = !!resp.has_more;
+      const seen = new Set(discState.items.map(x => x.id + ':' + x.kind));
+      for (const it of resp.items || []) if (!seen.has(it.id + ':' + it.kind)) discState.items.push(it);
+      if (discState.items.length >= want || !discState.hasMore) break;
+    }
   } catch (e) {
     discState.busy = false;
-    if (reset) el.innerHTML = html`<div class="empty">Не удалось получить подборку: ${e.message}</div>`;
-    else toast(e.message, true);
+    if (reset && !discState.items.length) el.innerHTML = html`<div class="empty">Не удалось получить подборку: ${e.message}</div>`;
+    else { toast(e.message, true); paintDiscover(el); }
     return;
   }
   discState.busy = false;
@@ -617,11 +642,11 @@ function paintDiscover(el) {
   if (!discState.items.length) { el.innerHTML = '<div class="empty">В подборке пусто</div>'; return; }
   const cards = discState.items.map((it, i) => html`
     <div class="disc-card" data-di="${i}" title="Подобрать лучшую раздачу из всех источников">
-      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}</div>
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}</div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
-  el.innerHTML = html`<div class="disc-head">${discState.params && discState.params.kind === 'trending' ? 'Сейчас смотрят — тренды недели' : 'Популярное за всё время'} (${discState.items.length})</div>
+  el.innerHTML = html`<div class="disc-head">${discState.params && isTrending(discState.params.kind) ? (discState.params.kind === 'trending_day' ? 'Сейчас смотрят — тренды дня' : 'Сейчас смотрят — тренды недели') : 'Популярное за всё время'} (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>
     ${raw(discState.hasMore ? '<div style="text-align:center;margin:14px"><button id="discMore" class="primary">Показать ещё</button></div>' : '')}`;
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {

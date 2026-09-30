@@ -13,6 +13,43 @@ const PREP_STAGES = [
   'Торрент в базе',
 ];
 
+/* prepFigures — цифры ожидания в одном месте: и окно подготовки, и панель в
+   углу показывают одно и то же. Буфер — то, сколько плееру нужно до старта;
+   по скорости считается, сколько ещё ждать. */
+function prepFigures(st, started) {
+  const n = k => Number(st && st[k]) || 0;
+  const stat = Number(st && st.stat);
+  const pre = n('preload_size'), preBytes = n('preloaded_bytes');
+  const total = n('torrent_size'), loaded = n('loaded_size');
+  const sp = n('download_speed'), up = n('upload_speed');
+  const seeds = n('connected_seeders'), active = n('active_peers'), all = n('total_peers');
+  const pending = n('pending_peers') + n('half_open_peers');
+  const part = pre > 0 ? preBytes / pre : (total > 0 ? loaded / total : 0);
+  const left = pre > 0 ? Math.max(0, pre - preBytes) : 0;
+  const eta = left > 0 && sp > 0 ? left / sp : 0;
+  return {
+    stat, pre, preBytes, total, loaded, sp, seeds, active, all, part,
+    stage: PREP_STAGES[stat] || 'Раздача',
+    text: {
+      seeds: 'сиды: ' + seeds,
+      peers: 'пиры: ' + active + (all > active ? ' из ' + all : '') + (pending > 0 ? ' · ждут ' + pending : ''),
+      speed: 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0') + (up > 0 ? ' · отдача ' + fmtSize(up) + '/с' : ''),
+      // До начала показа важен буфер, а не вся раздача: у сезона целиком
+      // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
+      loaded: pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) + ' (' + Math.round(Math.min(1, part) * 100) + '%)'
+        : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —'),
+      eta: eta > 0 ? 'осталось ≈ ' + fmtPos(Math.max(1, eta)) : (pre > 0 && left === 0 ? 'буфер готов' : 'осталось: —'),
+      total: total > 0 ? 'скачано: ' + fmtSize(loaded) + ' из ' + fmtSize(total) : 'скачано: —',
+      time: 'прошло: ' + fmtPos((Date.now() - started) / 1000),
+    },
+  };
+}
+function paintPrepStats(el, fig) {
+  Object.keys(fig.text).forEach(k => { const x = el('[data-st="' + k + '"]'); if (x) x.textContent = fig.text[k]; });
+  const bar = el('[data-bar]'); if (bar) bar.style.width = Math.round(Math.max(0, Math.min(1, fig.part)) * 100) + '%';
+}
+const PREP_STAT_SPANS = ['seeds', 'peers', 'speed', 'loaded', 'eta', 'total', 'time'];
+
 /* Пока сервер не сообщил сведения о раздаче, плееру нечего играть: он
    откроется на пустом месте. Поэтому ожидание показывается: этап, сиды, пиры,
    скорость и ход подгрузки, — а рядом кнопка отказа. */
@@ -22,13 +59,7 @@ function prepOverlay(title) {
     <h2>${title || 'Раздача'}</h2>
     <div class="prep-stage"><span class="spin"></span><span data-stage>Торрент добавлен</span></div>
     <div class="prep-bar"><i data-bar></i></div>
-    <div class="prep-stats">
-      <span data-st="seeds">сиды: —</span>
-      <span data-st="peers">пиры: —</span>
-      <span data-st="speed">скорость: —</span>
-      <span data-st="loaded">загружено: —</span>
-      <span data-st="time">прошло: 0:00</span>
-    </div>
+    <div class="prep-stats">${raw(PREP_STAT_SPANS.map(k => '<span data-st="' + k + '">—</span>').join(''))}</div>
     <div class="prep-hint" data-hint>Плеер откроется сам, когда появятся файлы раздачи.</div>
     <div class="btn-group"><button data-cancel>Отмена</button></div>
   </div>`;
@@ -38,26 +69,10 @@ function prepOverlay(title) {
   const api = {
     cancelled: false,
     update(st) {
-      const stat = Number(st && st.stat);
-      el('[data-stage]').textContent = PREP_STAGES[stat] || 'Раздача';
-      const total = Number(st && st.torrent_size) || 0;
-      const loaded = Number(st && st.loaded_size) || 0;
-      const pre = Number(st && st.preload_size) || 0;
-      const preBytes = Number(st && st.preloaded_bytes) || 0;
-      // Полоса показывает то, что известно: ход предзагрузки, а без него —
-      // долю загруженного от всего размера.
-      const part = pre > 0 ? preBytes / pre : (total > 0 ? loaded / total : 0);
-      el('[data-bar]').style.width = Math.round(Math.max(0, Math.min(1, part)) * 100) + '%';
-      const seeds = Number(st && st.connected_seeders) || 0;
-      const peers = Number(st && st.active_peers) || 0;
-      const sp = Number(st && st.download_speed) || 0;
-      el('[data-st="seeds"]').textContent = 'сиды: ' + seeds;
-      el('[data-st="peers"]').textContent = 'пиры: ' + peers;
-      el('[data-st="speed"]').textContent = 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0');
-      // До начала показа важен буфер, а не вся раздача: у сезона целиком
-    // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
-    el('[data-st="loaded"]').textContent = pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —');
-      el('[data-st="time"]').textContent = 'прошло: ' + fmtPos((Date.now() - started) / 1000);
+      const fig = prepFigures(st, started);
+      el('[data-stage]').textContent = fig.stage;
+      paintPrepStats(el, fig);
+      const stat = fig.stat, seeds = fig.seeds;
       if (stat <= 1 && seeds === 0) el('[data-hint]').textContent = 'Сервер ищет раздающих. Если сидов нет, показ не начнётся — можно попробовать другую раздачу.';
     },
     hint(text) { el('[data-hint]').textContent = text; },
@@ -128,13 +143,7 @@ function progressPanel(t, f, next) {
       <button data-hide title="Скрыть">✕</button></div>
     <div class="dlpanel-sub" data-sub>${epSuffix(f).replace(/^ — /, '') || basename(f.path)}</div>
     <div class="prep-bar"><i data-bar></i></div>
-    <div class="prep-stats">
-      <span data-st="stage">—</span>
-      <span data-st="seeds">сиды: —</span>
-      <span data-st="peers">пиры: —</span>
-      <span data-st="speed">скорость: —</span>
-      <span data-st="loaded">загружено: —</span>
-    </div>
+    <div class="prep-stats"><span data-st="stage">—</span>${raw(PREP_STAT_SPANS.map(k => '<span data-st="' + k + '">—</span>').join(''))}</div>
     <div class="prep-hint" data-hint></div>
     <div class="prep-next hidden" data-nextbox></div>`;
   document.body.appendChild(ov);
@@ -142,6 +151,7 @@ function progressPanel(t, f, next) {
   const started = Date.now();
   let stopped = false;
   let announced = false;
+  let lastBytes = 0, lastMove = Date.now();
 
   const panel = {
     stop() {
@@ -201,35 +211,28 @@ function progressPanel(t, f, next) {
     const st = await statTorrent(t.hash).catch(() => null);
     if (stopped || !st || typeof st !== 'object') return;
     if (Array.isArray(st.file_stats) && st.file_stats.length) rememberStat(t.hash, st);
-    const stat = Number(st.stat);
-    el('[data-st="stage"]').textContent = PREP_STAGES[stat] || 'Раздача';
-    const total = Number(st.torrent_size) || 0;
-    const loaded = Number(st.loaded_size) || 0;
-    const pre = Number(st.preload_size) || 0;
-    const preBytes = Number(st.preloaded_bytes) || 0;
-    const read = Number(st.bytes_read) || 0;
-    const part = pre > 0 ? preBytes / pre : (total > 0 ? loaded / total : 0);
-    el('[data-bar]').style.width = Math.round(Math.max(0, Math.min(1, part)) * 100) + '%';
-    const seeds = Number(st.connected_seeders) || 0;
-    const peers = Number(st.active_peers) || 0;
-    const sp = Number(st.download_speed) || 0;
-    el('[data-st="seeds"]').textContent = 'сиды: ' + seeds;
-    el('[data-st="peers"]').textContent = 'пиры: ' + peers;
-    el('[data-st="speed"]').textContent = 'скорость: ' + (sp > 0 ? fmtSize(sp) + '/с' : '0');
-    // До начала показа важен буфер, а не вся раздача: у сезона целиком
-    // «300 МБ из 40 ГБ» выглядело как бесконечное ожидание.
-    el('[data-st="loaded"]').textContent = pre > 0 ? 'буфер: ' + fmtSize(preBytes) + ' из ' + fmtSize(pre) : (total > 0 ? 'загружено: ' + fmtSize(loaded) : 'загружено: —');
-    // Плеер начал читать данные — значит показ пошёл.
-    if (preBytes > 0 || read > 0) { panel.ready(); return; }
+    const fig = prepFigures(st, started);
+    const stat = fig.stat, seeds = fig.seeds, peers = fig.active;
+    el('[data-st="stage"]').textContent = fig.stage;
+    paintPrepStats(el, fig);
+    // Показ начался, когда буфер набран. Раньше панель уходила при первом же
+    // байте — и самое интересное, ход предзагрузки, увидеть было нельзя.
+    // bytes_read у TorrServer — принятое от пиров, а не прочитанное плеером,
+    // поэтому по нему о старте судить нельзя.
+    if (fig.pre > 0 ? fig.preBytes >= fig.pre * 0.97 : (stat === 3 && fig.loaded > 0 && Date.now() - started > 4000)) { panel.ready(); return; }
+    if (fig.preBytes > lastBytes) { lastBytes = fig.preBytes; lastMove = Date.now(); }
     if (seeds === 0 && peers === 0) {
       el('[data-hint]').textContent = 'Раздающих нет: показ не начнётся, пока не появятся сиды. Попробуйте другую раздачу.';
     } else if (stat <= 1) {
       el('[data-hint]').textContent = 'Сервер ищет раздающих...';
+    } else if (fig.pre > 0) {
+      el('[data-hint]').textContent = 'Набирается буфер: показ начнётся, когда он заполнится.';
     } else {
       el('[data-hint]').textContent = 'Плеер открыт и ждёт данных.';
     }
-    // Долгое ожидание без движения не должно висеть вечно.
-    if (Date.now() - started > 90000) panel.stop();
+    // Долгое ожидание без движения не должно висеть вечно; пока буфер
+    // растёт, панель остаётся.
+    if (Date.now() - lastMove > 90000) panel.stop();
   };
   const timer = setInterval(tick, 1500);
   tick();
@@ -721,7 +724,7 @@ async function loadEpDetails(ov, t, only) {
       const over = row.querySelector('.ep-over');
       if (over && ep.overview) over.textContent = ep.overview;
       const still = row.querySelector('.ep-still');
-      if (still && ep.still) still.innerHTML = html`<img src="${ep.still}" loading="lazy" alt="">`;
+      if (still && ep.still) still.innerHTML = html`<img src="${pimg(ep.still)}" loading="lazy" alt="">`;
       if (ep.name && !row.title.includes(ep.name)) row.title += ' — ' + ep.name;
       if (ep.overview) row.title += '\n' + ep.overview;
     });
