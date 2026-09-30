@@ -61,3 +61,23 @@ func TestApiRecommend(t *testing.T) {
 		t.Fatalf("первым должен быть фильм, который советуют к обоим: %+v", resp.Items[0])
 	}
 }
+
+// Совет к досмотренному или Избранному весит больше, чем к раздаче «на потом»:
+// при равной позиции в списках выше окажется то, что похоже на любимое, и в
+// «похоже на» оно стоит первым.
+func TestMergeRecsWeights(t *testing.T) {
+	seeds := []TMDBRes{{OK: true, ID: 1, Type: "movie", Title: "Лежит"}, {OK: true, ID: 2, Type: "movie", Title: "Любимое"}}
+	a := discoverItem{ID: 10, Kind: "movie", Title: "A", Votes: 1000, Rating: 7}
+	b := discoverItem{ID: 11, Kind: "movie", Title: "B", Votes: 1000, Rating: 7}
+	both := discoverItem{ID: 12, Kind: "movie", Title: "C", Votes: 1000, Rating: 7}
+	out := mergeRecs(seeds, [][]discoverItem{{a, both}, {b, both}}, []float64{1, 2})
+	if len(out) != 3 || out[0].ID != 12 || out[1].ID != 11 {
+		t.Fatalf("порядок: %+v", out)
+	}
+	if out[0].Because[0] != "Любимое" {
+		t.Errorf("похоже на: %v, первым ожидалось «Любимое»", out[0].Because)
+	}
+	if (recSeed{}).weight() != 1 || (recSeed{W: 9}).weight() != 3 {
+		t.Error("вес по умолчанию 1 и не больше 3")
+	}
+}

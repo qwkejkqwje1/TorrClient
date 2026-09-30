@@ -9,6 +9,7 @@ package main
 // камерой, получает cookie сессии и дальше работает как обычный интерфейс.
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -58,6 +59,33 @@ func remoteToken(pin string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// remoteStreamToken — пропуск для ссылки на поток. Плеер на телефоне (VLC,
+// MX Player) получает только адрес и cookie браузера не знает, поэтому пропуск
+// идёт в самой ссылке. Это не cookie сессии: он открывает только поток и
+// плейлист, а не интерфейс и не настройки.
+func remoteStreamToken(pin string) string {
+	h := sha256.New()
+	h.Write(remoteSalt)
+	h.Write([]byte("stream:"))
+	h.Write([]byte(pin))
+	return hex.EncodeToString(h.Sum(nil))[:32]
+}
+
+// streamPath — адреса, которые открывает пропуск в ссылке: только чтение потока.
+func streamPath(p string) bool {
+	return strings.HasPrefix(p, "/ts/stream") || strings.HasPrefix(p, "/ts/play/") || strings.HasPrefix(p, "/ts/playlist")
+}
+
+// remoteCtxKey помечает запрос, пришедший через доступ с телефона: интерфейсу
+// надо знать, что он открыт на телефоне, — тогда «Смотреть» играет там же, а
+// не запускает плеер на компьютере.
+type remoteCtxKey struct{}
+
+func isRemoteRequest(r *http.Request) bool {
+	v, _ := r.Context().Value(remoteCtxKey{}).(bool)
+	return v
+}
+
 func remotePort(c *Config) int {
 	if c.RemotePort > 0 && c.RemotePort < 65536 {
 		return c.RemotePort
@@ -91,12 +119,26 @@ func pinGuard(next http.Handler) http.Handler {
 			http.Error(w, "remote access disabled", http.StatusServiceUnavailable)
 			return
 		}
+		r = r.WithContext(context.WithValue(r.Context(), remoteCtxKey{}, true))
 		if ck, err := r.Cookie(remoteCookie); err == nil && pinEqual(ck.Value, remoteToken(pin)) {
 			if remoteBlocked(r) {
 				writeJSONError(w, http.StatusForbidden, "недоступно с телефона")
 				return
 			}
 			next.ServeHTTP(w, r)
+			return
+		}
+		// Ссылка для плеера телефона: пропуск в адресе, только поток и только
+		// чтение. Пропуск вырезается до передачи серверу раздач.
+		if tk := r.URL.Query().Get("tk"); tk != "" && streamPath(r.URL.Path) && safeMethod(r.Method) {
+			if pinEqual(tk, remoteStreamToken(pin)) {
+				q := r.URL.Query()
+				q.Del("tk")
+				r.URL.RawQuery = q.Encode()
+				next.ServeHTTP(w, r)
+				return
+			}
+			writeJSONError(w, http.StatusUnauthorized, "ссылка устарела: откройте её заново")
 			return
 		}
 		try := r.URL.Query().Get("pin")

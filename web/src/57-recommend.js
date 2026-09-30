@@ -12,17 +12,35 @@ function recHide(key) {
   try { localStorage.setItem(REC_HIDE, JSON.stringify([...s].slice(-500))); } catch {}
 }
 
+/* librarySeeds — названия для рекомендаций с весом. Досмотренное и
+   Избранное говорят о вкусе больше, чем раздача, добавленная «на потом»:
+   Избранное ×2, досмотренное ×1.8, начатое ×1.3, остальное ×1. Отправляются
+   самые весомые, при равенстве — свежие: демон берёт не больше 60. */
+function recWeight(t) {
+  const vids = (t.file_stats || []).filter(f => isVideo(f.path));
+  if (!vids.length) return 1;
+  const done = vids.filter(f => isWatched(t, f.id)).length;
+  if (done && done >= Math.ceil(vids.length / 2)) return 1.8;
+  if (done || vids.some(f => currentTc(t, f.id) > 0)) return 1.3;
+  return 1;
+}
 async function librarySeeds() {
   if (!(state.lib || []).length) { try { await loadLibrary(false); } catch {} }
-  const out = []; const seen = new Set();
-  for (const t of state.lib || []) {
-    const c = cleanSearchTitle(t.title || t.name || '');
-    if (!c.q) continue;
+  const by = new Map();
+  const add = (title, w, at) => {
+    const c = cleanSearchTitle(title || '');
+    if (!c.q) return;
     const k = c.q.toLowerCase() + '|' + (c.year || '');
-    if (seen.has(k)) continue;
-    seen.add(k); out.push({ q: c.q, year: +c.year || 0 });
-  }
-  return out;
+    const cur = by.get(k);
+    if (cur) { cur.w = Math.max(cur.w, w); cur.at = Math.max(cur.at, at); return; }
+    by.set(k, { q: c.q, year: +c.year || 0, w, at });
+  };
+  for (const t of state.lib || []) add(t.title || t.name, recWeight(t), Number(t.timestamp) || 0);
+  for (const f of favList()) add(f.title, 2, Number(f.added || f.at) || 0);
+  return [...by.values()]
+    .sort((a, b) => b.w - a.w || b.at - a.at)
+    .slice(0, 60)
+    .map(({ q, year, w }) => ({ q, year, w }));
 }
 
 async function showRecommendations() {

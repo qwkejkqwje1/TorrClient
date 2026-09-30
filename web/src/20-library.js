@@ -238,37 +238,64 @@ function seriesProgress(t) {
   return { done, started, total: vids.length, share: sum / vids.length };
 }
 
-/* continueItems — что недосмотрено: отметка есть, позиция больше нуля, досмотр
-   не отмечен и раздача ещё в библиотеке. Свежие сверху: список показывает то, к
-   чему возвращаются, а не порядок серий в раздаче. */
+/* continueItems — к чему вернуться: по карточке на раздачу. Если последней
+   тронутой была недосмотренная серия — она с места остановки. Если серию
+   досмотрели — следующая по номеру, с начала: иначе после конца серии полоса
+   пустела, и следующую приходилось искать в списке. Свежие сверху. */
 function continueItems() {
   const lib = {};
   (state.lib || []).forEach(t => { lib[t.hash] = t; });
-  return (state.viewed || [])
-    .filter(v => v && !v.done && v.timecode > 0 && lib[v.hash])
-    .map(v => {
-      const t = lib[v.hash];
-      const f = (t.file_stats || []).find(x => x.id === v.file_index);
-      if (!f) return null;
-      return {
-        t, f, pos: v.timecode, duration: v.duration || 0,
-        share: v.duration > 0 ? Math.min(1, v.timecode / v.duration) : 0,
-        updated: v.updated || 0,
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.updated - a.updated);
+  const groups = {};
+  (state.viewed || []).forEach(v => {
+    if (!v || !lib[v.hash]) return;
+    (groups[v.hash] = groups[v.hash] || []).push(v);
+  });
+  const out = [];
+  Object.keys(groups).forEach(hash => {
+    const t = lib[hash];
+    const files = t.file_stats || [];
+    const fileOf = v => files.find(x => x.id === v.file_index);
+    const list = groups[hash].slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    const resume = v => {
+      const f = fileOf(v);
+      return f ? {
+        t, f, kind: 'resume', pos: v.timecode, duration: v.duration || 0,
+        share: v.duration > 0 ? Math.min(1, v.timecode / v.duration) : 0, updated: v.updated || 0,
+      } : null;
+    };
+    const last = list[0];
+    let it = null;
+    if (!last.done && last.timecode > 0) it = resume(last);
+    else if (last.done && fileOf(last)) {
+      const vids = files.filter(x => isVideo(x.path));
+      const nf = vids.length > 1 ? nextAfter(t, vids, fileOf(last)) : null;
+      if (nf && !isWatched(t, nf.id)) {
+        const pos = currentTc(t, nf.id) || 0;
+        it = { t, f: nf, kind: pos > 0 ? 'resume' : 'next', pos, duration: 0, share: 0, updated: last.updated || 0 };
+      }
+    }
+    // Последняя серия досмотрена, а следующей нет — но могла остаться начатая.
+    if (!it) { const v = list.find(x => !x.done && x.timecode > 0); if (v) it = resume(v); }
+    if (it) out.push(it);
+  });
+  return out.sort((a, b) => b.updated - a.updated);
 }
 function continueCard(it) {
   const title = it.t.title || it.t.name || it.t.hash;
+  const next = it.kind === 'next';
   return html`
-  <div class="cont-card" data-cont data-cont-hash="${it.t.hash}" data-cont-file="${it.f.id}">
-    <div class="cont-title" title="${title}">${title}</div>
-    <div class="cont-sub">${epLabel(it.f, it.t)}</div>
+  <div class="cont-card${next ? ' is-next' : ''}" data-cont data-cont-hash="${it.t.hash}" data-cont-file="${it.f.id}">
+    <div class="cont-top">
+      ${raw(it.t.poster ? html`<img class="cont-poster" src="${it.t.poster}" loading="lazy" alt="" onerror="this.remove()">` : '')}
+      <div class="cont-txt">
+        <div class="cont-title" title="${title}">${title}</div>
+        <div class="cont-sub">${next ? 'Дальше: ' : ''}${epLabel(it.f, it.t)}</div>
+      </div>
+    </div>
     <div class="cont-bar"><i style="width:${Math.round(it.share * 100)}%"></i></div>
     <div class="cont-foot">
-      <span class="cont-pos">${fmtPos(it.pos)}${it.duration ? ' из ' + fmtPos(it.duration) : ''}</span>
-      <button class="chip-btn" data-cont-play>▶ Продолжить</button>
+      <span class="cont-pos">${next ? 'следующая серия' : fmtPos(it.pos) + (it.duration ? ' из ' + fmtPos(it.duration) : '')}</span>
+      <button class="chip-btn" data-cont-play>${next ? '▶ Смотреть' : '▶ Продолжить'}</button>
       <button class="chip-btn" data-cont-done title="Отметить просмотренной">✓</button>
     </div>
   </div>`;

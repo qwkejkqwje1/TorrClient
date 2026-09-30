@@ -293,7 +293,7 @@ function bindTorrentPlay(ov, t, files) {
   });
   el.querySelector('[data-pk="browser"]').addEventListener('click', () => { inBrowser(t, curFile); });
   el.querySelector('[data-pk="m3u"]').addEventListener('click', e => { e.preventDefault(); m3uForFile(t, curFile); });
-  el.querySelector('[data-pk="copy"]').addEventListener('click', () => copyToClip(makeStreamUrlFor(t, curFile), 'Ссылка скопирована'));
+  el.querySelector('[data-pk="copy"]').addEventListener('click', () => copyToClip(isRemoteUI() ? phoneStreamUrl(t, curFile) : makeStreamUrlFor(t, curFile), 'Ссылка скопирована'));
   el.querySelector('[data-pk="dl"]').addEventListener('click', async () => {
     const q = 'action=start&hash=' + encodeURIComponent(t.hash) + '&index=' + curFile.id + '&name=' + encodeURIComponent(t.title || 'file') + '&file=' + encodeURIComponent(basename(curFile.path)) + '&size=' + (curFile.length || 0);
     // Запуск закачки — POST: GET-адрес с чужой страницы могла бы дёрнуть даже картинка.
@@ -310,6 +310,8 @@ function makeStreamUrlFor(t, f) {
   return location.origin + ts(`/stream/${encodeURIComponent(basename(f.path))}?link=${encodeURIComponent(t.hash)}&index=${f.id}&play`);
 }
 function inBrowser(t, f) {
+  // На телефоне «в браузере» — это браузер телефона, а не компьютера.
+  if (isRemoteUI()) { trackPlay(t.hash, f.id, currentTc(t, f.id)); return phoneBrowser(phoneStreamUrl(t, f), (t.title || t.name || 'stream') + epSuffix(f), t, f); }
   const url = makeStreamUrlFor(t, f);
   trackPlay(t.hash, f.id, currentTc(t, f.id));
   launchPlayer('browser', url, t.title || 'stream');
@@ -330,6 +332,9 @@ function playableOf(t) { return (t.file_stats || []).filter(x => isPlayable(x.pa
    Позиция продолжения ставится флагом запуска — параметр pos в адресе потока
    TorrServer не разбирает. */
 function playSelected(cur, f, opts = {}) {
+  // С телефона «Смотреть» раньше запускало плеер на компьютере, и на телефоне
+  // ничего не происходило. Теперь спрашиваем, где смотреть.
+  if (isRemoteUI() && !opts.player && !opts.onPC) return phonePlay(cur, f, opts);
   const key = opts.player || pickPlayer();
   const title = (cur.title || cur.name || 'stream') + epSuffix(f);
   trackPlay(cur.hash, f.id, opts.fromZero ? 0 : currentTc(cur, f.id));
@@ -766,3 +771,82 @@ window.addEventListener('tc:runadd', e => {
   setTimeout(() => { const t = state.lib.find(x => x.hash === hash); if (t) watchNow(t); else toast('Раздача добавлена — ищите в Библиотеке'); }, 900);
 });
 
+
+/* ---------- просмотр на телефоне ---------- */
+function isRemoteUI() { return !!(state.hello && state.hello.remote); }
+/* phoneStreamUrl — ссылка на серию для плеера телефона. Плеер не знает cookie
+   браузера, поэтому пропуск (только к потоку) идёт в самой ссылке. */
+function phoneStreamUrl(t, f) {
+  const tk = (state.hello && state.hello.stream_token) || '';
+  return makeStreamUrlFor(t, f) + (tk ? '&tk=' + encodeURIComponent(tk) : '');
+}
+function isAndroid() { return /android/i.test(navigator.userAgent || ''); }
+function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent || ''); }
+/* phoneOpenPlayer открывает ссылку в плеере телефона. Android показывает выбор
+   установленных плееров (VLC, MX Player…) по типу video/*; на iPhone — VLC. */
+function phoneOpenPlayer(url, title) {
+  if (isAndroid()) {
+    const u = new URL(url);
+    location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=' + u.protocol.replace(':', '') +
+      ';type=video/*;S.title=' + encodeURIComponent(title || '') + ';end';
+  } else if (isIOS()) {
+    location.href = 'vlc-x-callback://x-callback-url/stream?url=' + encodeURIComponent(url);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+/* phoneBrowser — встроенный проигрыватель страницы. Браузер телефона играет
+   MP4/H.264 и часто MKV с H.264; HEVC и AC3 — нет, тогда нужен плеер. */
+function phoneBrowser(url, title, t, f) {
+  const ov = document.createElement('div'); ov.className = 'overlay phone-video';
+  ov.innerHTML = html`<div class="modal wide"><button class="modal-close" data-close>✕</button>
+    <h3 style="margin-top:0">${title}</h3>
+    <video controls autoplay playsinline preload="auto" src="${url}" style="width:100%;max-height:70vh;background:#000"></video>
+    <div class="page-sub" data-vmsg>Если видео не идёт (кодек HEVC или звук AC3) — откройте в плеере.</div>
+    <div class="row" style="margin-top:8px"><button data-ext>▶ В плеере телефона</button></div></div>`;
+  document.body.appendChild(ov);
+  const v = ov.querySelector('video');
+  const pos = currentTc(t, f.id);
+  if (pos > 5) v.addEventListener('loadedmetadata', () => { try { v.currentTime = pos; } catch (e) {} }, { once: true });
+  // Позиция из браузера телефона сохраняется так же, как от плеера на компьютере.
+  let last = 0;
+  v.addEventListener('timeupdate', () => {
+    if (Date.now() - last < 15000 || !v.duration) return;
+    last = Date.now();
+    const done = v.currentTime >= v.duration * 0.92;
+    savePosition(t.hash, f.id, done ? 0 : v.currentTime, v.duration, done);
+  });
+  v.addEventListener('error', () => { ov.querySelector('[data-vmsg]').textContent = 'Браузер телефона не может показать этот файл — откройте в плеере.'; });
+  ov.querySelector('[data-ext]').addEventListener('click', () => { v.pause(); phoneOpenPlayer(url, title); });
+  ov.querySelector('[data-close]').addEventListener('click', () => { v.pause(); v.removeAttribute('src'); v.load(); ov.remove(); });
+}
+function phonePlay(t, f, opts) {
+  const title = (t.title || t.name || 'stream') + epSuffix(f);
+  const url = phoneStreamUrl(t, f);
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  ov.innerHTML = html`<div class="modal"><button class="modal-close" data-close>✕</button>
+    <h3 style="margin-top:0">Где смотреть?</h3>
+    <div class="page-sub" style="margin-bottom:10px">${title}</div>
+    <div class="phone-play">
+      <button class="primary" data-pp="player">📱 В плеере телефона<small>VLC, MX Player — играет любые файлы</small></button>
+      <button data-pp="browser">🌐 В браузере телефона<small>без установки, но не все кодеки</small></button>
+      <button data-pp="pc">💻 На компьютере<small>телефон как пульт: плеер откроется там</small></button>
+      <button class="ghost" data-pp="copy">🔗 Скопировать ссылку</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  ov.querySelector('[data-close]').addEventListener('click', () => ov.remove());
+  ov.querySelectorAll('[data-pp]').forEach(b => b.addEventListener('click', async () => {
+    const how = b.dataset.pp;
+    if (how === 'copy') {
+      try { await navigator.clipboard.writeText(url); toast('Ссылка скопирована'); } catch (e) { prompt('Ссылка на серию', url); }
+      return;
+    }
+    ov.remove();
+    trackPlay(t.hash, f.id, opts.fromZero ? 0 : currentTc(t, f.id));
+    if (how === 'pc') return playSelected(t, f, Object.assign({}, opts, { onPC: true }));
+    if (how === 'browser') return phoneBrowser(url, title, t, f);
+    phoneOpenPlayer(url, title);
+    refreshViewedSoon();
+  }));
+}

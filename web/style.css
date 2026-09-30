@@ -458,3 +458,17 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .eps-tab.on small{color:inherit; opacity:.85}
 .eps-tab.full:not(.on){opacity:.65}
 .eps-tools{margin:0 0 6px; align-items:center}
+/* выбор «где смотреть» на телефоне */
+.phone-play{display:flex; flex-direction:column; gap:8px}
+.phone-play button{text-align:left; padding:12px 14px; font-size:15px}
+.phone-play button small{display:block; color:var(--mut); font-size:12px; margin-top:2px}
+.phone-play button.primary small{color:inherit; opacity:.8}
+.cont-top{display:flex; gap:8px; align-items:center; min-width:0}
+.cont-txt{min-width:0; flex:1; display:flex; flex-direction:column; gap:2px}
+.cont-poster{width:34px; height:50px; object-fit:cover; border-radius:5px; flex:0 0 auto}
+.cont-card.is-next{border-style:dashed}
+/* на телефоне предупреждение в шапке не растягивает страницу вширь */
+@media(max-width:640px){ .tb-warn{white-space:normal; max-width:100%; min-width:0; text-align:left} }
+/* на телефоне разделы прокручиваются вбок, а не растягивают страницу: иначе
+   браузер уменьшал всё в два с половиной раза и окна уезжали за край */
+@media(max-width:900px){ nav{overflow-x:auto; scrollbar-width:none} nav button{flex:0 0 auto; padding:12px 11px} }
