@@ -325,7 +325,9 @@ function tile(t) {
   if (t.torrent_size) metaBits.push(fmtSize(t.torrent_size));
   if (t.connected_seeders != null) metaBits.push('⬆ ' + t.connected_seeders);
   if (t.total_peers != null) metaBits.push('👥 ' + t.total_peers);
-  if (t.download_speed || t.upload_speed) metaBits.push((t.download_speed ? '↓ ' + fmtSpeed(t.download_speed) : '') + (t.upload_speed ? ' ↑ ' + fmtSpeed(t.upload_speed) : ''));
+  // Скорость в карточке не показывается: это снимок на момент открытия
+  // библиотеки, и во время просмотра он застывал на случайной цифре. Живые
+  // скорости — в окне «Закачки».
   if (!metaBits.length && fmtDate(t.timestamp)) metaBits.push('добавлен ' + fmtDate(t.timestamp));
   const pg = hasMedia ? `<div class="progress"${sp ? ` title="просмотрено ${sp.done} из ${sp.total}"` : ''}><i style="width:${Math.min(100, (sp ? sp.share : loaded) * 100).toFixed(0)}%"></i></div>` : '';
   const pgNote = sp ? `<div class="page-sub">просмотрено ${sp.done} из ${sp.total}${sp.started ? ' · начато ' + sp.started : ''}</div>` : '';

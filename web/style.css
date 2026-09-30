@@ -450,3 +450,11 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .rec-x{position:absolute;top:6px;right:6px;display:none;background:rgba(0,0,0,.6);color:#fff;border:0;border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer}
 .disc-card:hover .rec-x{display:block}
 .rec-why{color:var(--mut);font-size:11px;margin-top:2px;line-height:1.3}
+/* вкладки сезонов в окне серий */
+.eps-tabs{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 8px}
+.eps-tab{background:var(--chip); color:inherit; border-radius:16px; padding:4px 12px; font-size:13px}
+.eps-tab small{color:var(--mut); margin-left:4px}
+.eps-tab.on{background:var(--acc); color:#fff}
+.eps-tab.on small{color:inherit; opacity:.85}
+.eps-tab.full:not(.on){opacity:.65}
+.eps-tools{margin:0 0 6px; align-items:center}

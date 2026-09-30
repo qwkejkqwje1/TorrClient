@@ -180,6 +180,7 @@ func (c *Comp) torrentsWatcher() {
 // «работать вечно», как в настоящей программе.
 func (c *Comp) torrentsWatcherStop(done <-chan struct{}) {
 	var last []byte
+	tick := 0
 	t := time.NewTicker(2 * time.Second)
 	defer t.Stop()
 	for {
@@ -189,6 +190,13 @@ func (c *Comp) torrentsWatcherStop(done <-chan struct{}) {
 		case <-t.C:
 		}
 		if events.count() == 0 {
+			continue
+		}
+		// Во время просмотра список раздач спрашивается впятеро реже: скорости
+		// в нём меняются каждую секунду, и без этого сторож гонял бы сервер и
+		// перерисовку окна ради цифр, на которые никто не смотрит.
+		tick++
+		if playersWatching.Load() > 0 && tick%5 != 0 {
 			continue
 		}
 		raw, err := c.torrentsSnapshot()

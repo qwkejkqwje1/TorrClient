@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"math"
 	"net"
@@ -31,6 +32,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -85,6 +87,10 @@ func viewedFlushDue(last, now time.Time) bool {
 type playerReading struct {
 	Position float64
 	Duration float64
+	// Path — адрес текущего файла (mpv), Name — его имя (VLC, MPC). По ним
+	// видно, какая серия плейлиста играет сейчас.
+	Path string
+	Name string
 }
 
 // errNotThePlayer — на адресе связи отвечает не плеер.
@@ -104,9 +110,16 @@ var errNotThePlayer = errors.New("на адресе связи отвечает 
 // отметку, на которую пользователь рассчитывал.
 func parseVLCStatus(body []byte) (playerReading, error) {
 	var status struct {
-		Time   float64 `json:"time"`
-		Length float64 `json:"length"`
-		State  *string `json:"state"`
+		Time        float64 `json:"time"`
+		Length      float64 `json:"length"`
+		State       *string `json:"state"`
+		Information struct {
+			Category struct {
+				Meta struct {
+					Filename string `json:"filename"`
+				} `json:"meta"`
+			} `json:"category"`
+		} `json:"information"`
 	}
 	if err := json.Unmarshal(body, &status); err != nil {
 		return playerReading{}, fmt.Errorf("%w: VLC вернул неразборчивый ответ", errNotThePlayer)
@@ -119,12 +132,16 @@ func parseVLCStatus(body []byte) (playerReading, error) {
 	if *status.State == "stopped" {
 		return playerReading{}, errors.New("VLC остановлен")
 	}
-	return playerReading{Position: secondsOrZero(status.Time), Duration: secondsOrZero(status.Length)}, nil
+	return playerReading{Position: secondsOrZero(status.Time), Duration: secondsOrZero(status.Length),
+		Name: status.Information.Category.Meta.Filename}, nil
 }
 
 // mpcValue — одна переменная из документа семейства MPC: пары вида
 // <p id="имя">значение</p>.
 var mpcValue = regexp.MustCompile(`id="([a-z]+)"\s*>\s*([0-9]+)`)
+
+// mpcFile — имя текущего файла: <p id="file">имя</p>.
+var mpcFile = regexp.MustCompile(`id="file"\s*>([^<]*)<`)
 
 // Оба написания принимаются потому, что семейство MPC непостоянно: MPC-HC
 // публикует position и duration, а сборка, сократившая их до pos и dur, — это
@@ -157,20 +174,33 @@ func parseMPCVariables(body []byte) (playerReading, error) {
 	if !havePosition {
 		return playerReading{}, errors.New("MPC не сообщил позицию")
 	}
+	if m := mpcFile.FindSubmatch(body); m != nil {
+		reading.Name = html.UnescapeString(strings.TrimSpace(string(m[1])))
+	}
 	return reading, nil
 }
 
 // mpvReply — один ответ mpv в канале управления.
 type mpvReply struct {
-	Data      *float64 `json:"data"`
-	Error     string   `json:"error"`
-	RequestID int      `json:"request_id"`
+	Data      json.RawMessage `json:"data"`
+	Error     string          `json:"error"`
+	RequestID int             `json:"request_id"`
+}
+
+// num читает числовое значение ответа.
+func (r mpvReply) num() (float64, bool) {
+	var v float64
+	if r.Error != "success" || len(r.Data) == 0 || json.Unmarshal(r.Data, &v) != nil {
+		return 0, false
+	}
+	return v, true
 }
 
 // mpvRequest спрашивает обе величины одной записью: mpv отвечает на каждую
 // команду отдельной строкой с тем номером, который ей дали.
 const mpvRequest = `{"command":["get_property","time-pos"],"request_id":1}` + "\n" +
-	`{"command":["get_property","duration"],"request_id":2}` + "\n"
+	`{"command":["get_property","duration"],"request_id":2}` + "\n" +
+	`{"command":["get_property","path"],"request_id":3}` + "\n"
 
 // secondsOrZero отбрасывает всё, что не может быть позицией: отрицательное
 // число, значение за границей и NaN с бесконечностью, которые может принести
@@ -231,6 +261,24 @@ func (p httpPoller) poll(ctx context.Context) (playerReading, error) {
 
 var playerClient = &http.Client{Timeout: playerReadTimeout}
 
+// vlcSeek переводит VLC на позицию текущего файла командой http-интерфейса.
+func (p httpPoller) vlcSeek(ctx context.Context, pos float64) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.url+"?command=seek&val="+strconv.Itoa(int(pos)), nil)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth("", p.password)
+	resp, err := playerClient.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("VLC ответил кодом %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // mpvPoller говорит с mpv через его канал управления.
 type mpvPoller struct{ endpoint string }
 
@@ -264,9 +312,9 @@ func (p mpvPoller) poll(ctx context.Context) (playerReading, error) {
 	// answered отмечает номера, на которые mpv ответил, — с ошибкой или со
 	// значением. Ждать двух удачных ответов нельзя: на свойстве, которого mpv
 	// сообщить не может, ожидание станет вечным.
-	var answeredPos, answeredDur, havePos bool
+	var answeredPos, answeredDur, answeredPath, havePos bool
 	reader := bufio.NewReader(io.LimitReader(conn, maxPlayerBody))
-	for attempts := 0; attempts < mpvMaxReplies && !(answeredPos && answeredDur); attempts++ {
+	for attempts := 0; attempts < mpvMaxReplies && !(answeredPos && answeredDur && answeredPath); attempts++ {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
 			break
@@ -278,13 +326,18 @@ func (p mpvPoller) poll(ctx context.Context) (playerReading, error) {
 		switch reply.RequestID {
 		case 1:
 			answeredPos = true
-			if reply.Error == "success" && reply.Data != nil {
-				reading.Position, havePos = secondsOrZero(*reply.Data), true
+			if v, ok := reply.num(); ok {
+				reading.Position, havePos = secondsOrZero(v), true
 			}
 		case 2:
 			answeredDur = true
-			if reply.Error == "success" && reply.Data != nil {
-				reading.Duration = secondsOrZero(*reply.Data)
+			if v, ok := reply.num(); ok {
+				reading.Duration = secondsOrZero(v)
+			}
+		case 3:
+			answeredPath = true
+			if reply.Error == "success" {
+				_ = json.Unmarshal(reply.Data, &reading.Path)
 			}
 		}
 	}
@@ -292,6 +345,36 @@ func (p mpvPoller) poll(ctx context.Context) (playerReading, error) {
 		return playerReading{}, errors.New("mpv не сообщил позицию")
 	}
 	return reading, nil
+}
+
+// seek переводит mpv на позицию текущего файла.
+func (p mpvPoller) seek(ctx context.Context, pos float64) error {
+	conn, err := dialPlayer(p.endpoint)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	release := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer release()
+	cmd := `{"command":["seek",` + strconv.FormatFloat(pos, 'f', 3, 64) + `,"absolute"],"request_id":9}` + "\n"
+	if _, err := io.WriteString(conn, cmd); err != nil {
+		return err
+	}
+	reader := bufio.NewReader(io.LimitReader(conn, maxPlayerBody))
+	for i := 0; i < mpvMaxReplies; i++ {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			return err
+		}
+		var reply mpvReply
+		if json.Unmarshal(bytes.TrimSpace(line), &reply) == nil && reply.RequestID == 9 {
+			if reply.Error != "success" {
+				return errors.New("mpv: " + reply.Error)
+			}
+			return nil
+		}
+	}
+	return errors.New("mpv не подтвердил переход")
 }
 
 // dialPlayer открывает канал управления mpv. Windows приходит к именованному
@@ -350,8 +433,13 @@ type playerChannel struct {
 	args []string
 	// poll опрашивает плеер, или nil, если плеер о позиции не сообщает.
 	poll func(ctx context.Context) (playerReading, error)
-	// resumeArgs строит переход на сохранённую позицию.
+	// resumeArgs строит переход на сохранённую позицию в строке запуска.
+	// Только для плееров, у которых позиция из строки запуска относится к
+	// первому файлу: mpv и VLC применяют --start ко всем файлам плейлиста, и
+	// следующая серия начиналась с места, где остановилась прошлая.
 	resumeArgs func(pos float64) []string
+	// seek переводит плеер на позицию текущего файла по каналу управления.
+	seek func(ctx context.Context, pos float64) error
 }
 
 // channelFor готовит канал связи с плеером.
@@ -382,9 +470,7 @@ func channelFor(key string) playerChannel {
 				"--http-password=" + password,
 			},
 			poll: asker.poll,
-			resumeArgs: func(pos float64) []string {
-				return []string{"--start-time=" + strconv.Itoa(int(pos))}
-			},
+			seek: asker.vlcSeek,
 		}
 	case "mpv":
 		pipe := `\\.\pipe\torrclient-mpv-` + randomToken()
@@ -392,9 +478,7 @@ func channelFor(key string) playerChannel {
 		return playerChannel{
 			args: []string{"--input-ipc-server=" + pipe},
 			poll: asker.poll,
-			resumeArgs: func(pos float64) []string {
-				return []string{"--start=" + strconv.FormatFloat(pos, 'f', 3, 64)}
-			},
+			seek: asker.seek,
 		}
 	case "mpc", "mpcbe":
 		// Порт веб-интерфейса у семейства MPC постоянен, но сам интерфейс
@@ -656,6 +740,50 @@ type playerSession struct {
 	hash   string
 	fileID int
 	poll   func(ctx context.Context) (playerReading, error)
+	// seek — переход на позицию текущего файла; nil — плеер не умеет.
+	seek func(ctx context.Context, pos float64) error
+	// names — имена файлов раздачи → номер: VLC и MPC сообщают имя, а не адрес.
+	names map[string]int
+	// seeked — файлы, которые уже переведены на сохранённую позицию.
+	seeked map[int]bool
+}
+
+// streamIndex достаёт номер файла из адреса потока (…&index=N&…).
+var streamIndex = regexp.MustCompile(`[?&]index=([0-9]+)`)
+
+// currentFile — какая серия плейлиста играет сейчас. Плейлист идёт по всей
+// раздаче, и без этого позиция следующей серии записывалась в отметку той, с
+// которой начали.
+func (s *playerSession) currentFile(r playerReading) int {
+	if m := streamIndex.FindStringSubmatch(r.Path); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil {
+			return n
+		}
+	}
+	if r.Name != "" && s.names != nil {
+		if id, ok := s.names[r.Name]; ok {
+			return id
+		}
+	}
+	return s.fileID
+}
+
+// resumeHere переводит только что открытую серию на её сохранённую позицию.
+// Возвращает true, если замер надо пропустить: он снят до перехода, и его
+// позиция (начало файла) затёрла бы сохранённую.
+func (s *playerSession) resumeHere(ctx context.Context, id int, r playerReading) bool {
+	if s.seek == nil || s.seeked[id] {
+		return false
+	}
+	pos := resumeOf(s.hash, id)
+	if pos < 5 || r.Position >= pos-5 {
+		s.seeked[id] = true
+		return false
+	}
+	if s.seek(ctx, pos) == nil {
+		s.seeked[id] = true
+	}
+	return true
 }
 
 // markAfterReading считает отметку по замеру плеера.
@@ -678,13 +806,21 @@ func markAfterReading(prev viewedMark, hasPrev bool, r playerReading) viewedMark
 	return mark
 }
 
+// playersWatching — сколько внешних плееров сейчас показывают. Пока идёт
+// просмотр, фоновые опросы сервера редеют: цифры раздач в это время никому не
+// нужны, а каждый запрос отнимает у сервера время, нужное потоку.
+var playersWatching atomic.Int32
+
 // watchPlayer снимает позицию, пока плеер играет, и запоминает её.
 //
-// Наблюдение прекращается, когда плеер закрылся, когда серия досмотрена или
-// когда плеер так и не ответил ни разу: молчащий канал связи не должен
-// опрашиваться вечно.
+// Наблюдение прекращается, когда плеер закрылся или так и не ответил ни разу:
+// молчащий канал связи не должен опрашиваться вечно. Досмотр серии наблюдение
+// не завершает — плейлист идёт дальше, и следующей серии тоже нужна отметка.
+
 func (c *Comp) watchPlayer(ctx context.Context, s *playerSession, done <-chan struct{}) {
 	go func() {
+		playersWatching.Add(1)
+		defer playersWatching.Add(-1)
 		ticker := time.NewTicker(watchInterval)
 		defer ticker.Stop()
 		// Отметка живёт в памяти и раз в полминуты идёт на диск (viewedFlushDue):
@@ -715,18 +851,24 @@ func (c *Comp) watchPlayer(ctx context.Context, s *playerSession, done <-chan st
 				continue
 			}
 			deadline = time.Now().Add(watchStartGrace)
-			prev, ok := viewedMarks.get(s.hash, s.fileID)
+			id := s.currentFile(r)
+			if s.seeked == nil {
+				s.seeked = map[int]bool{}
+			}
+			if s.resumeHere(ctx, id, r) {
+				continue
+			}
+			prev, ok := viewedMarks.get(s.hash, id)
 			mark := markAfterReading(prev, ok, r)
-			viewedMarks.setMemory(s.hash, s.fileID, mark)
+			viewedMarks.setMemory(s.hash, id, mark)
 			wantSave = true
 			if now := time.Now(); viewedFlushDue(lastFlush, now) {
 				if viewedMarks.save() == nil {
 					lastFlush = now
 				}
 			}
-			if mark.Done {
-				return
-			}
+			// Досмотренная серия не конец наблюдения: плейлист идёт дальше, и
+			// следующую серию тоже надо отмечать.
 		}
 	}()
 }
@@ -779,6 +921,9 @@ func (c *Comp) startPlayer(p *Player, args []string, hash string, fileID int, po
 		args = append(args, channel.resumeArgs(pos)...)
 		resumeApplied = true
 	}
+	if channel.poll != nil && pos > 0 && channel.seek != nil {
+		resumeApplied = true
+	}
 	args = append(args, channel.args...)
 
 	cmd := exec.Command(p.Path, args...)
@@ -803,6 +948,20 @@ func (c *Comp) startPlayer(p *Player, args []string, hash string, fileID int, po
 		<-done
 		cancel()
 	}()
-	c.watchPlayer(ctx, &playerSession{hash: hash, fileID: fileID, poll: channel.poll}, done)
+	c.watchPlayer(ctx, &playerSession{hash: hash, fileID: fileID, poll: channel.poll, seek: channel.seek, names: fileNames(hash)}, done)
 	return resumeApplied, true, nil
+}
+
+// fileNames — имена файлов раздачи и их номера, в том виде, в каком они стоят
+// в плейлисте (#EXTINF): под этим именем файл показывают VLC и MPC.
+func fileNames(hash string) map[string]int {
+	st, err := fetchTorrentStatus(hash)
+	if err != nil {
+		return nil
+	}
+	out := map[string]int{}
+	for _, f := range playableFiles(st.Files) {
+		out[playlistEntryName(f)] = f.ID
+	}
+	return out
 }
