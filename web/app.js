@@ -218,6 +218,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['1.18.3', ['«Продолжить просмотр» показывает и то, что запускали в плеере без отчёта о позиции или с телефона: по списку просмотренного TorrServer']],
   ['1.18.2', ['Постер сериала в библиотеке: из ответов TMDB выбирается совпадающее название с обложкой, а не первый попавшийся фильм (так было с «Rick and Morty»); старые ответы без постера перепроверяются', 'Кнопка «Следующая серия» видна сразу после запуска серии и не пропадает вместе с панелью']],
   ['1.18.1', ['Постеры в библиотеке: их стирала статистика TorrServer через секунду после показа — больше не стирает', 'Постеры находятся и для раздач с именем файла или папки («Курьер.2026.MVO.WEB-DLRip…», «Игра.престолов.S01…») и для русских названий латиницей («Trudno.byt.bogom»)', '«Продолжить просмотр» показывает и начатое, у которого плеер не сообщил позицию, и раздачи, чей список файлов ещё не загружен', 'Понятное сообщение, если постер не нашёлся: с каким названием искали и что сделать']],
   ['1.18.0', ['Обложки идут через TorrClient: если image.tmdb.org у провайдера не открывается, берутся с зеркала и сохраняются на диске — библиотека открывается сразу и с постерами', '«Продолжить просмотр» больше не пропадает после обновления списка', 'Запуск фильма на компьютере с телефона или планшета снова работает', 'Значок в трее: появляется надёжнее (и после перезапуска Проводника), с иконкой программы; автозапуск открывает окно свёрнутым в трей, повторный запуск показывает уже открытое окно', 'Подробная статистика предзагрузки: буфер в процентах, сколько осталось ждать, пиры, отдача, всего скачано — панель не исчезает, пока буфер не набран', '«Сейчас смотрят»: за неделю или за сегодня, по 60 карточек за раз, по умолчанию и русское', 'Поиск запоминает источник, категорию и выбор в панели подборок']],
@@ -830,8 +831,15 @@ function keepFiles(t) {
    по времени с момента запуска. Список /viewed у TorrServer отмечает файл
    просмотренным уже в момент начала потока и позицию не хранит. */
 async function loadPositions() {
+  // Список TorrServer читается рядом, но отдельно: позиции в нём нет, зато он
+  // помнит всё, что хоть раз запускали — и в плеере, за которым демон не
+  // следит, и с телефона. По нему «Продолжить просмотр» не пустеет, даже
+  // когда демон позиций не знает.
+  const ts = tsJson('/viewed', { action: 'list' }).catch(() => null);
   try { const rows = await api('/api/positions'); if (Array.isArray(rows)) { state.viewed = rows; invalidateMarks(); } }
   catch {}
+  const tv = await ts;
+  if (Array.isArray(tv)) state.tsViewed = tv.filter(v => v && v.hash);
 }
 async function savePosition(hash, fi, pos, duration, done) {
   const body = { hash, file_index: fi };
@@ -999,6 +1007,28 @@ function continueItems() {
     // Последняя серия досмотрена, а следующей нет — но могла остаться начатая.
     if (!it) { const v = list.find(x => !x.done); if (v) it = resume(v); }
     if (it) out.push(it);
+  });
+  // Раздачи, которые запускали, но позиции демон не знает: берём последнюю по
+  // порядку тронутую серию и предлагаем вернуться к ней. Они идут после
+  // раздач с настоящей позицией.
+  const tsGroups = {};
+  (state.tsViewed || []).forEach(v => {
+    if (groups[v.hash] || !lib[v.hash]) return;
+    (tsGroups[v.hash] = tsGroups[v.hash] || []).push(v.file_index);
+  });
+  Object.keys(tsGroups).forEach(hash => {
+    const t = lib[hash];
+    const files = t.file_stats || [];
+    const ids = tsGroups[hash];
+    let f = null;
+    if (files.length) {
+      const vids = files.filter(x => isVideo(x.path));
+      const sorted = vids.slice().sort((a, b) => epIdx(a.path) - epIdx(b.path) || a.path.localeCompare(b.path, 'ru', { numeric: true }));
+      for (const x of sorted) if (ids.includes(x.id)) f = x;
+    } else {
+      f = { id: Math.max.apply(null, ids), path: '', unknown: true };
+    }
+    if (f) out.push({ t, f, kind: 'resume', pos: 0, duration: 0, share: 0, updated: 0 });
   });
   return out.sort((a, b) => b.updated - a.updated);
 }
