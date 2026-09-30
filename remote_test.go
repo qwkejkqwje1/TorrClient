@@ -100,3 +100,28 @@ func TestPinGuardStreamToken(t *testing.T) {
 		t.Errorf("неверный пропуск: %d", c)
 	}
 }
+
+// Адрес виртуального адаптера (WSL, VirtualBox, VPN) не должен попадать в QR
+// первым: телефон в домашнем Wi-Fi до него не достанет.
+func TestSortLanAddrsPutsRealAdaptersFirst(t *testing.T) {
+	list := []lanAddr{
+		{IP: "172.24.160.1", Iface: "vEthernet (WSL)"},
+		{IP: "192.168.56.1", Iface: "VirtualBox Host-Only Network"},
+		{IP: "10.0.0.5", Iface: "Ethernet"},
+		{IP: "192.168.1.34", Iface: "Беспроводная сеть"},
+	}
+	for i := range list {
+		list[i].Virtual = virtualIface.MatchString(list[i].Iface)
+	}
+	sortLanAddrs(list)
+	got := []string{}
+	for _, a := range list {
+		got = append(got, a.IP)
+	}
+	if strings.Join(got, ",") != "192.168.1.34,10.0.0.5,192.168.56.1,172.24.160.1" {
+		t.Errorf("порядок = %v", got)
+	}
+	if virtualIface.MatchString("Wi-Fi") || virtualIface.MatchString("Ethernet 2") || virtualIface.MatchString("Беспроводная сеть") {
+		t.Error("обычный адаптер принят за виртуальный")
+	}
+}

@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -183,11 +184,22 @@ input{background:#000;color:#fff;text-align:center;letter-spacing:6px}button{bac
 <input name="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus><button>Войти</button><div class="e">%s</div></form></body></html>`, html.EscapeString(msg))
 }
 
-// lanIPs — частные IPv4-адреса компьютера: по ним телефон в той же сети
-// достучится до программы. Адреса VPN и виртуальных адаптеров тоже попадут в
-// список — поэтому в настройках показываются все, а QR строится по первому.
-func lanIPs() []string {
-	var out, other []string
+// lanAddr — адрес компьютера в сети и сетевой адаптер, которому он принадлежит.
+type lanAddr struct {
+	IP      string `json:"ip"`
+	Iface   string `json:"iface"`
+	Virtual bool   `json:"virtual"`
+}
+
+// virtualIface — адаптеры, до которых телефон в домашнем Wi-Fi не достанет:
+// виртуальные машины, WSL, Docker, VPN. Раньше адрес такого адаптера мог
+// оказаться первым и попасть в QR-код — телефон стучался в никуда.
+var virtualIface = regexp.MustCompile(`(?i)vethernet|virtualbox|vmware|hyper-v|wsl|docker|vbox|virbr|^br-|\btap|^tun|wireguard|^wg\d|tailscale|zerotier|hamachi|radmin|openvpn|vpn|npcap|bluetooth`)
+
+// lanAddrs — адреса компьютера в локальной сети: сначала обычные адаптеры
+// (Wi-Fi, Ethernet), потом виртуальные; внутри — 192.168.* первым.
+func lanAddrs() []lanAddr {
+	var out, other []lanAddr
 	ifs, _ := net.Interfaces()
 	for _, ifc := range ifs {
 		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagLoopback != 0 {
@@ -203,21 +215,42 @@ func lanIPs() []string {
 			if ip == nil || ip.IsLinkLocalUnicast() {
 				continue
 			}
+			la := lanAddr{IP: ip.String(), Iface: ifc.Name, Virtual: virtualIface.MatchString(ifc.Name)}
 			if !ip.IsPrivate() {
 				// Не частный адрес (например, у провайдера с CGNAT или у
 				// виртуальной машины) пригодится, только если частных нет.
-				other = append(other, ip.String())
+				other = append(other, la)
 				continue
 			}
-			out = append(out, ip.String())
+			out = append(out, la)
 		}
 	}
-	// 192.168.* — чаще всего домашний Wi-Fi, его ставим первым.
-	sort.SliceStable(out, func(i, j int) bool {
-		return strings.HasPrefix(out[i], "192.168.") && !strings.HasPrefix(out[j], "192.168.")
-	})
 	if len(out) == 0 {
-		return other
+		out = other
+	}
+	sortLanAddrs(out)
+	return out
+}
+
+func sortLanAddrs(out []lanAddr) {
+	rank := func(a lanAddr) int {
+		r := 0
+		if a.Virtual {
+			r += 2
+		}
+		if !strings.HasPrefix(a.IP, "192.168.") {
+			r++
+		}
+		return r
+	}
+	sort.SliceStable(out, func(i, j int) bool { return rank(out[i]) < rank(out[j]) })
+}
+
+// lanIPs — адреса из lanAddrs без имён адаптеров.
+func lanIPs() []string {
+	var out []string
+	for _, a := range lanAddrs() {
+		out = append(out, a.IP)
 	}
 	return out
 }
@@ -288,6 +321,8 @@ func (c *Comp) apiRemote(w http.ResponseWriter, r *http.Request) {
 			Enabled *bool `json:"enabled"`
 			NewPIN  bool  `json:"new_pin"`
 			Port    int   `json:"port"`
+			// Firewall — разрешить доступ в брандмауэре Windows (запрос UAC).
+			Firewall bool `json:"firewall"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "bad json")
@@ -296,6 +331,12 @@ func (c *Comp) apiRemote(w http.ResponseWriter, r *http.Request) {
 		if req.Port != 0 && (req.Port < 1024 || req.Port > 65535 || req.Port == *flagPort) {
 			writeJSONError(w, http.StatusBadRequest, "порт должен быть от 1024 до 65535 и не совпадать с основным")
 			return
+		}
+		if req.Firewall {
+			if err := firewallAllow(remotePort(curCfg())); err != nil {
+				writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
 		}
 		err := updateCfg(func(nc *Config) {
 			if req.Enabled != nil {
@@ -318,21 +359,37 @@ func (c *Comp) apiRemote(w http.ResponseWriter, r *http.Request) {
 	running, errText := remote.state()
 	port := remotePort(cfg)
 	var urls []string
-	for _, ip := range lanIPs() {
-		urls = append(urls, fmt.Sprintf("http://%s:%d/?pin=%s", ip, port, cfg.RemotePIN))
+	type addrOut struct {
+		lanAddr
+		URL string `json:"url"`
+		QR  string `json:"qr,omitempty"`
+	}
+	addrs := []addrOut{}
+	for _, a := range lanAddrs() {
+		u := fmt.Sprintf("http://%s:%d/?pin=%s", a.IP, port, cfg.RemotePIN)
+		urls = append(urls, u)
+		ao := addrOut{lanAddr: a, URL: u}
+		// QR — к каждому адресу: у компьютера с VPN или виртуальной машиной
+		// адресов несколько, и выбрать нужный должен человек, а не порядок.
+		if running {
+			if png, err := qrcode.Encode(u, qrcode.Medium, 256); err == nil {
+				ao.QR = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+			}
+		}
+		addrs = append(addrs, ao)
 	}
 	out := map[string]any{
-		"enabled": cfg.RemoteEnabled,
-		"running": running,
-		"error":   errText,
-		"port":    port,
-		"pin":     cfg.RemotePIN,
-		"urls":    urls,
+		"enabled":  cfg.RemoteEnabled,
+		"running":  running,
+		"error":    errText,
+		"port":     port,
+		"pin":      cfg.RemotePIN,
+		"urls":     urls,
+		"addrs":    addrs,
+		"firewall": firewallState(port),
 	}
-	if running && len(urls) > 0 {
-		if png, err := qrcode.Encode(urls[0], qrcode.Medium, 256); err == nil {
-			out["qr"] = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
-		}
+	if len(addrs) > 0 && addrs[0].QR != "" {
+		out["qr"] = addrs[0].QR
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	jj(w, out)

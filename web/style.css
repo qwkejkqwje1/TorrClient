@@ -472,3 +472,7 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 /* на телефоне разделы прокручиваются вбок, а не растягивают страницу: иначе
    браузер уменьшал всё в два с половиной раза и окна уезжали за край */
 @media(max-width:900px){ nav{overflow-x:auto; scrollbar-width:none} nav button{flex:0 0 auto; padding:12px 11px} }
+/* выбор адреса для входа с телефона */
+.addr-pick{display:flex !important; flex-direction:row !important; flex-wrap:wrap; gap:4px 8px; align-items:center; margin:4px 0 !important; cursor:pointer}
+.addr-pick input{width:auto !important; margin:0; flex:0 0 auto}
+.addr-pick .page-sub{margin:0}
