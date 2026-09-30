@@ -139,8 +139,15 @@ function keepFiles(t) {
    по времени с момента запуска. Список /viewed у TorrServer отмечает файл
    просмотренным уже в момент начала потока и позицию не хранит. */
 async function loadPositions() {
+  // Список TorrServer читается рядом, но отдельно: позиции в нём нет, зато он
+  // помнит всё, что хоть раз запускали — и в плеере, за которым демон не
+  // следит, и с телефона. По нему «Продолжить просмотр» не пустеет, даже
+  // когда демон позиций не знает.
+  const ts = tsJson('/viewed', { action: 'list' }).catch(() => null);
   try { const rows = await api('/api/positions'); if (Array.isArray(rows)) { state.viewed = rows; invalidateMarks(); } }
   catch {}
+  const tv = await ts;
+  if (Array.isArray(tv)) state.tsViewed = tv.filter(v => v && v.hash);
 }
 async function savePosition(hash, fi, pos, duration, done) {
   const body = { hash, file_index: fi };
@@ -308,6 +315,28 @@ function continueItems() {
     // Последняя серия досмотрена, а следующей нет — но могла остаться начатая.
     if (!it) { const v = list.find(x => !x.done); if (v) it = resume(v); }
     if (it) out.push(it);
+  });
+  // Раздачи, которые запускали, но позиции демон не знает: берём последнюю по
+  // порядку тронутую серию и предлагаем вернуться к ней. Они идут после
+  // раздач с настоящей позицией.
+  const tsGroups = {};
+  (state.tsViewed || []).forEach(v => {
+    if (groups[v.hash] || !lib[v.hash]) return;
+    (tsGroups[v.hash] = tsGroups[v.hash] || []).push(v.file_index);
+  });
+  Object.keys(tsGroups).forEach(hash => {
+    const t = lib[hash];
+    const files = t.file_stats || [];
+    const ids = tsGroups[hash];
+    let f = null;
+    if (files.length) {
+      const vids = files.filter(x => isVideo(x.path));
+      const sorted = vids.slice().sort((a, b) => epIdx(a.path) - epIdx(b.path) || a.path.localeCompare(b.path, 'ru', { numeric: true }));
+      for (const x of sorted) if (ids.includes(x.id)) f = x;
+    } else {
+      f = { id: Math.max.apply(null, ids), path: '', unknown: true };
+    }
+    if (f) out.push({ t, f, kind: 'resume', pos: 0, duration: 0, share: 0, updated: 0 });
   });
   return out.sort((a, b) => b.updated - a.updated);
 }
