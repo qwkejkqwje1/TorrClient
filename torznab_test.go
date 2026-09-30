@@ -478,3 +478,41 @@ func TestTorznabSearchEndpointHTTP(t *testing.T) {
 		t.Errorf("на 404 не сказано, что дело в адресе: %s", w2.Body.String())
 	}
 }
+
+// Онлайн-JacRed (jac-red.ru) не отвечает Torznab, но отдаёт JSON-ручку Jackett
+// рядом: поиск должен уйти туда, а вторая страница — быть пустой.
+func TestFetchTorznabFallsBackToJackettJSON(t *testing.T) {
+	var jsonHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2.0/indexers/all/results":
+			jsonHits++
+			if r.URL.Query().Get("Query") != "матрица" {
+				t.Errorf("запрос = %q", r.URL.Query().Get("Query"))
+			}
+			w.Write([]byte(`{"Results":[{"Title":"Матрица / The Matrix (1999) 1080p","Tracker":"rutor","Size":2147483648,"Seeders":42,"Peers":3,` +
+				`"MagnetUri":"magnet:?xt=urn:btih:0E6C99417FD5A446BA8F7B9E17DAB326553D23BA&dn=x"},{"Title":"","MagnetUri":"magnet:?xt=urn:btih:1"}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	addr := srv.URL + "/api/v2.0/indexers/all/results/torznab/api"
+	items, err := fetchTorznab(addr, "", "матрица", "", 0)
+	if err != nil {
+		t.Fatalf("поиск: %v", err)
+	}
+	if len(items) != 1 || items[0].Seed != 42 || items[0].Hash != "0e6c99417fd5a446ba8f7b9e17dab326553d23ba" || items[0].Size == "" {
+		t.Fatalf("раздачи = %+v", items)
+	}
+	more, err := fetchTorznab(addr, "", "матрица", "", 1)
+	if err != nil || len(more) != 0 {
+		t.Errorf("вторая страница = %v, %v; ожидалось пусто", more, err)
+	}
+	if _, ok := jackettJSONURL("http://h/api/v1/search", "", "q", ""); ok {
+		t.Error("адрес не Jackett принят за Jackett")
+	}
+	if u, _ := jackettJSONURL(addr, "K", "q", "2000,5000"); !strings.Contains(u, "Category%5B%5D=2000") || !strings.Contains(u, "apikey=K") {
+		t.Errorf("адрес JSON: %q", u)
+	}
+}

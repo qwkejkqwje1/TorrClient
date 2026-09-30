@@ -1,3 +1,10 @@
+/* Онлайн-экземпляры JacRed: агрегатор русских трекеров с ручками Jackett.
+   jr.maxvol.pro отвечает Torznab, jac-red.ru — только JSON-ручкой Jackett
+   (демон переходит на неё сам). */
+const JACRED_ONLINE = [
+  { name: 'JacRed (maxvol)', url: 'https://jr.maxvol.pro/api/v2.0/indexers/all/results/torznab/api' },
+  { name: 'JacRed (jac-red.ru)', url: 'https://jac-red.ru/api/v2.0/indexers/all/results/torznab/api' },
+];
 /* ================= SETTINGS ================= */
 function renderSettings(root) {
   root.innerHTML = html`
@@ -48,6 +55,11 @@ function renderSettings(root) {
         <button id="tzAdd" class="primary">Добавить</button>
       </div>
       <div id="tzNote" class="page-sub" style="margin-top:6px"></div>
+      <div class="row wrap" style="margin-top:8px;align-items:center">
+        <span class="page-sub">Онлайн, без установки (JacRed — rutor, Кинозал, NNM, RuTracker и др. сразу):</span>
+        ${raw(JACRED_ONLINE.map(j => html`<button class="ghost" data-jacred="${j.url}" data-jname="${j.name}" title="${j.url}">＋ ${j.name}</button>`).join(''))}
+      </div>
+      <div class="page-sub" style="margin-top:4px">Это чужие общедоступные серверы: они видят ваши запросы и могут пропасть. Ключ не нужен.</div>
     </div>
     <div class="card"><h3>Автодобавление .torrent</h3>
       <p class="page-sub">Файлы .torrent, которые сохранены вашим браузером (Firefox/Chrome) из «Просмотровать в приложениях», автоматически добавятся через watch-папку.</p>
@@ -312,6 +324,22 @@ function renderSettings(root) {
     try { tzTestShow(await tzTest(f)); } catch (e) { $('#tzNote').innerHTML = html`<span style="color:#c0392b">Проверка не удалась: ${e.message}</span>`; }
     finally { btn.disabled = false; btn.textContent = 'Проверить'; }
   });
+  // Онлайн-JacRed: проверка и добавление одним нажатием.
+  $$('[data-jacred]').forEach(b => b.addEventListener('click', async () => {
+    const f = { name: b.dataset.jname, url: b.dataset.jacred, api_key: '' };
+    if (tzSources.some(s => (s.url || '').replace(/\/+$/, '') === f.url || (s.name || '').toLowerCase() === f.name.toLowerCase()))
+      return toast('Этот источник уже добавлен');
+    b.disabled = true; b.textContent = 'Проверяю…';
+    try {
+      const res = await tzTest(f);
+      tzTestShow(res);
+      if (!res.ok) { toast('Сервер не отвечает — попробуйте другой', true); return; }
+      await tzSave(tzSources.concat([f]));
+      toast(f.name + ' добавлен — поиск Torznab идёт и через него');
+      renderSettings(root);
+    } catch (e) { toast('Не удалось добавить: ' + e.message, true); }
+    finally { b.disabled = false; b.textContent = '＋ ' + f.name; }
+  }));
   $('#tzAdd').addEventListener('click', async () => {
     const f = tzFromForm();
     if (!f.url) return toast('Укажите адрес индексатора', true);

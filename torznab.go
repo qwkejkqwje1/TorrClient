@@ -457,6 +457,13 @@ func fetchTorznab(addr, key, query, cat string, page int) ([]rutorItem, error) {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return nil, fmt.Errorf("%w: код %d", errTorznabAuth, resp.StatusCode)
 	case resp.StatusCode == http.StatusNotFound:
+		// Онлайн-JacRed (jac-red.ru и подобные) отвечает только JSON-ручкой
+		// Jackett, а Torznab-адрес у него — 404. Тогда тот же поиск идёт туда.
+		if _, ok := jackettJSONURL(addr, key, query, cat); ok {
+			if items, jerr := fetchJackettJSON(addr, key, query, cat, page); jerr == nil {
+				return items, nil
+			}
+		}
 		// Чаще всего это неверный адрес: у Jackett путь заканчивается на
 		// /results/torznab/api, и опечатка в нём выглядит как 404, а не как
 		// «индексатор сломан».
@@ -469,6 +476,115 @@ func fetchTorznab(addr, key, query, cat string, page int) ([]rutorItem, error) {
 		return nil, fmt.Errorf("%w: %v", errTorznabNetwork, err)
 	}
 	return parseTorznabFeed(body)
+}
+
+// ---------- JSON-ручка Jackett (онлайн-JacRed) ----------
+
+// jackettJSONURL — адрес JSON-поиска Jackett рядом с Torznab-адресом:
+// …/indexers/all/results/torznab/api → …/indexers/all/results?Query=…
+// Такую ручку отдают и сам Jackett, и JacRed — в том числе онлайн-экземпляры,
+// у которых Torznab выключен.
+func jackettJSONURL(addr, key, query, cat string) (string, bool) {
+	base, ok := strings.CutSuffix(strings.TrimRight(addr, "/"), "/torznab/api")
+	if !ok || !strings.HasSuffix(base, "/results") {
+		return "", false
+	}
+	v := url.Values{}
+	v.Set("apikey", key)
+	v.Set("Query", query)
+	if cat != "" {
+		for _, c := range strings.Split(cat, ",") {
+			if c = strings.TrimSpace(c); c != "" {
+				v.Add("Category[]", c)
+			}
+		}
+	}
+	return base + "?" + v.Encode(), true
+}
+
+// fetchJackettJSON ищет через JSON-ручку. Она отдаёт всё сразу, без страниц,
+// поэтому вторая и дальше страницы пусты — иначе «Показать ещё» повторяло бы
+// выдачу.
+func fetchJackettJSON(addr, key, query, cat string, page int) ([]rutorItem, error) {
+	u, ok := jackettJSONURL(addr, key, query, cat)
+	if !ok {
+		return nil, errors.New("адрес не похож на Jackett")
+	}
+	if page > 0 {
+		return []rutorItem{}, nil
+	}
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errTorznabNetwork, err)
+	}
+	req.Header.Set("User-Agent", browserUserAgent)
+	req.Header.Set("Accept", "application/json")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errTorznabNetwork, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("%w: код %d", errTorznabAuth, resp.StatusCode)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("код ответа %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, torznabBodyLimit))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errTorznabNetwork, err)
+	}
+	return parseJackettJSON(body)
+}
+
+// parseJackettJSON разбирает ответ {"Results":[…]} Jackett/JacRed.
+func parseJackettJSON(body []byte) ([]rutorItem, error) {
+	var doc struct {
+		Results *[]struct {
+			Title       string `json:"Title"`
+			Tracker     string `json:"Tracker"`
+			Details     string `json:"Details"`
+			Link        string `json:"Link"`
+			MagnetURI   string `json:"MagnetUri"`
+			InfoHash    string `json:"InfoHash"`
+			Size        int64  `json:"Size"`
+			Seeders     int    `json:"Seeders"`
+			Peers       int    `json:"Peers"`
+			PublishDate string `json:"PublishDate"`
+		} `json:"Results"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil || doc.Results == nil {
+		return nil, errors.New("ответ не похож на Jackett")
+	}
+	out := make([]rutorItem, 0, len(*doc.Results))
+	for _, r := range *doc.Results {
+		title := collapseSpace(r.Title)
+		if title == "" {
+			continue
+		}
+		it := rutorItem{Title: title, Seed: r.Seeders, Peer: r.Peers, Date: strings.TrimSpace(r.PublishDate)}
+		magnet := strings.TrimSpace(r.MagnetURI)
+		if !strings.HasPrefix(strings.ToLower(magnet), "magnet:") {
+			magnet = ""
+		}
+		it.Hash = torznabHash(magnet, r.InfoHash)
+		if magnet == "" && it.Hash != "" {
+			magnet = "magnet:?xt=urn:btih:" + it.Hash
+		}
+		it.Magnet = magnet
+		it.Link = strings.TrimSpace(r.Link)
+		if it.Link == "" {
+			it.Link = magnet
+		}
+		if it.Magnet == "" && it.Link == "" {
+			continue
+		}
+		if r.Size > 0 {
+			it.Size = humanBytes(r.Size)
+		}
+		out = append(out, it)
+	}
+	return out, nil
 }
 
 // ---------- кэш ----------
@@ -731,6 +847,15 @@ func (c *Comp) apiTorznabTest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	caps, err := fetchTorznabCaps(src.URL, src.APIKey)
 	if err != nil {
+		// Онлайн-JacRed без Torznab: capabilities нет, но JSON-поиск есть —
+		// значит, источник рабочий, просто другой ручкой.
+		if items, jerr := fetchJackettJSON(src.URL, src.APIKey, torznabProbeQuery, "", 0); jerr == nil {
+			out.OK, out.Items, out.MS = true, len(items), time.Since(start).Milliseconds()
+			out.Caps = torznabCaps{Search: true}
+			out.Notes = append(out.Notes, fmt.Sprintf("Torznab не отвечает, поиск идёт через JSON-ручку Jackett: «%s» — %d раздач", torznabProbeQuery, len(items)))
+			jj(w, out)
+			return
+		}
 		out.MS = time.Since(start).Milliseconds()
 		out.Error = err.Error()
 		jj(w, out)
