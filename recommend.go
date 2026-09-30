@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	recommendMaxSeeds = 30
+	recommendMaxSeeds = 60
 	recommendMaxOut   = 60
 	recommendMinVotes = 50
 )
@@ -27,12 +27,28 @@ const (
 type recSeed struct {
 	Q    string `json:"q"`
 	Year int    `json:"year"`
+	// W — вес названия: досмотренное и Избранное говорят о вкусе больше, чем
+	// раздача «на потом». 0 — обычный вес 1; больше 3 не принимается.
+	W float64 `json:"w,omitempty"`
+}
+
+func (s recSeed) weight() float64 {
+	if s.W <= 0 {
+		return 1
+	}
+	return math.Min(s.W, 3)
 }
 
 type recItem struct {
 	discoverItem
 	Because []string `json:"because"`
 	score   float64
+	because []recReason
+}
+
+type recReason struct {
+	title string
+	w     float64
 }
 
 // resolveSeed находит фильм/сериал TMDB для названия из библиотеки; ответ
@@ -56,8 +72,9 @@ func (c *Comp) resolveSeed(s recSeed) TMDBRes {
 }
 
 // mergeRecs складывает списки рекомендаций. Вес позиции убывает по списку:
-// первая рекомендация TMDB к фильму значит больше двадцатой.
-func mergeRecs(seeds []TMDBRes, lists [][]discoverItem) []recItem {
+// первая рекомендация TMDB к фильму значит больше двадцатой. weights — вес
+// каждого названия (nil — все по 1): совет к досмотренному весит больше.
+func mergeRecs(seeds []TMDBRes, lists [][]discoverItem, weights []float64) []recItem {
 	own := map[string]bool{}
 	for _, s := range seeds {
 		if s.OK {
@@ -76,14 +93,27 @@ func mergeRecs(seeds []TMDBRes, lists [][]discoverItem) []recItem {
 				r = &recItem{discoverItem: it}
 				acc[k] = r
 			}
-			r.score += 1 + float64(20-min(pos, 20))/20
-			if len(r.Because) < 3 && i < len(seeds) {
-				r.Because = append(r.Because, seeds[i].Title)
+			w := 1.0
+			if i < len(weights) && weights[i] > 0 {
+				w = weights[i]
+			}
+			r.score += w * (1 + float64(20-min(pos, 20))/20)
+			if i < len(seeds) {
+				r.because = append(r.because, recReason{seeds[i].Title, w})
 			}
 		}
 	}
 	out := make([]recItem, 0, len(acc))
 	for _, r := range acc {
+		// «Похоже на» — сначала самые весомые: досмотренное и Избранное.
+		sort.SliceStable(r.because, func(a, b int) bool { return r.because[a].w > r.because[b].w })
+		for _, b := range r.because {
+			if len(r.Because) == 3 {
+				break
+			}
+			r.Because = append(r.Because, b.title)
+		}
+		r.because = nil
 		// Небольшая добавка за оценку и известность: при равном счёте выше
 		// окажется то, что понравилось многим.
 		r.score += r.Rating/10 + math.Log10(1+float64(r.Votes))/10
@@ -139,6 +169,10 @@ func (c *Comp) apiRecommend(w http.ResponseWriter, r *http.Request) {
 	}
 	seeds := make([]TMDBRes, len(seedsIn))
 	lists := make([][]discoverItem, len(seedsIn))
+	weights := make([]float64, len(seedsIn))
+	for i, s := range seedsIn {
+		weights[i] = s.weight()
+	}
 	var badKey bool
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -184,5 +218,5 @@ func (c *Comp) apiRecommend(w http.ResponseWriter, r *http.Request) {
 			matched++
 		}
 	}
-	jj(w, map[string]any{"ok": true, "items": mergeRecs(seeds, lists), "seeds": len(seedsIn), "matched": matched})
+	jj(w, map[string]any{"ok": true, "items": mergeRecs(seeds, lists, weights), "seeds": len(seedsIn), "matched": matched})
 }

@@ -127,3 +127,11 @@ func TestParseDiscoverCartoonsDropJapanese(t *testing.T) {
 		t.Errorf("аниме: %d записей, ожидалось 2", len(items))
 	}
 }
+
+// «Сейчас смотрят» — недельные тренды TMDB, а не подборка по голосам.
+func TestDiscoverURLTrending(t *testing.T) {
+	u, ok := discoverURL("tv", "18", "any", "trending", 2)
+	if !ok || !strings.Contains(u, "/trending/tv/week?") || !strings.Contains(u, "page=2") || strings.Contains(u, "with_genres") {
+		t.Errorf("тренды: %q", u)
+	}
+}

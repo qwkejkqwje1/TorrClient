@@ -38,7 +38,18 @@ func (c *Comp) apiHello(w http.ResponseWriter, r *http.Request) {
 		// несколько сборок, и по одному только номеру версии не поймёшь, какая
 		// из них запущена.
 		"exe": exeDir(),
+		// Открыто с телефона: «Смотреть» играет на телефоне, и ссылке для его
+		// плеера нужен пропуск (cookie браузера плеер не знает).
+		"remote":       isRemoteRequest(r),
+		"stream_token": remoteHelloToken(r),
 	})
+}
+
+func remoteHelloToken(r *http.Request) string {
+	if !isRemoteRequest(r) {
+		return ""
+	}
+	return remoteStreamToken(curCfg().RemotePIN)
 }
 
 func (c *Comp) apiProfiles(w http.ResponseWriter, r *http.Request) {

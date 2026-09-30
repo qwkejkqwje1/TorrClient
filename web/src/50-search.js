@@ -36,7 +36,7 @@ async function renderSearch(root) {
     ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<span class="hq-chip"><button data-hq="${h}">${h}</button><button class="hq-x" data-hqx="${h}" title="Удалить из истории">×</button></span>`).join(''))}<button id="hqClear" class="hq-x" title="Очистить историю">очистить</button></div>` : '')}
     <div class="quick" id="discBar">
       <span class="qlabel">Топ за всё время:</span>
-      <select id="dKind" style="width:auto"><option value="movie">Фильмы</option><option value="tv">Сериалы</option><option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="doc">Документальное</option></select>
+      <select id="dKind" style="width:auto"><option value="trending">🔥 Сейчас смотрят</option><option value="movie" selected>Фильмы</option><option value="tv">Сериалы</option><option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="doc">Документальное</option></select>
       <select id="dOrigin" style="width:auto"><option value="foreign">Зарубежное</option><option value="any">Любое</option><option value="ru">Русское</option></select>
       <select id="dGenre" style="width:auto"></select>
       <button id="dGo" title="Самое популярное по числу голосов TMDB. Нужен ключ TMDB">Показать</button>
@@ -557,7 +557,7 @@ const discState = { items: [], page: 0, hasMore: false, params: null, busy: fals
    второй список у них выбирает не жанр, а вид: фильмы или сериалы. Аниме чаще
    смотрят сериалами, остальное — фильмами. У аниме нет выбора происхождения:
    оно японское по определению. */
-const DISC_SECTIONS = { anime: 'tv', cartoon: 'movie', doc: 'movie' };
+const DISC_SECTIONS = { anime: 'tv', cartoon: 'movie', doc: 'movie', trending: 'movie' };
 function fillDiscGenres() {
   const kind = $('#dKind').value;
   const sec = DISC_SECTIONS[kind];
@@ -565,6 +565,9 @@ function fillDiscGenres() {
     ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>`
     : DISC_GENRES[kind].map(g => html`<option value="${g[0]}">${g[1]}</option>`).join('');
   if (sec) $('#dGenre').value = sec;
+  // «Сейчас смотрят» — тренды недели: подпись панели говорит об этом прямо.
+  const lab = $('#discBar .qlabel');
+  if (lab) lab.textContent = kind === 'trending' ? 'Сейчас смотрят (за неделю):' : 'Топ за всё время:';
   const o = $('#dOrigin');
   if (o) { o.disabled = kind === 'anime'; o.classList.toggle('hidden', kind === 'anime'); }
 }
@@ -618,7 +621,7 @@ function paintDiscover(el) {
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
-  el.innerHTML = html`<div class="disc-head">Популярное за всё время (${discState.items.length})</div>
+  el.innerHTML = html`<div class="disc-head">${discState.params && discState.params.kind === 'trending' ? 'Сейчас смотрят — тренды недели' : 'Популярное за всё время'} (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>
     ${raw(discState.hasMore ? '<div style="text-align:center;margin:14px"><button id="discMore" class="primary">Показать ещё</button></div>' : '')}`;
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
