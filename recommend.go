@@ -167,7 +167,7 @@ func (c *Comp) apiRecommend(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			items, _, err := parseDiscover(body, kind, "")
+			items, _, err := parseDiscover(body, kind, "", "")
 			if err == nil {
 				lists[i] = items
 			}
