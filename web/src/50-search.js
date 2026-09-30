@@ -23,6 +23,7 @@ async function renderSearch(root) {
       <button id="top24Btn" class="top24btn">ТОП-24</button>
       <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
       <button id="popBtn" class="top24btn" title="Раздачи выбранной категории rutor за всё время, по числу сидов">Популярное</button>
+      <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">✨ Для вас</button>
       <span class="spacer"></span>
       <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
     </div>
@@ -47,6 +48,7 @@ async function renderSearch(root) {
   $('#searchCat').value = sd.cat || '';
   $('#searchQual').value = qualOn();
   $('#searchBtn').addEventListener('click', () => doSearch());
+  $('#recBtn').addEventListener('click', () => showRecommendations());
   $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   $('#searchProv').addEventListener('change', () => sd.provider = $('#searchProv').value);
@@ -75,7 +77,9 @@ async function renderSearch(root) {
   $('[data-open="add"]').addEventListener('click', openAddModal);
   updateTopBtnLabel();
   paintResults($('#searchResults'));
-  if (!state.searchState.results.length && !sd.q) onTopClick();
+  // Раздел открыт ради рекомендаций — ТОП-24 не загружается поверх них.
+  if (state.skipAutoTop) state.skipAutoTop = false;
+  else if (!state.searchState.results.length && !sd.q) onTopClick();
 }
 
 // Категории поиска.

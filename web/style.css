@@ -446,3 +446,7 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .tb-refresh svg{display:block}
 .tb-refresh.spin svg{animation:tcspin .6s linear infinite}
 @keyframes tcspin{to{transform:rotate(360deg)}}
+.disc-poster{position:relative}
+.rec-x{position:absolute;top:6px;right:6px;display:none;background:rgba(0,0,0,.6);color:#fff;border:0;border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer}
+.disc-card:hover .rec-x{display:block}
+.rec-why{color:var(--mut);font-size:11px;margin-top:2px;line-height:1.3}

@@ -27,6 +27,7 @@ async function renderLibrary(root) {
       <button id="collNew" class="iconbtn" title="Новая подборка">＋</button>
       <button id="libReset" class="iconbtn hidden" title="Сбросить фильтры">✕</button>
       <button data-act="refresh" class="iconbtn" title="Обновить">⟳</button>
+      <button id="libRec" title="Фильмы и сериалы, похожие на те, что в библиотеке (нужен ключ TMDB)">✨ Рекомендации</button>
       <span class="spacer"></span>
       <div class="seg" id="libViewSeg">
         <button data-vw="grid" class="${lv === 'grid' ? 'on' : ''}" title="Сетка">▦</button>
@@ -59,6 +60,7 @@ async function renderLibrary(root) {
     paintLibrary();
     toast('Подборка создана');
   });
+  $('#libRec').addEventListener('click', () => showRecommendations());
   $('#libReset').addEventListener('click', () => {
     state.query = ''; state.category = 'all'; state.seen = 'all'; state.coll = '';
     $('#libQuery').value = ''; $('#libCat').value = 'all';

@@ -160,6 +160,8 @@ func main() {
 	mux.HandleFunc("/api/torznab/stream", limitSearch(c.apiTorznabStream))
 	mux.HandleFunc("/api/popular", limitSearch(c.apiPopular))
 	mux.HandleFunc("/api/discover", limitSearch(c.apiDiscover))
+	// Рекомендации TMDB по фильмам и сериалам из библиотеки.
+	mux.HandleFunc("/api/recommend", c.apiRecommend)
 	mux.HandleFunc("/api/torznab/test", c.apiTorznabTest)
 	mux.HandleFunc("/api/torznab/sources", c.apiTorznabSources)
 	mux.HandleFunc("/api/torznab/discover", c.apiTorznabDiscover)
