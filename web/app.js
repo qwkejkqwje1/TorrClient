@@ -208,6 +208,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.17.0', ['Онлайн-JacRed без установки Jackett: Настройки → Torznab → «＋ JacRed» — rutor, Кинозал, NNM-Club, RuTracker и др. одним источником', 'Поддержка JSON-ручки Jackett: источники без Torznab (jac-red.ru) тоже ищут']],
   ['1.16.0', ['С телефона «Смотреть» теперь спрашивает, где играть: в плеере телефона (VLC, MX Player), в браузере телефона или на компьютере — раньше плеер молча открывался на компьютере', '«🔥 Сейчас смотрят» — тренды TMDB за неделю (Поиск → панель топа)', '«Продолжить просмотр»: по карточке на сериал, после досмотренной серии сразу предлагается следующая, с постером', 'Рекомендации учитывают всю библиотеку и Избранное; досмотренное и Избранное весят больше']],
   ['1.15.0', ['«Топ за всё время»: разделы Аниме, Мультфильмы и Документальное — фильмы или сериалы', 'В Мультфильмах нет аниме, в Аниме — только японская анимация']],
   ['1.14.0', ['Исправлено: следующая серия в плейлисте начиналась с позиции прошлой — теперь каждая продолжается со своего места (mpv, VLC)', 'Отметки просмотра записываются той серии, что играет сейчас, а не первой', 'Сериалы с многими сезонами: вкладки сезонов с прогрессом, открывается сезон следующей серии, «Отметить сезон» одним нажатием', 'Во время просмотра не показываются неверные цифры подгрузки, а сервер опрашивается реже', 'Кнопка «Следующая серия» на панели показа снова появляется']],
@@ -4918,6 +4919,13 @@ function seriesCard(g) {
         }).join('')).join(''))}</span></div>`;
     }).join('') + `</div></div></div>`;
 }
+/* Онлайн-экземпляры JacRed: агрегатор русских трекеров с ручками Jackett.
+   jr.maxvol.pro отвечает Torznab, jac-red.ru — только JSON-ручкой Jackett
+   (демон переходит на неё сам). */
+const JACRED_ONLINE = [
+  { name: 'JacRed (maxvol)', url: 'https://jr.maxvol.pro/api/v2.0/indexers/all/results/torznab/api' },
+  { name: 'JacRed (jac-red.ru)', url: 'https://jac-red.ru/api/v2.0/indexers/all/results/torznab/api' },
+];
 /* ================= SETTINGS ================= */
 function renderSettings(root) {
   root.innerHTML = html`
@@ -4968,6 +4976,11 @@ function renderSettings(root) {
         <button id="tzAdd" class="primary">Добавить</button>
       </div>
       <div id="tzNote" class="page-sub" style="margin-top:6px"></div>
+      <div class="row wrap" style="margin-top:8px;align-items:center">
+        <span class="page-sub">Онлайн, без установки (JacRed — rutor, Кинозал, NNM, RuTracker и др. сразу):</span>
+        ${raw(JACRED_ONLINE.map(j => html`<button class="ghost" data-jacred="${j.url}" data-jname="${j.name}" title="${j.url}">＋ ${j.name}</button>`).join(''))}
+      </div>
+      <div class="page-sub" style="margin-top:4px">Это чужие общедоступные серверы: они видят ваши запросы и могут пропасть. Ключ не нужен.</div>
     </div>
     <div class="card"><h3>Автодобавление .torrent</h3>
       <p class="page-sub">Файлы .torrent, которые сохранены вашим браузером (Firefox/Chrome) из «Просмотровать в приложениях», автоматически добавятся через watch-папку.</p>
@@ -5232,6 +5245,22 @@ function renderSettings(root) {
     try { tzTestShow(await tzTest(f)); } catch (e) { $('#tzNote').innerHTML = html`<span style="color:#c0392b">Проверка не удалась: ${e.message}</span>`; }
     finally { btn.disabled = false; btn.textContent = 'Проверить'; }
   });
+  // Онлайн-JacRed: проверка и добавление одним нажатием.
+  $$('[data-jacred]').forEach(b => b.addEventListener('click', async () => {
+    const f = { name: b.dataset.jname, url: b.dataset.jacred, api_key: '' };
+    if (tzSources.some(s => (s.url || '').replace(/\/+$/, '') === f.url || (s.name || '').toLowerCase() === f.name.toLowerCase()))
+      return toast('Этот источник уже добавлен');
+    b.disabled = true; b.textContent = 'Проверяю…';
+    try {
+      const res = await tzTest(f);
+      tzTestShow(res);
+      if (!res.ok) { toast('Сервер не отвечает — попробуйте другой', true); return; }
+      await tzSave(tzSources.concat([f]));
+      toast(f.name + ' добавлен — поиск Torznab идёт и через него');
+      renderSettings(root);
+    } catch (e) { toast('Не удалось добавить: ' + e.message, true); }
+    finally { b.disabled = false; b.textContent = '＋ ' + f.name; }
+  }));
   $('#tzAdd').addEventListener('click', async () => {
     const f = tzFromForm();
     if (!f.url) return toast('Укажите адрес индексатора', true);
