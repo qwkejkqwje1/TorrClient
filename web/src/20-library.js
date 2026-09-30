@@ -106,7 +106,11 @@ async function loadLibrary(paint) {
   await loadPositions();
   state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
-  const need = state.lib.filter(t => !t.hasStat && !statCache[t.hash]);
+  // Сначала — раздачи с отметками просмотра: их файлы нужны полосе
+  // «Продолжить просмотр», и ждать очереди из сотни плиток им незачем.
+  const marked = new Set((state.viewed || []).map(v => v && v.hash));
+  const need = state.lib.filter(t => !t.hasStat && !statCache[t.hash])
+    .sort((a, b) => (marked.has(b.hash) ? 1 : 0) - (marked.has(a.hash) ? 1 : 0));
   if (need.length) enrichBackground(need);
   return state.lib;
 }
@@ -120,7 +124,7 @@ function keepFiles(t) {
   if (!t || (Array.isArray(t.file_stats) && t.file_stats.length)) return;
   const c = statCache[t.hash];
   if (c && c.data && Array.isArray(c.data.file_stats) && c.data.file_stats.length) {
-    Object.assign(t, Object.assign({}, c.data, t), { file_stats: c.data.file_stats, hasStat: true });
+    Object.assign(t, mergeStat(Object.assign({}, c.data), t), { file_stats: c.data.file_stats, hasStat: true });
     return;
   }
   if (typeof t.data !== 'string' || t.data.indexOf('Files') < 0) return;
@@ -170,7 +174,7 @@ async function enrichBackground(need) {
       if (s && typeof s === 'object') {
         statCache[t.hash] = { at: Date.now(), data: s };
         const cur = state.lib.find(x => x.hash === t.hash);
-        if (cur) { Object.assign(cur, s); cur.hasStat = true; }
+        if (cur) { mergeStat(cur, s); cur.hasStat = true; }
       }
     }
   };
@@ -277,16 +281,22 @@ function continueItems() {
     const files = t.file_stats || [];
     const fileOf = v => files.find(x => x.id === v.file_index);
     const list = groups[hash].slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    // Список файлов раздачи приходит не сразу (а у закрытой раздачи — только
+    // после запроса к TorrServer). Карточка от этого не пропадает: файл
+    // известен по номеру, а имя подтянется при запуске.
     const resume = v => {
-      const f = fileOf(v);
+      const f = fileOf(v) || (files.length ? null : { id: v.file_index, path: '', unknown: true });
       return f ? {
-        t, f, kind: 'resume', pos: v.timecode, duration: v.duration || 0,
-        share: v.duration > 0 ? Math.min(1, v.timecode / v.duration) : 0, updated: v.updated || 0,
+        t, f, kind: 'resume', pos: v.timecode || 0, duration: v.duration || 0,
+        share: v.duration > 0 ? Math.min(1, (v.timecode || 0) / v.duration) : 0, updated: v.updated || 0,
       } : null;
     };
     const last = list[0];
     let it = null;
-    if (!last.done && last.timecode > 0) it = resume(last);
+    // Последней открыли недосмотренную серию — к ней и возвращаемся, даже если
+    // плеер не сообщил позицию (отметка с нулём): прежде такая раздача из
+    // полосы выпадала целиком.
+    if (!last.done) it = resume(last);
     else if (last.done && fileOf(last)) {
       const vids = files.filter(x => isVideo(x.path));
       const nf = vids.length > 1 ? nextAfter(t, vids, fileOf(last)) : null;
@@ -296,7 +306,7 @@ function continueItems() {
       }
     }
     // Последняя серия досмотрена, а следующей нет — но могла остаться начатая.
-    if (!it) { const v = list.find(x => !x.done && x.timecode > 0); if (v) it = resume(v); }
+    if (!it) { const v = list.find(x => !x.done); if (v) it = resume(v); }
     if (it) out.push(it);
   });
   return out.sort((a, b) => b.updated - a.updated);
@@ -310,12 +320,12 @@ function continueCard(it) {
       ${raw(it.t.poster ? html`<img class="cont-poster" src="${pimg(it.t.poster)}" loading="lazy" alt="" onerror="this.remove()">` : '')}
       <div class="cont-txt">
         <div class="cont-title" title="${title}">${title}</div>
-        <div class="cont-sub">${next ? 'Дальше: ' : ''}${epLabel(it.f, it.t)}</div>
+        <div class="cont-sub">${next ? 'Дальше: ' : ''}${it.f.unknown ? 'с места остановки' : epLabel(it.f, it.t)}</div>
       </div>
     </div>
     <div class="cont-bar"><i style="width:${Math.round(it.share * 100)}%"></i></div>
     <div class="cont-foot">
-      <span class="cont-pos">${next ? 'следующая серия' : fmtPos(it.pos) + (it.duration ? ' из ' + fmtPos(it.duration) : '')}</span>
+      <span class="cont-pos">${next ? 'следующая серия' : (it.pos > 0 ? fmtPos(it.pos) + (it.duration ? ' из ' + fmtPos(it.duration) : '') : 'начато')}</span>
       <button class="chip-btn" data-cont-play>${next ? '▶ Смотреть' : '▶ Продолжить'}</button>
       <button class="chip-btn" data-cont-done title="Отметить просмотренной">✓</button>
     </div>
@@ -345,7 +355,13 @@ function bindContinue() {
       savePosition(it.t.hash, it.f.id, 0, it.duration, true).then(() => { paintContinue(); paintLibrary(); });
       return;
     }
-    playSelected(it.t, it.f);
+    if (!it.f.unknown) { playSelected(it.t, it.f); return; }
+    // Файлы раздачи ещё не известны — сначала спрашиваем их у TorrServer.
+    waitForFiles(it.t).then(st => {
+      const f = st && (st.file_stats || []).find(x => x.id === it.f.id);
+      if (f) playSelected(Object.assign(it.t, { file_stats: st.file_stats }), f);
+      else if (st) toast('Файл не найден в раздаче', true);
+    });
   });
 }
 

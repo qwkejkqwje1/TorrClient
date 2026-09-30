@@ -363,7 +363,64 @@ func (c *Comp) queryTmdb(q, year string) TMDBRes {
 	if multi := c.queryTmdbSearch("multi", q, ""); multi.OK {
 		return multi
 	}
+	// Русское название латиницей — «Trudno.byt.bogom», «Slovo.patsana»:
+	// так называют папки релизёры. TMDB такое не узнаёт, а по-русски
+	// находит. Пробуется только после неудачи: английское название уже
+	// нашлось бы выше.
+	if cyr := translitToCyr(q); cyr != "" {
+		if tr := c.queryTmdbSearch("movie", cyr, year); tr.OK {
+			return tr
+		}
+		if tr := c.queryTmdbSearch("multi", cyr, ""); tr.OK {
+			return tr
+		}
+	}
 	return res
+}
+
+// translitPairs — латиница русских релизов, сначала длинные сочетания.
+var translitPairs = []struct{ lat, cyr string }{
+	{"shch", "щ"}, {"sch", "щ"}, {"zh", "ж"}, {"kh", "х"}, {"ts", "ц"}, {"ch", "ч"}, {"sh", "ш"},
+	{"yo", "ё"}, {"yu", "ю"}, {"ya", "я"}, {"ye", "е"}, {"ju", "ю"}, {"ja", "я"}, {"iy", "ий"}, {"yy", "ый"}, {"yj", "ый"},
+	{"a", "а"}, {"b", "б"}, {"v", "в"}, {"g", "г"}, {"d", "д"}, {"e", "е"}, {"z", "з"}, {"i", "и"},
+	{"j", "й"}, {"k", "к"}, {"l", "л"}, {"m", "м"}, {"n", "н"}, {"o", "о"}, {"p", "п"}, {"r", "р"},
+	{"s", "с"}, {"t", "т"}, {"u", "у"}, {"f", "ф"}, {"h", "х"}, {"c", "ц"}, {"y", "ы"}, {"w", "в"},
+	{"x", "кс"}, {"q", "к"}, {"'", "ь"},
+}
+
+// translitToCyr переводит латиницу в кириллицу. Пусто — если в строке есть
+// что-то кроме латиницы, цифр и пробелов: русское название уже по-русски.
+func translitToCyr(q string) string {
+	q = strings.ToLower(strings.TrimSpace(q))
+	if q == "" {
+		return ""
+	}
+	for _, r := range q {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == ' ' || r == '\'' || r == '-') {
+			return ""
+		}
+	}
+	var b strings.Builder
+	for i := 0; i < len(q); {
+		matched := false
+		for _, p := range translitPairs {
+			if strings.HasPrefix(q[i:], p.lat) {
+				b.WriteString(p.cyr)
+				i += len(p.lat)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			b.WriteByte(q[i])
+			i++
+		}
+	}
+	out := b.String()
+	if out == q {
+		return ""
+	}
+	return out
 }
 
 func (c *Comp) queryTmdbSearch(kind, q, year string) TMDBRes {

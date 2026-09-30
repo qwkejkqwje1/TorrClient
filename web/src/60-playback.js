@@ -114,7 +114,7 @@ async function waitForFiles(t, waitMs) {
 function rememberStat(hash, st) {
   statCache[hash] = { at: Date.now(), data: st };
   const cur = state.lib.find(x => x.hash === hash);
-  if (cur) Object.assign(cur, st, { hasStat: true });
+  if (cur) { mergeStat(cur, st); cur.hasStat = true; }
   return st;
 }
 /* Предупреждение после запуска: без раздающих показ не начнётся, и молчащий

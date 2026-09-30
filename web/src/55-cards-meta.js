@@ -51,15 +51,37 @@ function resultRow(r, ix) {
     </div>
   </div>`;
 }
+/* Названия раздач приходят в двух видах. С трекера — «Название / Original
+   (2008) WEB-DL 1080p», их разбирать просто. А в библиотеке TorrServer
+   хранит и имя папки или файла: «Игра.престолов.S01.WEB-DL.2160p»,
+   «Курьер.2026.MVO.WEB-DLRip.x264.seleZen.mkv». Прежде из такого имени
+   в TMDB уходило «Курьер 2026 MVO seleZen mkv» — и постера не находилось:
+   в поиске обложки были, а в библиотеке нет. Поэтому имя-файл сначала
+   приводится к словам, а название обрезается на первом техническом слове. */
+const VIDEO_EXT_RE = /\.(mkv|avi|mp4|m4v|ts|m2ts|wmv|mov|webm|flv|mpe?g|vob|iso)$/i;
+const TITLE_STOP_RE = /(?:^|[\s\-])(?:S\d{1,2}(?:\s*E\d{1,3})?|сезон|season|серии|\d{3,4}[pi]|4k|uhd|web-?dl\w*|web-?rip|bd-?rip|bdremux|blu-?ray|hdrip|dvdrip|hdtvrip|hdtv|remux|x26[45]|h26[45]|hevc|avc|mvo|dvo|avo|itunes|amzn|10\s?bit)(?=$|[\s\-])/i;
 function cleanSearchTitle(t) {
-  let s0 = String(t || '');
-  const ym = s0.match(/(19|20)\d{2}/);
-  const year = ym ? ym[0] : '';
+  let s0 = String(t || '').trim().replace(VIDEO_EXT_RE, '');
+  // Имя папки или файла: слова через точки или подчёркивания.
+  if ((s0.match(/[0-9A-Za-zА-Яа-яЁё][._][0-9A-Za-zА-Яа-яЁё]/g) || []).length >= 2) s0 = s0.replace(/[._]+/g, ' ');
+  // Год — отдельное число, лучше в скобках: «Бегущий по лезвию 2049 (2017)».
+  const yp = s0.match(/[(\[]((?:19|20)\d{2})[)\]]/);
+  const ym = yp || s0.match(/(?:^|[^\dxх])((?:19|20)\d{2})(?![\dpрxх])/i);
+  const year = ym ? ym[1] : '';
   const parts = s0.split('/').map(p => p.trim()).filter(Boolean);
   let pick = '';
   for (const p of parts) { if (/[а-яёЁ]/.test(p)) { pick = p; break; } }
   if (!pick) pick = parts[0] || s0;
   let s = pick;
+  // Обрезаем на первом техническом слове, скобке или (если скобок нет) годе.
+  let cut = s.search(TITLE_STOP_RE);
+  const br = s.search(/[(\[]/);
+  if (br > 0 && (cut < 0 || br < cut)) cut = br;
+  if (!yp && year) {
+    const yi = s.search(new RegExp('(?:^|\\s)' + year + '(?!\\d)'));
+    if (yi > 0 && (cut < 0 || yi < cut)) cut = yi;
+  }
+  if (cut > 1) s = s.slice(0, cut);
   s = s.replace(/[\[\(][^\]]*?[\]\)]/g, ' ');
   s = s.replace(/(?:^|\s)(от|from)\s+[\wа-яёЁ-]+/gi, ' ');
   s = s.replace(/\b(сезон|листа|из)\s*\d+|S\d{1,2}\s*E\d{1,3}|\d+x\d{1,3}\b|\bобновл\.?\b|\bраздача\b|\bпостер\b|\bлицензи[яе]\b/gi, ' ');

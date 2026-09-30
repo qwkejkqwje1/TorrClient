@@ -341,11 +341,22 @@ async function statTorrent(hash) {
   return j;
 }
 const statCache = {};
+/* mergeStat кладёт статистику TorrServer поверх раздачи, не затирая известное
+   пустым. TorrServer отдаёт poster: "" (и бывает title: "") у каждой раздачи,
+   добавленной без постера, — а постеры библиотеки приходят из TMDB и хранятся
+   у нас. Прежде Object.assign(cur, stat) через секунду после показа стирал
+   только что поставленные обложки: в поиске они были, в библиотеке — нет. */
+const STAT_KEEP = ['poster', 'title', 'category'];
+function mergeStat(t, s) {
+  const keep = {};
+  for (const k of STAT_KEEP) if (t[k] && !(s && s[k])) keep[k] = t[k];
+  return Object.assign(t, s, keep);
+}
 async function enrichStats(t) {
   const c = statCache[t.hash];
-  if (c && Date.now() - c.at < 30000) { return Object.assign({}, t, c.data); }
+  if (c && Date.now() - c.at < 30000) { return mergeStat(Object.assign({}, t), c.data); }
   const s = await statTorrent(t.hash).catch(() => null);
-  if (s && typeof s === 'object') { statCache[t.hash] = { at: Date.now(), data: s }; return Object.assign({}, t, s); }
+  if (s && typeof s === 'object') { statCache[t.hash] = { at: Date.now(), data: s }; return mergeStat(Object.assign({}, t), s); }
   return Object.assign({}, t);
 }
 async function torrentAction(a, o = {}) { return tsJson('/torrents', Object.assign({ action: a }, o)); }
