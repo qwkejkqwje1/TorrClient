@@ -208,6 +208,7 @@ async function initKinozalMirrors() {
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 const WHATSNEW = [
+  ['1.15.0', ['«Топ за всё время»: разделы Аниме, Мультфильмы и Документальное — фильмы или сериалы', 'В Мультфильмах нет аниме, в Аниме — только японская анимация']],
   ['1.14.0', ['Исправлено: следующая серия в плейлисте начиналась с позиции прошлой — теперь каждая продолжается со своего места (mpv, VLC)', 'Отметки просмотра записываются той серии, что играет сейчас, а не первой', 'Сериалы с многими сезонами: вкладки сезонов с прогрессом, открывается сезон следующей серии, «Отметить сезон» одним нажатием', 'Во время просмотра не показываются неверные цифры подгрузки, а сервер опрашивается реже', 'Кнопка «Следующая серия» на панели показа снова появляется']],
   ['1.13.0', ['Рекомендации по библиотеке: «✨ Рекомендации» в Библиотеке и «✨ Для вас» в Поиске (нужен ключ TMDB)', 'Что советуют сразу к нескольким вашим фильмам — выше; видно, на что похоже; лишнее прячется ✕', 'Щелчок по рекомендации сразу ищет лучшую раздачу']],
   ['1.12.0', ['Крестик «×» в полях поиска и фильтра (или Esc) — очистить одним щелчком', 'Кнопка ⟳ в шапке (клавиша R) — обновить раздел или повторить поиск', 'Лоток: «Выход» в меню теперь действительно закрывает программу; щелчок по иконке открывает окно (меню раньше не работало)']],
@@ -1951,7 +1952,7 @@ async function renderSearch(root) {
     ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<span class="hq-chip"><button data-hq="${h}">${h}</button><button class="hq-x" data-hqx="${h}" title="Удалить из истории">×</button></span>`).join(''))}<button id="hqClear" class="hq-x" title="Очистить историю">очистить</button></div>` : '')}
     <div class="quick" id="discBar">
       <span class="qlabel">Топ за всё время:</span>
-      <select id="dKind" style="width:auto"><option value="movie">Фильмы</option><option value="tv">Сериалы</option></select>
+      <select id="dKind" style="width:auto"><option value="movie">Фильмы</option><option value="tv">Сериалы</option><option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="doc">Документальное</option></select>
       <select id="dOrigin" style="width:auto"><option value="foreign">Зарубежное</option><option value="any">Любое</option><option value="ru">Русское</option></select>
       <select id="dGenre" style="width:auto"></select>
       <button id="dGo" title="Самое популярное по числу голосов TMDB. Нужен ключ TMDB">Показать</button>
@@ -2468,9 +2469,26 @@ const DISC_GENRES = {
 };
 const discState = { items: [], page: 0, hasMore: false, params: null, busy: false };
 
+/* Разделы «Аниме», «Мультфильмы», «Документальное» сами задают жанр, поэтому
+   второй список у них выбирает не жанр, а вид: фильмы или сериалы. Аниме чаще
+   смотрят сериалами, остальное — фильмами. У аниме нет выбора происхождения:
+   оно японское по определению. */
+const DISC_SECTIONS = { anime: 'tv', cartoon: 'movie', doc: 'movie' };
 function fillDiscGenres() {
   const kind = $('#dKind').value;
-  $('#dGenre').innerHTML = DISC_GENRES[kind].map(g => html`<option value="${g[0]}">${g[1]}</option>`).join('');
+  const sec = DISC_SECTIONS[kind];
+  $('#dGenre').innerHTML = sec
+    ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>`
+    : DISC_GENRES[kind].map(g => html`<option value="${g[0]}">${g[1]}</option>`).join('');
+  if (sec) $('#dGenre').value = sec;
+  const o = $('#dOrigin');
+  if (o) { o.disabled = kind === 'anime'; o.classList.toggle('hidden', kind === 'anime'); }
+}
+/* discQuery — параметры запроса подборки по выбору в панели. */
+function discQuery(p) {
+  const sec = DISC_SECTIONS[p.kind];
+  if (sec) return 'kind=' + (p.genre === 'tv' ? 'tv' : 'movie') + '&cat=' + p.kind + '&origin=' + p.origin;
+  return 'kind=' + p.kind + '&origin=' + p.origin + '&genre=' + encodeURIComponent(p.genre);
 }
 function initDiscoverBar() {
   if (!$('#dKind')) return;
@@ -2490,7 +2508,7 @@ async function fetchDiscover(reset) {
   if (!p) return;
   discState.busy = true;
   try {
-    const url = '/api/discover?kind=' + p.kind + '&origin=' + p.origin + '&genre=' + encodeURIComponent(p.genre) + '&page=' + (discState.page + 1);
+    const url = '/api/discover?' + discQuery(p) + '&page=' + (discState.page + 1);
     const resp = await apiGetJSON(url);
     if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'пустой ответ');
     discState.page = resp.page;
@@ -2514,7 +2532,7 @@ function paintDiscover(el) {
     <div class="disc-card" data-di="${i}" title="Подобрать лучшую раздачу из всех источников">
       <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${it.poster}" alt="">` : '')}</div>
       <div class="disc-title">${it.title}</div>
-      <div class="disc-meta">${discState.params && discState.params.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
+      <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
   el.innerHTML = html`<div class="disc-head">Популярное за всё время (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>

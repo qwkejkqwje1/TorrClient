@@ -45,10 +45,30 @@ type discoverCached struct {
 
 var discoverCache sync.Map // ключ — адрес запроса без ключа TMDB
 
+// Разделы подборки поверх жанров. Аниме — японская анимация: у TMDB это
+// жанр «мультфильм» с японским оригиналом. Мультфильмы — та же анимация без
+// аниме (ключевое слово TMDB «anime» — 210024): иначе японские сериалы
+// заполняли бы весь топ мультфильмов.
+const (
+	tmdbGenreAnimation   = "16"
+	tmdbGenreDocumentary = "99"
+	tmdbKeywordAnime     = "210024"
+)
+
 // discoverURL собирает адрес запроса. Жанр — только число: строка из адреса
-// интерфейса не должна попасть в чужой запрос как есть.
-func discoverURL(kind, genre, origin string, page int) (string, bool) {
+// интерфейса не должна попасть в чужой запрос как есть. cat — раздел
+// (anime, cartoon, doc) или пусто; раздел задаёт жанр сам.
+func discoverURL(kind, genre, origin, cat string, page int) (string, bool) {
 	if kind != "movie" && kind != "tv" {
+		return "", false
+	}
+	switch cat {
+	case "":
+	case "anime", "cartoon":
+		genre = tmdbGenreAnimation
+	case "doc":
+		genre = tmdbGenreDocumentary
+	default:
 		return "", false
 	}
 	if page < 1 || page > discoverMaxPage {
@@ -66,15 +86,24 @@ func discoverURL(kind, genre, origin string, page int) (string, bool) {
 		}
 		q.Set("with_genres", genre)
 	}
-	if origin == "ru" {
+	switch {
+	case cat == "anime":
+		q.Set("with_original_language", "ja")
+	case origin == "ru":
 		q.Set("with_original_language", "ru")
+	}
+	if cat == "cartoon" {
+		q.Set("without_keywords", tmdbKeywordAnime)
 	}
 	return tmdbAPIBase + "/discover/" + kind + "?" + q.Encode(), true
 }
 
 // parseDiscover разбирает ответ TMDB. Для origin=foreign отбрасывает русские
 // оригиналы: у TMDB нет фильтра «кроме этого языка», поэтому — после запроса.
-func parseDiscover(body []byte, kind, origin string) ([]discoverItem, int, error) {
+//
+// Для мультфильмов отбрасываются и японские оригиналы: ключевое слово «anime»
+// стоит не у всех аниме, а язык оригинала не врёт.
+func parseDiscover(body []byte, kind, origin, cat string) ([]discoverItem, int, error) {
 	var resp struct {
 		TotalPages int `json:"total_pages"`
 		Results    []struct {
@@ -100,6 +129,9 @@ func parseDiscover(body []byte, kind, origin string) ([]discoverItem, int, error
 		if origin == "foreign" && r.OriginalLanguage == "ru" {
 			continue
 		}
+		if cat == "cartoon" && r.OriginalLanguage == "ja" {
+			continue
+		}
 		title, orig, date := r.Title, r.OriginalTitle, r.ReleaseDate
 		if kind == "tv" {
 			title, orig, date = r.Name, r.OriginalName, r.FirstAirDate
@@ -123,7 +155,7 @@ func parseDiscover(body []byte, kind, origin string) ([]discoverItem, int, error
 	return out, resp.TotalPages, nil
 }
 
-// apiDiscover — GET /api/discover?kind=movie|tv&genre=<id>&origin=any|foreign|ru&page=N
+// apiDiscover — GET /api/discover?kind=movie|tv&genre=<id>&origin=any|foreign|ru&cat=anime|cartoon|doc&page=N
 func (c *Comp) apiDiscover(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	kind := strings.TrimSpace(q.Get("kind"))
@@ -135,7 +167,8 @@ func (c *Comp) apiDiscover(w http.ResponseWriter, r *http.Request) {
 	if page < 1 {
 		page = 1
 	}
-	target, ok := discoverURL(kind, strings.TrimSpace(q.Get("genre")), origin, page)
+	cat := strings.TrimSpace(q.Get("cat"))
+	target, ok := discoverURL(kind, strings.TrimSpace(q.Get("genre")), origin, cat, page)
 	if !ok {
 		writeJSONError(w, http.StatusBadRequest, "неверные параметры подборки")
 		return
@@ -153,7 +186,7 @@ func (c *Comp) apiDiscover(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, code, err.Error())
 		return
 	}
-	items, total, err := parseDiscover(body, kind, origin)
+	items, total, err := parseDiscover(body, kind, origin, cat)
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, "ответ TMDB не разобран")
 		return
