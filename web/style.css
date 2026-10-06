@@ -476,3 +476,7 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .addr-pick{display:flex !important; flex-direction:row !important; flex-wrap:wrap; gap:4px 8px; align-items:center; margin:4px 0 !important; cursor:pointer}
 .addr-pick input{width:auto !important; margin:0; flex:0 0 auto}
 .addr-pick .page-sub{margin:0}
+
+/* Поиск по настройкам */
+.set-sticky{position:sticky; top:0; z-index:6; background:var(--bg); padding:8px 0; margin-top:-8px}
+.set-hit{outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; background:rgba(245,197,66,.08)}
