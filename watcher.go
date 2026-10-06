@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -180,53 +181,15 @@ func (c *Comp) apiWatch(w http.ResponseWriter, r *http.Request) {
 var uploadClient = &http.Client{Timeout: 60 * time.Second}
 
 func (c *Comp) addTorrentFromFile(path string, openUI bool) {
-	prof := curCfg().active()
 	fn := filepath.Base(path)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		c.watch.addLog("Ошибка чтения " + fn + ": " + err.Error())
 		return
 	}
-	target := strings.TrimRight(prof.URL, "/") + "/torrent/upload"
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	fw, _ := mw.CreateFormFile("file", fn)
-	fw.Write(data)
-	mw.WriteField("save", "1")
-	mw.Close()
-	req, err := http.NewRequest("POST", target, &buf)
-	if err != nil {
+	if err := uploadTorrentData(fn, data); err != nil {
+		c.watch.addLog(err.Error())
 		return
-	}
-	req.Header.Set("Content-Type", mw.FormDataContentType())
-	if prof.User != "" {
-		req.SetBasicAuth(prof.User, prof.Pass)
-	}
-	resp, err := uploadClient.Do(req)
-	if err != nil {
-		c.watch.addLog("Сервер недоступен: " + fn)
-		return
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != 200 {
-		// fallback to old 1.1.x endpoint
-		target2 := strings.TrimRight(prof.URL, "/") + "/upload"
-		req2, _ := http.NewRequest("POST", target2, bytes.NewReader(buf.Bytes()))
-		req2.Header.Set("Content-Type", mw.FormDataContentType())
-		if prof.User != "" {
-			req2.SetBasicAuth(prof.User, prof.Pass)
-		}
-		resp2, err2 := uploadClient.Do(req2)
-		if err2 != nil {
-			c.watch.addLog("Ошибка: " + fn)
-			return
-		}
-		defer resp2.Body.Close()
-		if resp2.StatusCode != 200 {
-			c.watch.addLog("Сервер отверг файл " + fn + ": " + string(body))
-			return
-		}
 	}
 	c.watch.addLog("Добавлен на сервер: " + fn)
 	// move file aside
@@ -235,4 +198,49 @@ func (c *Comp) addTorrentFromFile(path string, openUI bool) {
 	if openUI {
 		openBrowser(fmt.Sprintf("http://%s:%d", *flagHost, *flagPort))
 	}
+}
+
+// uploadTorrentData отдаёт .torrent активному серверу. Ошибка — с причиной:
+// добавление с Кинозала должно сказать, почему не вышло, а не молчать.
+func uploadTorrentData(fn string, data []byte) error {
+	prof := curCfg().active()
+	post := func(target string) (int, string, error) {
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		fw, _ := mw.CreateFormFile("file", fn)
+		fw.Write(data)
+		mw.WriteField("save", "1")
+		mw.Close()
+		req, err := http.NewRequest("POST", target, &buf)
+		if err != nil {
+			return 0, "", err
+		}
+		req.Header.Set("Content-Type", mw.FormDataContentType())
+		if prof.User != "" {
+			req.SetBasicAuth(prof.User, prof.Pass)
+		}
+		resp, err := uploadClient.Do(req)
+		if err != nil {
+			return 0, "", err
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+		return resp.StatusCode, string(body), nil
+	}
+	base := strings.TrimRight(prof.URL, "/")
+	code, body, err := post(base + "/torrent/upload")
+	if err != nil {
+		return errors.New("Сервер недоступен: " + fn)
+	}
+	if code != 200 {
+		// fallback to old 1.1.x endpoint
+		code2, _, err2 := post(base + "/upload")
+		if err2 != nil {
+			return errors.New("Ошибка: " + fn)
+		}
+		if code2 != 200 {
+			return errors.New("Сервер отверг файл " + fn + ": " + body)
+		}
+	}
+	return nil
 }

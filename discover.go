@@ -78,6 +78,26 @@ func discoverURL(kind, genre, origin, cat string, page int) (string, bool) {
 		q.Set("language", "ru-RU")
 		q.Set("page", strconv.Itoa(page))
 		return tmdbAPIBase + "/trending/" + kind + "/" + span + "?" + q.Encode(), true
+	case "trend_anime", "trend_cartoon":
+		// «Сейчас смотрят» аниме и мультфильмы. В общих трендах TMDB их почти
+		// нет — там всё забирают фильмы и сериалы. Поэтому здесь подборка по
+		// текущей популярности внутри жанра: это и есть «смотрят сейчас».
+		q := url.Values{}
+		q.Set("language", "ru-RU")
+		q.Set("sort_by", "popularity.desc")
+		q.Set("include_adult", "false")
+		q.Set("vote_count.gte", "20")
+		q.Set("with_genres", tmdbGenreAnimation)
+		q.Set("page", strconv.Itoa(page))
+		if cat == "trend_anime" {
+			q.Set("with_original_language", "ja")
+		} else {
+			q.Set("without_keywords", tmdbKeywordAnime)
+			if origin == "ru" {
+				q.Set("with_original_language", "ru")
+			}
+		}
+		return tmdbAPIBase + "/discover/" + kind + "?" + q.Encode(), true
 	case "":
 	case "anime", "cartoon":
 		genre = tmdbGenreAnimation
@@ -144,7 +164,7 @@ func parseDiscover(body []byte, kind, origin, cat string) ([]discoverItem, int, 
 		if origin == "foreign" && r.OriginalLanguage == "ru" {
 			continue
 		}
-		if cat == "cartoon" && r.OriginalLanguage == "ja" {
+		if (cat == "cartoon" || cat == "trend_cartoon") && r.OriginalLanguage == "ja" {
 			continue
 		}
 		// У трендов нет фильтра по языку в запросе — русское отбирается здесь.

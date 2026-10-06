@@ -331,8 +331,12 @@ function forgetMetaMisses() {
 async function listTorrents() {
   let arr;
   try { arr = await tsGet('/torrents'); } catch (e) { arr = null; }
-  if (!Array.isArray(arr)) { try { arr = await tsJson('/torrents', { action: 'list' }); } catch (e) { arr = []; } }
-  return Array.isArray(arr) ? arr : [];
+  if (!Array.isArray(arr)) { try { arr = await tsJson('/torrents', { action: 'list' }); } catch (e) { arr = null; } }
+  // Сервер не ответил — это ошибка, а не пустая библиотека: после запуска
+  // TorrServer поднимается не сразу, и пустой список прежде оставался на
+  // экране до ручного обновления.
+  if (!Array.isArray(arr)) throw new Error('TorrServer не отвечает');
+  return arr;
 }
 async function statTorrent(hash) {
   const r = await fetch(ts('/stream?link=' + encodeURIComponent(hash) + '&stat'));

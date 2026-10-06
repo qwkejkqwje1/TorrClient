@@ -488,11 +488,18 @@ async function playSearchLink(r) {
     const magnet = r.magnet || (r.hash ? magnetFromHash(r.hash, r.title || r.name) : '');
     if (!magnet && (r._p === 'kinozal' || /get\.php|details\.php/i.test(r.link || '')) && (r.get || r.link)) {
       toast('Добавляю из Кинозал.ТВ...');
-      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link), { method: 'POST' });
-      const j = await rr.json();
-      if (!rr.ok || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
-      const hash = ((j.hash || '').match(/btih:([0-9a-fA-F]{40})/) || [null, j.hash || ''])[1].toLowerCase();
-      if (hash) await playHashLoop(hash);
+      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link) + '&title=' + encodeURIComponent(r.title || r.name || '') + '&size=' + encodeURIComponent(r.size || ''), { method: 'POST' });
+      const j = await rr.json().catch(() => null);
+      if (!rr.ok || !j || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
+      // .torrent не отдали — демон нашёл ту же раздачу в другом источнике.
+      if (j.magnet) {
+        toast('Кинозал не отдал .torrent — запускаю ту же раздачу из другого источника');
+        await torrentAction('add', { link: j.magnet, save_to_db: true });
+      }
+      const hash = ((j.hash || '').match(/btih:([0-9a-fA-F]{40})/) || [null, j.hash || ''])[1].toLowerCase()
+        || ((j.magnet || '').match(/btih:([0-9a-fA-F]{40})/i) || [null, ''])[1].toLowerCase();
+      if (!hash) throw new Error('не удалось узнать хеш раздачи');
+      await playHashLoop(hash);
       return;
     }
     const hash = (magnet.match(/btih:([0-9a-fA-F]{40})/) || [null, ''])[1].toLowerCase();

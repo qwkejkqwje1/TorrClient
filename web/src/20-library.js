@@ -100,9 +100,19 @@ function refreshLibrary() {
 /* Paint-first library: list is shown immediately, per-torrent stats are
    enriched in background (limited concurrency, cached 30 s) so opening the
    library never blocks on N /stream?stat round-trips. */
+const libRetry = { timer: 0, n: 0 };
 async function loadLibrary(paint) {
-  try { state.lib = await listTorrents(); }
-  catch (e) { toast('Ошибка загрузки библиотеки: ' + e.message, true); state.lib = []; }
+  try { state.lib = await listTorrents(); state.libError = ''; libRetry.n = 0; }
+  catch (e) {
+    // Сервер ещё поднимается (так бывает сразу после запуска) — список
+    // запрашивается снова сам, всё реже: 1,5 с, 3 с, 6 с… до 30 с.
+    state.libError = e.message;
+    if (!Array.isArray(state.lib)) state.lib = [];
+    if (!libRetry.timer) {
+      const delay = Math.min(30000, 1500 * Math.pow(2, libRetry.n++));
+      libRetry.timer = setTimeout(() => { libRetry.timer = 0; if (state.view === 'library') refreshLibrary(); }, delay);
+    }
+  }
   await loadPositions();
   state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
@@ -248,7 +258,7 @@ function painting() {
   const reset = $('#libReset');
   if (reset) reset.classList.toggle('hidden', !libFiltered());
   const grid = $('#libGrid');
-  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
+  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = state.libError ? 'Сервер пока не отвечает (' + state.libError + ') — пробую снова…' : libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
   $('#libEmpty').classList.add('hidden');
   grid.innerHTML = list.map(t => tile(t)).join('');
   bindTiles(grid);

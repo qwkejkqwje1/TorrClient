@@ -270,6 +270,7 @@ async function fetchTop24() {
   moreSources = {};
   state.top24Hash = resp.hash || '';
   button.disabled = false; updateTopBtnLabel();
+  if (resp.source === 'indexers') toast('rutor не ответил — ТОП собран через индексаторы по трендам дня');
   paintResults(el);
 }
 async function fetchTopCat(sec, label) {
@@ -566,8 +567,10 @@ const isTrending = k => k === 'trending' || k === 'trending_day';
 function fillDiscGenres() {
   const kind = $('#dKind').value;
   const sec = DISC_SECTIONS[kind];
+  // В трендах второй список выбирает и аниме с мультфильмами: в общих
+  // трендах TMDB их почти нет.
   $('#dGenre').innerHTML = sec
-    ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>`
+    ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>` + (isTrending(kind) ? html`<option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="anime_movie">Аниме-фильмы</option>` : '')
     : DISC_GENRES[kind].map(g => html`<option value="${g[0]}">${g[1]}</option>`).join('');
   if (sec) $('#dGenre').value = sec;
   // «Сейчас смотрят» — тренды недели: подпись панели говорит об этом прямо.
@@ -585,6 +588,8 @@ function fillDiscGenres() {
 /* discQuery — параметры запроса подборки по выбору в панели. */
 function discQuery(p) {
   const sec = DISC_SECTIONS[p.kind];
+  if (isTrending(p.kind) && (p.genre === 'anime' || p.genre === 'anime_movie')) return 'kind=' + (p.genre === 'anime' ? 'tv' : 'movie') + '&cat=trend_anime&origin=any';
+  if (isTrending(p.kind) && p.genre === 'cartoon') return 'kind=movie&cat=trend_cartoon&origin=' + p.origin;
   if (sec) return 'kind=' + (p.genre === 'tv' ? 'tv' : 'movie') + '&cat=' + p.kind + '&origin=' + p.origin;
   return 'kind=' + p.kind + '&origin=' + p.origin + '&genre=' + encodeURIComponent(p.genre);
 }

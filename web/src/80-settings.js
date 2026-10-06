@@ -104,7 +104,9 @@ function renderSettings(root) {
       </div>
     </div>
     <div class="card"><h3>Кинозал: зеркала</h3>
-      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу. Программа на Кинозал не входит и пароль туда не передаёт.</p>
+      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу.</p>
+      <p class="page-sub">Файл .torrent Кинозал отдаёт только вошедшим. Укажите свой логин — программа войдёт сама, когда понадобится. Без логина раздача ищется в других источниках (JacRed, rutor) и запускается по магниту.</p>
+      <div class="row wrap"><input id="kzUser" placeholder="Логин Кинозала" autocomplete="username" style="max-width:200px"><input id="kzPass" type="password" placeholder="Пароль" autocomplete="current-password" style="max-width:200px"></div>
       <label style="margin:0"><input type="checkbox" id="kzOfficial"> Только официальные зеркала (и свои из списка ниже)</label>
       <label>Свои зеркала (через запятую или с новой строки), проверяются первыми</label>
       <textarea id="kzHosts" rows="2" placeholder="kinozal.tv"></textarea>

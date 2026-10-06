@@ -56,6 +56,10 @@ type Config struct {
 	// KinozalOfficialOnly — искать только на официальных зеркалах
 	// (kinozal.tv, kinozal.me, kinozal.guru) и своих из KinozalHosts.
 	KinozalOfficialOnly bool `json:"kinozal_official_only,omitempty"`
+	// KinozalUser/KinozalPass — вход на Кинозал: .torrent он отдаёт только
+	// вошедшим. Необязательны: без них раздача ищется в других источниках.
+	KinozalUser string `json:"kinozal_user,omitempty"`
+	KinozalPass string `json:"kinozal_pass,omitempty"`
 	// TorznabSources — индексаторы для поиска раздач: Jackett, Prowlarr,
 	// NZBhydra2. Их поиск ведём сами, а не через TorrServer: у сервера он
 	// отдаёт только первую страницу и не отличает «не настроен» от «упал».
@@ -126,6 +130,8 @@ func loadConfig() *Config {
 		// но пропадали после перезапуска программы.
 		cfg.KinozalHosts = c.KinozalHosts
 		cfg.KinozalOfficialOnly = c.KinozalOfficialOnly
+		cfg.KinozalUser = c.KinozalUser
+		cfg.KinozalPass = c.KinozalPass
 		cfg.TorznabSources = c.TorznabSources
 		cfg.RemoteEnabled = c.RemoteEnabled
 		cfg.RemotePIN = c.RemotePIN

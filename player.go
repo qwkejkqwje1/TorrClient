@@ -25,6 +25,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -91,6 +92,11 @@ type playerReading struct {
 	// видно, какая серия плейлиста играет сейчас.
 	Path string
 	Name string
+	// PlaylistID — номер текущего элемента плейлиста VLC (currentplid). По
+	// нему из /requests/playlist.json берётся адрес элемента, а в адресе —
+	// номер файла: по имени серия узнавалась не всегда, и позиции следующих
+	// серий записывались на первую.
+	PlaylistID int
 }
 
 // errNotThePlayer — на адресе связи отвечает не плеер.
@@ -113,6 +119,7 @@ func parseVLCStatus(body []byte) (playerReading, error) {
 		Time        float64 `json:"time"`
 		Length      float64 `json:"length"`
 		State       *string `json:"state"`
+		CurrentPlID int     `json:"currentplid"`
 		Information struct {
 			Category struct {
 				Meta struct {
@@ -133,7 +140,64 @@ func parseVLCStatus(body []byte) (playerReading, error) {
 		return playerReading{}, errors.New("VLC остановлен")
 	}
 	return playerReading{Position: secondsOrZero(status.Time), Duration: secondsOrZero(status.Length),
-		Name: status.Information.Category.Meta.Filename}, nil
+		Name: status.Information.Category.Meta.Filename, PlaylistID: status.CurrentPlID}, nil
+}
+
+// vlcNode — элемент дерева /requests/playlist.json.
+type vlcNode struct {
+	ID       string    `json:"id"`
+	URI      string    `json:"uri"`
+	Children []vlcNode `json:"children"`
+}
+
+// vlcItemURI ищет в дереве плейлиста адрес элемента с номером id.
+func vlcItemURI(n vlcNode, id string) string {
+	if n.ID == id && n.URI != "" {
+		return n.URI
+	}
+	for _, ch := range n.Children {
+		if u := vlcItemURI(ch, id); u != "" {
+			return u
+		}
+	}
+	return ""
+}
+
+// vlcPlaylistURI спрашивает у VLC адрес текущего элемента плейлиста.
+func (p httpPoller) vlcPlaylistURI(ctx context.Context, plid int) string {
+	u := strings.TrimSuffix(p.url, "status.json") + "playlist.json"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return ""
+	}
+	if p.password != "" {
+		req.SetBasicAuth("", p.password)
+	}
+	resp, err := playerClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var root vlcNode
+	if json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&root) != nil {
+		return ""
+	}
+	return vlcItemURI(root, strconv.Itoa(plid))
+}
+
+// vlcPoll — замер VLC вместе с адресом текущей серии плейлиста.
+func (p httpPoller) vlcPoll(ctx context.Context) (playerReading, error) {
+	r, err := p.poll(ctx)
+	if err != nil || r.PlaylistID <= 0 {
+		return r, err
+	}
+	if uri := p.vlcPlaylistURI(ctx, r.PlaylistID); uri != "" {
+		r.Path = uri
+	}
+	return r, nil
 }
 
 // mpcValue — одна переменная из документа семейства MPC: пары вида
@@ -469,7 +533,7 @@ func channelFor(key string) playerChannel {
 				"--http-port=" + strconv.Itoa(port),
 				"--http-password=" + password,
 			},
-			poll: asker.poll,
+			poll: asker.vlcPoll,
 			seek: asker.vlcSeek,
 		}
 	case "mpv":
@@ -744,6 +808,9 @@ type playerSession struct {
 	seek func(ctx context.Context, pos float64) error
 	// names — имена файлов раздачи → номер: VLC и MPC сообщают имя, а не адрес.
 	names map[string]int
+	// fetchNames — повторный запрос имён, если при запуске их не было.
+	fetchNames func() map[string]int
+	namesAt    time.Time
 	// seeked — файлы, которые уже переведены на сохранённую позицию.
 	seeked map[int]bool
 }
@@ -760,12 +827,47 @@ func (s *playerSession) currentFile(r playerReading) int {
 			return n
 		}
 	}
-	if r.Name != "" && s.names != nil {
-		if id, ok := s.names[r.Name]; ok {
+	if r.Name != "" {
+		if id, ok := matchFileName(s.names, r.Name); ok {
 			return id
+		}
+		// Имена раздачи могли не прийти при запуске (сервер ещё не отдал
+		// список файлов) — спрашиваем снова, не чаще раза в полминуты.
+		if s.fetchNames != nil && time.Since(s.namesAt) > 30*time.Second {
+			s.namesAt = time.Now()
+			if n := s.fetchNames(); len(n) > 0 {
+				s.names = n
+				if id, ok := matchFileName(s.names, r.Name); ok {
+					return id
+				}
+			}
 		}
 	}
 	return s.fileID
+}
+
+// matchFileName ищет файл по имени, которое сообщил плеер: дословно, затем
+// без регистра и с раскодированным адресом («%20», «+»).
+func matchFileName(names map[string]int, name string) (int, bool) {
+	if len(names) == 0 {
+		return 0, false
+	}
+	if id, ok := names[name]; ok {
+		return id, true
+	}
+	norm := func(v string) string {
+		if u, err := url.PathUnescape(v); err == nil {
+			v = u
+		}
+		return strings.ToLower(strings.TrimSpace(v))
+	}
+	want := norm(name)
+	for n, id := range names {
+		if norm(n) == want {
+			return id, true
+		}
+	}
+	return 0, false
 }
 
 // resumeHere переводит только что открытую серию на её сохранённую позицию.
@@ -948,7 +1050,7 @@ func (c *Comp) startPlayer(p *Player, args []string, hash string, fileID int, po
 		<-done
 		cancel()
 	}()
-	c.watchPlayer(ctx, &playerSession{hash: hash, fileID: fileID, poll: channel.poll, seek: channel.seek, names: fileNames(hash)}, done)
+	c.watchPlayer(ctx, &playerSession{hash: hash, fileID: fileID, poll: channel.poll, seek: channel.seek, names: fileNames(hash), fetchNames: func() map[string]int { return fileNames(hash) }, namesAt: time.Now()}, done)
 	return resumeApplied, true, nil
 }
 

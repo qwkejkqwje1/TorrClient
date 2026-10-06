@@ -180,13 +180,14 @@ async function initKinozalMirrors() {
     box.value = (j.hosts || []).join('\n');
     $('#kzOfficial').checked = !!j.official_only;
     $('#kzLast').textContent = j.last_good ? 'Последнее рабочее: ' + j.last_good.replace('https://', '') : '';
+    if ($('#kzUser')) { $('#kzUser').value = j.user || ''; $('#kzPass').value = ''; $('#kzPass').placeholder = j.pass_set ? 'Пароль сохранён' : 'Пароль'; }
   };
   try { show(await apiGetJSON('/api/kinozal/mirrors')); } catch (e) { $('#kzLast').textContent = 'Не загружено: ' + e.message; }
   const post = body => fetch('/api/kinozal/mirrors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(async r => { const j = await r.json().catch(() => null); if (!r.ok) throw new Error((j && j.error) || 'HTTP ' + r.status); return j; });
   const save = async () => {
     try {
-      show(await post({ hosts: box.value.split(/[\s,;]+/).filter(Boolean), official_only: $('#kzOfficial').checked }));
+      show(await post({ hosts: box.value.split(/[\s,;]+/).filter(Boolean), official_only: $('#kzOfficial').checked, user: $('#kzUser') ? $('#kzUser').value : undefined, pass: $('#kzPass') ? $('#kzPass').value : undefined }));
       toast('Зеркала Кинозала сохранены');
     } catch (e) { toast('Не сохранено: ' + e.message, true); }
   };
