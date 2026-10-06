@@ -1,7 +1,7 @@
 function renderSubs(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
-      <div class="page-sub">Демон сам спрашивает трекер о новых сериях и сообщает о них в живую ленту — проверять руками ничего не надо.</div></div>
+      <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
       <button id="subAdd" class="primary">＋ Следить</button>
       <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>
@@ -45,7 +45,14 @@ function subsArrived(d) {
   if (d.items && d.items[0]) s.last_seen = d.items[0].title;
   paintSubsBadge();
   const where = d.season ? ' — сезон ' + d.season + (d.episode ? ', серия ' + d.episode : '') : '';
-  toast('Новые серии: ' + (d.title || '') + where);
+  const msg = d.aired
+    ? 'Вышла серия: ' + (d.title || '') + where + '. Раздачи пока нет — сообщу, когда появится'
+    : 'Новые серии: ' + (d.title || '') + where;
+  toast(msg);
+  // Системное уведомление — когда окно свёрнуто, тост не увидеть.
+  try {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: msg });
+  } catch (_) { /* уведомления недоступны */ }
   if (state.view === 'subs') paintSubsBody();
 }
 
@@ -85,6 +92,20 @@ function parseSeriesEp(name) {
   m = s.match(/Сезон\s*(\d{1,2})/i);
   if (m) return { s: parseInt(m[1], 10), e: 0, e2: 0 };
   return null;
+}
+/* subsName — название для подписки: без «/ English», скобок, сезона, серий и
+   качества. Целое название раздачи трекер не находил — подписки на аниме и
+   мультсериалы молчали всегда. */
+function subsName(raw) {
+  let s = String(raw || '').trim();
+  if (!/\s/.test(s) && (s.match(/\./g) || []).length >= 2) s = s.replace(/[._]/g, ' ');
+  for (const sep of [' / ', ' | ', '[', '(', '{']) { const i = s.indexOf(sep); if (i > 0) s = s.slice(0, i); }
+  s = s.replace(/(?:^|[\s._-])s\d{1,2}(?:[\s._-]*e\d{1,4})?(?:[\s._-]|$).*$/i, '')
+    .replace(/(?:\d{1,2}\s*[-–—]\s*)?\d{1,2}\s*сезон.*$|сезон\s*\d.*$|season\s*\d.*$/i, '')
+    .replace(/\d{1,4}\s*(?:[-–—]\s*\d{1,4}\s*)?(?:сери|эпизод|из\s).*$/i, '')
+    .replace(/(?:^|\s)(?:2160p|1080p|720p|480p|4k|web-?dl|webrip|hdtv|bdrip|hdrip)\b.*$/i, '')
+    .replace(/^[\s.,:;_\-–—]+|[\s.,:;_\-–—]+$/g, '');
+  return s.length >= 2 ? s : (cleanSeriesName(raw) || String(raw || '').trim());
 }
 function cleanSeriesName(s) {
   return String(s || '')
@@ -228,7 +249,7 @@ function seriesCard(g) {
       <span class="chip">${g.items.length} ${plural(g.items.length, 'торрент', 'торрента', 'торрентов')}</span>
       ${raw(all ? html`<span class="chip">${seen} из ${all} ${plural(all, 'серии', 'серий', 'серий')}</span>` : '')}
       <button data-watch="${head.hash}">▶ Смотреть</button>
-      <button data-subseries="${cleanSeriesName(head.title)}" title="Демон сам сообщит о новых сериях">Следить</button></div>
+      <button data-subseries="${subsName(head.title)}" title="Демон сам сообщит о новых сериях">Следить</button></div>
     <div style="margin-top:10px">` + sels.map(sn => {
       const srows = seasons.get(sn);
       return html`<div class="eps-season" data-sn="${sn}">

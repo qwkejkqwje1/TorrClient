@@ -8,7 +8,7 @@ const JACRED_ONLINE = [
 /* ================= SETTINGS ================= */
 function renderSettings(root) {
   root.innerHTML = html`
-    <div class="toolbar"><div class="grow"><h1 class="page-title">Настройки TorrClient</h1></div><input class="search-input" id="setFilter" placeholder="Найти настройку…" style="max-width:260px"></div>
+    <div class="toolbar"><div class="grow"><h1 class="page-title">Настройки TorrClient</h1></div><input class="search-input" id="setFilter" type="search" placeholder="🔍 Найти настройку (Ctrl+F)…" style="max-width:320px"></div>
     <div class="card"><h3>Серверы TorrServer <button id="setOpenTs" style="float:right">Открыть сервер в браузере</button></h3>
       <div id="profList"></div>
       <div class="divider"></div>
@@ -104,7 +104,9 @@ function renderSettings(root) {
       </div>
     </div>
     <div class="card"><h3>Кинозал: зеркала</h3>
-      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу. Программа на Кинозал не входит и пароль туда не передаёт.</p>
+      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу.</p>
+      <p class="page-sub">Файл .torrent Кинозал отдаёт только вошедшим. Укажите свой логин — программа войдёт сама, когда понадобится. Без логина раздача ищется в других источниках (JacRed, rutor) и запускается по магниту.</p>
+      <div class="row wrap"><input id="kzUser" placeholder="Логин Кинозала" autocomplete="username" style="max-width:200px"><input id="kzPass" type="password" placeholder="Пароль" autocomplete="current-password" style="max-width:200px"></div>
       <label style="margin:0"><input type="checkbox" id="kzOfficial"> Только официальные зеркала (и свои из списка ниже)</label>
       <label>Свои зеркала (через запятую или с новой строки), проверяются первыми</label>
       <textarea id="kzHosts" rows="2" placeholder="kinozal.tv"></textarea>
@@ -447,21 +449,57 @@ async function restoreBackup(file) {
 }
 
 
-// Поиск по настройкам: прячет карточки, в которых нет введённого текста.
+// Поиск по настройкам: прячет разделы без совпадений и подсвечивает строки,
+// где нашлись слова. Слова ищутся все сразу и в любом порядке, «ё» = «е»;
+// учитываются подсказки полей, подписи кнопок и пункты списков. Enter —
+// прокрутка к первому совпадению, Ctrl+F или «/» — к полю поиска.
+const SET_SYNONYMS = { плеер: 'vlc mpc potplayer mpv', язык: 'озвучк субтитр', пароль: 'логин вход', обложк: 'постер tmdb', постер: 'tmdb обложк', ключ: 'tmdb api', телефон: 'удалён qr', порт: 'адрес сервер', тема: 'оформлен вид', качество: '1080 2160 4k hdr', кэш: 'cache предзагруз', автозапуск: 'трей windows' };
+function setNorm(v) { return String(v || '').toLowerCase().replace(/ё/g, 'е'); }
 function initSettingsFilter(root) {
   const inp = $('#setFilter'); if (!inp) return;
+  const bar = inp.closest('.toolbar'); if (bar) bar.classList.add('set-sticky');
   const cards = [...root.querySelectorAll('.card')];
-  let empty = null;
-  inp.addEventListener('input', () => {
-    const q = inp.value.trim().toLowerCase();
+  const textOf = el => setNorm(el.textContent + ' ' + [...el.querySelectorAll('input,textarea,select,button,[title]')]
+    .map(x => (x.placeholder || '') + ' ' + (x.title || '') + ' ' + (x.tagName === 'SELECT' ? [...x.options].map(o => o.text).join(' ') : '')).join(' '));
+  const info = document.createElement('div'); info.className = 'page-sub'; info.style.display = 'none';
+  if (bar) bar.after(info);
+  let first = null;
+  const run = () => {
+    const words = setNorm(inp.value).split(/\s+/).filter(w => w.length > 1);
+    $$('.set-hit', root).forEach(e => e.classList.remove('set-hit'));
+    first = null;
     let shown = 0;
     for (const c of cards) {
-      const hit = !q || c.textContent.toLowerCase().includes(q) || [...c.querySelectorAll('input,textarea')].some(i => (i.placeholder || '').toLowerCase().includes(q));
-      c.style.display = hit ? '' : 'none'; if (hit) shown++;
+      const t = textOf(c);
+      const hit = !words.length || words.every(w => t.includes(w) || (SET_SYNONYMS[w] || '').split(' ').some(x => x && t.includes(x)));
+      c.style.display = hit ? '' : 'none';
+      if (!hit) continue;
+      shown++;
+      if (!words.length) continue;
+      // Подсветка самых мелких подходящих строк раздела.
+      for (const el of c.querySelectorAll('h3,label,.page-sub,button,.row > span,.field-label,summary')) {
+        const et = textOf(el);
+        if (words.some(w => et.includes(w))) { el.classList.add('set-hit'); if (!first) first = el; }
+      }
+      if (!first) first = c;
     }
-    if (!empty) { empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'Такой настройки нет'; inp.closest('.toolbar').after(empty); }
-    empty.style.display = shown ? 'none' : '';
+    info.style.display = words.length ? '' : 'none';
+    info.textContent = shown ? 'Найдено разделов: ' + shown + (first ? ' · Enter — перейти к первому' : '') : 'Такой настройки нет — попробуйте другое слово';
+  };
+  inp.addEventListener('input', run);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && first) { e.preventDefault(); first.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    if (e.key === 'Escape') { inp.value = ''; run(); }
   });
+  if (!window.__setFindKey) {
+    window.__setFindKey = true;
+    document.addEventListener('keydown', e => {
+      if (state.view !== 'settings') return;
+      const f = $('#setFilter'); if (!f || document.activeElement === f) return;
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+      if ((e.ctrlKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !typing)) { e.preventDefault(); f.focus(); f.select(); }
+    });
+  }
 }
 
 // Установка и запуск Jackett/Prowlarr из настроек (winget на Windows).

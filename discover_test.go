@@ -147,3 +147,14 @@ func TestDiscoverTrendingToday(t *testing.T) {
 		t.Fatalf("русское в трендах за сегодня: %+v %v", items, err)
 	}
 }
+
+func TestDiscoverTrendingAnime(t *testing.T) {
+	u, ok := discoverURL("tv", "", "any", "trend_anime", 1)
+	if !ok || !strings.Contains(u, "/discover/tv?") || !strings.Contains(u, "with_original_language=ja") || !strings.Contains(u, "sort_by=popularity.desc") || !strings.Contains(u, "with_genres=16") {
+		t.Fatalf("аниме сейчас: %q %v", u, ok)
+	}
+	u, ok = discoverURL("movie", "", "any", "trend_cartoon", 1)
+	if !ok || !strings.Contains(u, "without_keywords=210024") || strings.Contains(u, "with_original_language") {
+		t.Fatalf("мультфильмы сейчас: %q %v", u, ok)
+	}
+}

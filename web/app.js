@@ -180,13 +180,14 @@ async function initKinozalMirrors() {
     box.value = (j.hosts || []).join('\n');
     $('#kzOfficial').checked = !!j.official_only;
     $('#kzLast').textContent = j.last_good ? 'Последнее рабочее: ' + j.last_good.replace('https://', '') : '';
+    if ($('#kzUser')) { $('#kzUser').value = j.user || ''; $('#kzPass').value = ''; $('#kzPass').placeholder = j.pass_set ? 'Пароль сохранён' : 'Пароль'; }
   };
   try { show(await apiGetJSON('/api/kinozal/mirrors')); } catch (e) { $('#kzLast').textContent = 'Не загружено: ' + e.message; }
   const post = body => fetch('/api/kinozal/mirrors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(async r => { const j = await r.json().catch(() => null); if (!r.ok) throw new Error((j && j.error) || 'HTTP ' + r.status); return j; });
   const save = async () => {
     try {
-      show(await post({ hosts: box.value.split(/[\s,;]+/).filter(Boolean), official_only: $('#kzOfficial').checked }));
+      show(await post({ hosts: box.value.split(/[\s,;]+/).filter(Boolean), official_only: $('#kzOfficial').checked, user: $('#kzUser') ? $('#kzUser').value : undefined, pass: $('#kzPass') ? $('#kzPass').value : undefined }));
       toast('Зеркала Кинозала сохранены');
     } catch (e) { toast('Не сохранено: ' + e.message, true); }
   };
@@ -218,6 +219,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['1.19.0', ['📲 Отправить на устройство: продолжить просмотр с того же места на телефоне, планшете, другом компьютере с открытым TorrClient или на телевизоре с DLNA в той же сети (меню плитки и кнопка в панели показа)', '⏾ Таймер сна в шапке: через 15–120 минут или после текущей серии — остановить плеер, усыпить или выключить компьютер; предупреждение за минуту с «Отложить»', 'Поиск по настройкам: несколько слов в любом порядке, синонимы, подсветка найденного, Enter — к первому, Ctrl+F или «/»', 'ТОП за 24 часа без ограничения в 24 раздачи: свежие раздачи всех категорий rutor; если rutor не отвечает — ТОП собирается через индексаторы по трендам TMDB', 'Учёт просмотра при плейлисте VLC: серия определяется по текущему элементу плейлиста, позиции следующих серий больше не пишутся на первую', '«Сейчас смотрят»: в жанрах появились Аниме, Мультфильмы и Аниме-фильмы', 'Кинозал: вход по логину и паролю в настройках, проверка файла, а если .torrent не скачивается — та же раздача ищется на rutor и в индексаторах', 'Подписки на сериалы: поиск по rutor и индексаторам, понятная запись аниме и мультиков («[1-12 из 24]», «TV-2», «эпизоды»), чистый запрос вместо названия раздачи со скобками, проверка сразу после подписки, дата следующей серии по TMDB, системные уведомления', 'Обновление TorrServer MatriX в разделе «Сервер»: версия, скачивание с GitHub и перезапуск одной кнопкой', 'Библиотека после запуска больше не остаётся пустой: пока TorrServer поднимается, список запрашивается повторно сам']],
   ['1.18.3', ['«Продолжить просмотр» показывает и то, что запускали в плеере без отчёта о позиции или с телефона: по списку просмотренного TorrServer']],
   ['1.18.2', ['Постер сериала в библиотеке: из ответов TMDB выбирается совпадающее название с обложкой, а не первый попавшийся фильм (так было с «Rick and Morty»); старые ответы без постера перепроверяются', 'Кнопка «Следующая серия» видна сразу после запуска серии и не пропадает вместе с панелью']],
   ['1.18.1', ['Постеры в библиотеке: их стирала статистика TorrServer через секунду после показа — больше не стирает', 'Постеры находятся и для раздач с именем файла или папки («Курьер.2026.MVO.WEB-DLRip…», «Игра.престолов.S01…») и для русских названий латиницей («Trudno.byt.bogom»)', '«Продолжить просмотр» показывает и начатое, у которого плеер не сообщил позицию, и раздачи, чей список файлов ещё не загружен', 'Понятное сообщение, если постер не нашёлся: с каким названием искали и что сделать']],
@@ -244,6 +246,7 @@ const WHATSNEW = [
 function paintVersion() {
   const tb = document.getElementById('themeBtn'); if (tb && !tb.onclick) tb.onclick = cycleTheme;
   const rb = document.getElementById('refreshBtn'); if (rb && !rb.onclick) rb.onclick = refreshView;
+  const sb = document.getElementById('sleepBtn'); if (sb && !sb.onclick) { sb.onclick = openSleepMenu; sleepRefresh(); }
   const el = document.getElementById('appVer'); if (!el || !state.hello) return;
   const v = state.hello.app_version || '';
   el.textContent = v ? 'v' + v : '';
@@ -468,6 +471,20 @@ function hookEvents() {
     try { d = JSON.parse(e.data); } catch (err) { return; }
     subsArrived(d);
   });
+  eventsSrc.addEventListener('handoff', e => {
+    let d = {};
+    try { d = JSON.parse(e.data); } catch (err) { return; }
+    handoffArrived(d);
+  });
+  eventsSrc.addEventListener('sleep', e => {
+    let d = {};
+    try { d = JSON.parse(e.data); } catch (err) { return; }
+    sleepEvent(d);
+  });
+  // Подписка проверена (например, только что заведённая) — перечитать список.
+  eventsSrc.addEventListener('subs_changed', () => {
+    loadSubs().then(() => { if (state.view === 'subs') paintSubsBody(); }).catch(() => {});
+  });
   eventsSrc.addEventListener('torrents', e => {
     let list = [];
     try { list = JSON.parse(e.data); } catch (err) { return; }
@@ -654,8 +671,12 @@ function forgetMetaMisses() {
 async function listTorrents() {
   let arr;
   try { arr = await tsGet('/torrents'); } catch (e) { arr = null; }
-  if (!Array.isArray(arr)) { try { arr = await tsJson('/torrents', { action: 'list' }); } catch (e) { arr = []; } }
-  return Array.isArray(arr) ? arr : [];
+  if (!Array.isArray(arr)) { try { arr = await tsJson('/torrents', { action: 'list' }); } catch (e) { arr = null; } }
+  // Сервер не ответил — это ошибка, а не пустая библиотека: после запуска
+  // TorrServer поднимается не сразу, и пустой список прежде оставался на
+  // экране до ручного обновления.
+  if (!Array.isArray(arr)) throw new Error('TorrServer не отвечает');
+  return arr;
 }
 async function statTorrent(hash) {
   const r = await fetch(ts('/stream?link=' + encodeURIComponent(hash) + '&stat'));
@@ -690,6 +711,82 @@ async function addTorrentRes(link, save) { const r = await jFetch('/stream', 'li
    демона: позиция, длительность, признак «просмотрено». */
 function lookupView(hash) { const m = {}; (state.viewed || []).forEach(v => { if (v.hash === hash) m[v.file_index] = v; }); return m; }
 
+
+/* ================= ТАЙМЕР СНА =================
+   Отсчёт ведёт демон: закрытое окно или телефон не останавливают таймер.
+   Здесь только меню, обратный отсчёт на кнопке и предупреждение за минуту. */
+const SLEEP_ACTIONS = { stop: 'остановить плеер', sleep: 'усыпить компьютер', shutdown: 'выключить компьютер' };
+let sleepState = { active: false }, sleepTick = null;
+async function sleepApi(body) {
+  const j = await api('/api/sleep', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  sleepState = Object.assign({}, j, { until: Date.now() + (j.left || 0) * 1000 });
+  paintSleep();
+  return j;
+}
+function sleepRefresh() { sleepApi().catch(() => {}); }
+function paintSleep() {
+  const b = document.getElementById('sleepBtn'), l = document.getElementById('sleepLeft');
+  if (!b || !l) return;
+  clearInterval(sleepTick);
+  if (!sleepState.active) { l.textContent = ''; b.classList.remove('on'); return; }
+  b.classList.add('on');
+  const draw = () => {
+    if (sleepState.mode === 'episode') { l.textContent = ' после серии'; return; }
+    const s = Math.max(0, Math.round((sleepState.until - Date.now()) / 1000));
+    l.textContent = ' ' + (s >= 60 ? Math.ceil(s / 60) + ' мин' : s + ' с');
+  };
+  draw(); sleepTick = setInterval(draw, 1000);
+}
+function openSleepMenu(ev) {
+  if (ev) ev.stopPropagation();
+  let m = document.getElementById('sleepMenu');
+  if (m) { m.remove(); return; }
+  m = document.createElement('div'); m.id = 'sleepMenu'; m.className = 'sleep-menu';
+  const act = localStorage.getItem('tc_sleep_act') || 'stop';
+  const on = sleepState.active;
+  m.innerHTML = html`<div class="sm-title">Таймер сна</div>
+    ${raw(on ? html`<div class="page-sub">Сработает ${sleepState.mode === 'episode' ? 'после текущей серии' : 'через ' + Math.ceil(Math.max(0, sleepState.until - Date.now()) / 60000) + ' мин'}: ${SLEEP_ACTIONS[sleepState.action] || ''}</div>
+      <div class="row wrap"><button data-ext="15">+15 мин</button><button data-cancel class="danger">Отменить</button></div><div class="divider"></div>` : '')}
+    <label class="page-sub">Что сделать</label>
+    <select id="sleepAct">${raw(Object.keys(SLEEP_ACTIONS).map(k => html`<option value="${k}"${k === act ? ' selected' : ''}>${SLEEP_ACTIONS[k][0].toUpperCase() + SLEEP_ACTIONS[k].slice(1)}</option>`).join(''))}</select>
+    <div class="sm-grid">${raw([15, 30, 45, 60, 90, 120].map(n => html`<button data-min="${n}">${n} мин</button>`).join(''))}</div>
+    <button data-ep class="primary" style="width:100%">После этой серии</button>
+    <div class="page-sub" style="margin-top:6px">Перед выключением компьютера приложение предупредит за минуту — можно будет отложить.</div>`;
+  document.body.appendChild(m);
+  const sel = m.querySelector('#sleepAct');
+  sel.addEventListener('change', () => localStorage.setItem('tc_sleep_act', sel.value));
+  const go = body => sleepApi(body).then(j => {
+    m.remove();
+    if (body.cancel) toast('Таймер сна отменён');
+    else if (j.active) toast('Таймер сна: ' + (j.mode === 'episode' ? 'после текущей серии' : 'через ' + Math.ceil(j.left / 60) + ' мин') + ' — ' + SLEEP_ACTIONS[j.action]);
+  }).catch(e => toast('Таймер не завёлся: ' + e.message, true));
+  m.querySelectorAll('[data-min]').forEach(b => b.onclick = () => go({ minutes: +b.dataset.min, action: sel.value }));
+  m.querySelector('[data-ep]').onclick = () => go({ mode: 'episode', action: sel.value });
+  const c = m.querySelector('[data-cancel]'); if (c) c.onclick = () => go({ cancel: true });
+  const x = m.querySelector('[data-ext]'); if (x) x.onclick = () => go({ extend: 15 });
+  setTimeout(() => document.addEventListener('click', function off(e) { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('click', off); } }), 0);
+}
+function sleepEvent(d) {
+  if (d.warn) {
+    sleepState.until = Date.now() + (d.left || 60) * 1000;
+    let w = document.getElementById('sleepWarn'); if (w) w.remove();
+    w = document.createElement('div'); w.id = 'sleepWarn'; w.className = 'sleep-warn';
+    w.innerHTML = html`<b>Таймер сна:</b> через минуту — ${SLEEP_ACTIONS[d.action] || 'остановка'}.
+      <button data-ext class="primary">Отложить на 15 мин</button><button data-cancel>Отменить</button>`;
+    document.body.appendChild(w);
+    w.querySelector('[data-ext]').onclick = () => { sleepApi({ extend: 15 }).catch(() => {}); w.remove(); };
+    w.querySelector('[data-cancel]').onclick = () => { sleepApi({ cancel: true }).catch(() => {}); w.remove(); };
+    try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: 'Таймер сна: через минуту — ' + (SLEEP_ACTIONS[d.action] || '') }); } catch (_) { /* нет уведомлений */ }
+    return;
+  }
+  const w = document.getElementById('sleepWarn'); if (w) w.remove();
+  if (d.fired) {
+    // Видео, открытое в окне программы, тоже останавливается.
+    document.querySelectorAll('video').forEach(v => { try { v.pause(); } catch (_) { /* уже закрыто */ } });
+    toast('Таймер сна сработал: ' + (SLEEP_ACTIONS[d.action] || ''));
+  }
+  sleepState = { active: false }; paintSleep();
+}
 async function renderLibrary(root) {
   const lv = localStorage.getItem('tc_libview') || 'grid';
   root.innerHTML = html`
@@ -792,9 +889,19 @@ function refreshLibrary() {
 /* Paint-first library: list is shown immediately, per-torrent stats are
    enriched in background (limited concurrency, cached 30 s) so opening the
    library never blocks on N /stream?stat round-trips. */
+const libRetry = { timer: 0, n: 0 };
 async function loadLibrary(paint) {
-  try { state.lib = await listTorrents(); }
-  catch (e) { toast('Ошибка загрузки библиотеки: ' + e.message, true); state.lib = []; }
+  try { state.lib = await listTorrents(); state.libError = ''; libRetry.n = 0; }
+  catch (e) {
+    // Сервер ещё поднимается (так бывает сразу после запуска) — список
+    // запрашивается снова сам, всё реже: 1,5 с, 3 с, 6 с… до 30 с.
+    state.libError = e.message;
+    if (!Array.isArray(state.lib)) state.lib = [];
+    if (!libRetry.timer) {
+      const delay = Math.min(30000, 1500 * Math.pow(2, libRetry.n++));
+      libRetry.timer = setTimeout(() => { libRetry.timer = 0; if (state.view === 'library') refreshLibrary(); }, delay);
+    }
+  }
   await loadPositions();
   state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
@@ -940,7 +1047,7 @@ function painting() {
   const reset = $('#libReset');
   if (reset) reset.classList.toggle('hidden', !libFiltered());
   const grid = $('#libGrid');
-  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
+  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = state.libError ? 'Сервер пока не отвечает (' + state.libError + ') — пробую снова…' : libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
   $('#libEmpty').classList.add('hidden');
   grid.innerHTML = list.map(t => tile(t)).join('');
   bindTiles(grid);
@@ -1092,6 +1199,9 @@ function tile(t) {
   const sp = seriesProgress(t);
   const q = qTag(t.title || t.name || '');
   const ser = isSeries(t.title || t.name || '');
+  // Многосерийная раздача без пометок в названии (часто у аниме и мультиков)
+  // — тоже сериал для подписки.
+  const multi = ser || (t.file_stats || []).filter(f => isPlayable(f.path)).length > 1;
   const title = t.title || t.name || (t.hash || '').slice(0, 12);
   const st = String(t.stat_string || t.stat || '');
   let scls = 'idle';
@@ -1149,7 +1259,8 @@ function tile(t) {
       <button data-act="info">Инфо о раздаче</button>
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>
-      ${raw(ser ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
+      ${raw(multi ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
+      <button data-act="send">📲 Отправить на устройство…</button>
       <button data-act="bm">Закладка просмотра</button>
       <button data-act="coll">В подборку…</button>
       <div class="sep"></div>
@@ -1170,7 +1281,7 @@ function isPlayable(p) { return isVideo(p) || isAudio(p); }
 // Сериал по названию раздачи. Трекеры пишут по-разному: [S02], S01E01-08,
 // [02x01-02 из 10], «1 сезон: 1-8 серии из 8», «Сезон 3». Прежняя проверка
 // ловила только S01E01 и «сезон» — раздачи вида [S02] шли как фильмы.
-const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,3}\s*(?:-\s*\d{1,3}\s*)?из\s*\d{1,3}/i;
+const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,4}\s*(?:-\s*\d{1,4}\s*)?из\s*(?:\d{1,4}|xx)|\[(?:tv|тв)(?:-\d)?\]|\[\d{1,4}\s*-\s*\d{1,4}\]/i;
 function isSeries(name) { return SERIES_RE.test(name || ''); }
 // seriesTag — короткая метка «Сериал · S02» / «Сериал · S02, 1–2 из 10».
 function seriesTag(name) {
@@ -1311,9 +1422,10 @@ function bindTiles(grid) {
     act('[data-act="autoposter"]', () => autoPoster(t));
     // Подписка ведётся по названию сериала, а не по раздаче: сезон выходит
     // новыми раздачами, и следить за одной из них нечем.
-    act('[data-act="subs"]', () => subsAdd(cleanSeriesName(t.title || t.name || '') || t.title || t.name || ''));
+    act('[data-act="subs"]', () => subsAdd(subsName(t.title || t.name || '')));
     act('[data-act="bm"]', () => { const f = firstPlayable(t); if (!f) return toast('Нет воспроизводимых файлов', true); addBookmark(t, f.id, basename(f.path)); });
     act('[data-act="coll"]', () => openCollectionPicker(t));
+    act('[data-act="send"]', () => { const vids = playableOf(t).filter(x => isVideo(x.path)); const f = vids.find(x => currentTc(t, x.id) > 0 && !isWatched(t, x.id)) || (vids.length ? nextEpisode(t, vids) : firstPlayable(t)); if (!f) return toast('Нет воспроизводимых файлов', true); sendToDevice(t, f); });
     act('[data-sa="kp"]', () => openExternal(kpSearchUrl(t.title || t.name || '')));
     act('[data-sa="imdb"]', () => openExternal(imdbUrlFor(t)));
   });
@@ -2315,6 +2427,7 @@ async function fetchTop24() {
   moreSources = {};
   state.top24Hash = resp.hash || '';
   button.disabled = false; updateTopBtnLabel();
+  if (resp.source === 'indexers') toast('rutor не ответил — ТОП собран через индексаторы по трендам дня');
   paintResults(el);
 }
 async function fetchTopCat(sec, label) {
@@ -2611,8 +2724,10 @@ const isTrending = k => k === 'trending' || k === 'trending_day';
 function fillDiscGenres() {
   const kind = $('#dKind').value;
   const sec = DISC_SECTIONS[kind];
+  // В трендах второй список выбирает и аниме с мультфильмами: в общих
+  // трендах TMDB их почти нет.
   $('#dGenre').innerHTML = sec
-    ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>`
+    ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>` + (isTrending(kind) ? html`<option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="anime_movie">Аниме-фильмы</option>` : '')
     : DISC_GENRES[kind].map(g => html`<option value="${g[0]}">${g[1]}</option>`).join('');
   if (sec) $('#dGenre').value = sec;
   // «Сейчас смотрят» — тренды недели: подпись панели говорит об этом прямо.
@@ -2630,6 +2745,8 @@ function fillDiscGenres() {
 /* discQuery — параметры запроса подборки по выбору в панели. */
 function discQuery(p) {
   const sec = DISC_SECTIONS[p.kind];
+  if (isTrending(p.kind) && (p.genre === 'anime' || p.genre === 'anime_movie')) return 'kind=' + (p.genre === 'anime' ? 'tv' : 'movie') + '&cat=trend_anime&origin=any';
+  if (isTrending(p.kind) && p.genre === 'cartoon') return 'kind=movie&cat=trend_cartoon&origin=' + p.origin;
   if (sec) return 'kind=' + (p.genre === 'tv' ? 'tv' : 'movie') + '&cat=' + p.kind + '&origin=' + p.origin;
   return 'kind=' + p.kind + '&origin=' + p.origin + '&genre=' + encodeURIComponent(p.genre);
 }
@@ -3353,11 +3470,18 @@ async function playSearchLink(r) {
     const magnet = r.magnet || (r.hash ? magnetFromHash(r.hash, r.title || r.name) : '');
     if (!magnet && (r._p === 'kinozal' || /get\.php|details\.php/i.test(r.link || '')) && (r.get || r.link)) {
       toast('Добавляю из Кинозал.ТВ...');
-      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link), { method: 'POST' });
-      const j = await rr.json();
-      if (!rr.ok || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
-      const hash = ((j.hash || '').match(/btih:([0-9a-fA-F]{40})/) || [null, j.hash || ''])[1].toLowerCase();
-      if (hash) await playHashLoop(hash);
+      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link) + '&title=' + encodeURIComponent(r.title || r.name || '') + '&size=' + encodeURIComponent(r.size || ''), { method: 'POST' });
+      const j = await rr.json().catch(() => null);
+      if (!rr.ok || !j || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
+      // .torrent не отдали — демон нашёл ту же раздачу в другом источнике.
+      if (j.magnet) {
+        toast('Кинозал не отдал .torrent — запускаю ту же раздачу из другого источника');
+        await torrentAction('add', { link: j.magnet, save_to_db: true });
+      }
+      const hash = ((j.hash || '').match(/btih:([0-9a-fA-F]{40})/) || [null, j.hash || ''])[1].toLowerCase()
+        || ((j.magnet || '').match(/btih:([0-9a-fA-F]{40})/i) || [null, ''])[1].toLowerCase();
+      if (!hash) throw new Error('не удалось узнать хеш раздачи');
+      await playHashLoop(hash);
       return;
     }
     const hash = (magnet.match(/btih:([0-9a-fA-F]{40})/) || [null, ''])[1].toLowerCase();
@@ -3708,6 +3832,7 @@ function progressPanel(t, f, next) {
   ov.className = 'dlpanel';
   ov.innerHTML = html`<div class="dlpanel-h"><span class="spin"></span>
       <b data-title>${t.title || t.name || t.hash}</b>
+      <button data-send title="Отправить на устройство: телефон, планшет, телевизор">📲</button>
       <button data-hide title="Скрыть">✕</button></div>
     <div class="dlpanel-sub" data-sub>${epSuffix(f).replace(/^ — /, '') || basename(f.path)}</div>
     <div class="prep-bar"><i data-bar></i></div>
@@ -3716,6 +3841,7 @@ function progressPanel(t, f, next) {
     <div class="prep-next hidden" data-nextbox></div>`;
   document.body.appendChild(ov);
   const el = s => ov.querySelector(s);
+  el('[data-send]').addEventListener('click', () => sendToDevice(t, f));
   const started = Date.now();
   let stopped = false;
   let announced = false;
@@ -4436,6 +4562,96 @@ function phonePlay(t, f, opts) {
     refreshViewedSoon();
   }));
 }
+
+/* ================= ОТПРАВИТЬ НА УСТРОЙСТВО =================
+   Каждое открытое окно TorrClient (компьютер, телефон, планшет) отмечается у
+   демона. Отправка приходит на выбранное устройство событием handoff — там
+   появляется «Смотреть здесь» с того же места. Телевизоры с DLNA в той же
+   сети демон находит сам и включает им поток с нужного времени. */
+function devId() {
+  let id = localStorage.getItem('tc_dev_id');
+  if (!id) { id = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem('tc_dev_id', id); }
+  return id;
+}
+function devKind() {
+  const ua = navigator.userAgent || '';
+  if (/ipad|tablet/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) return 'tablet';
+  if (/iphone|ipod|android|mobile/i.test(ua)) return 'phone';
+  return 'pc';
+}
+function devName() {
+  const own = localStorage.getItem('tc_dev_name'); if (own) return own;
+  const ua = navigator.userAgent || '';
+  const k = devKind();
+  const os = /iphone/i.test(ua) ? 'iPhone' : /ipad/i.test(ua) ? 'iPad' : /android/i.test(ua) ? 'Android' : /windows/i.test(ua) ? 'Windows' : /mac os/i.test(ua) ? 'Mac' : /linux/i.test(ua) ? 'Linux' : '';
+  return (k === 'phone' ? 'Телефон' : k === 'tablet' ? 'Планшет' : isRemoteUI() ? 'Браузер' : 'Этот компьютер') + (os ? ' · ' + os : '');
+}
+const DEV_ICON = { phone: '📱', tablet: '📱', pc: '💻', tv: '📺' };
+function devHeartbeat() {
+  api('/api/devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: devId(), name: devName(), kind: devKind() }) }).catch(() => {});
+}
+setTimeout(devHeartbeat, 1500);
+setInterval(devHeartbeat, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) devHeartbeat(); });
+
+async function sendToDevice(t, f) {
+  const title = (t.title || t.name || 'stream') + epSuffix(f);
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  ov.innerHTML = html`<div class="modal"><button class="modal-close" data-close>✕</button>
+    <h3 style="margin-top:0">📲 Отправить на устройство</h3>
+    <div class="page-sub" style="margin-bottom:8px">${title}${raw(currentTc(t, f.id) > 5 ? ' · с ' + esc(fmtPos(currentTc(t, f.id))) : '')}</div>
+    <div class="dev-list" data-list><div class="empty">Ищу устройства в сети…</div></div>
+    <label class="row" style="gap:6px;margin:8px 0"><input type="checkbox" data-stop${isRemoteUI() ? '' : ' checked'}> Остановить плеер на компьютере</label>
+    <div class="row wrap"><button data-scan>⟳ Искать снова</button>
+      <span class="page-sub" style="flex:1;margin:0">Устройство — это открытый TorrClient на телефоне или планшете (по адресу удалённого доступа) либо телевизор с DLNA в той же сети.</span></div>
+    <div class="row" style="margin-top:6px;gap:6px"><span class="page-sub" style="margin:0">Имя этого устройства:</span><input data-myname value="${devName()}" style="flex:1"></div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelector('[data-close]').onclick = close;
+  const nm = ov.querySelector('[data-myname]');
+  nm.addEventListener('change', () => { const v = nm.value.trim(); if (v) localStorage.setItem('tc_dev_name', v); else localStorage.removeItem('tc_dev_name'); devHeartbeat(); });
+  const list = ov.querySelector('[data-list]');
+  const load = async scan => {
+    list.innerHTML = '<div class="empty">Ищу устройства в сети…</div>';
+    let j;
+    try { j = await api('/api/devices?self=' + encodeURIComponent(devId()) + (scan ? '&scan=1' : '')); } catch (e) { list.innerHTML = html`<div class="empty">Не удалось спросить демон: ${e.message}</div>`; return; }
+    const devs = (j.devices || []).sort((a, b) => (a.type === 'app' ? 0 : 1) - (b.type === 'app' ? 0 : 1));
+    if (!devs.length) { list.innerHTML = '<div class="empty">Устройств не видно. Откройте TorrClient на телефоне (Настройки → Удалённый доступ, QR-код) или включите телевизор.</div>'; return; }
+    list.innerHTML = devs.map(d => html`<button class="dev-item" data-dev="${d.id}">${DEV_ICON[d.kind] || '🖥'} ${d.name}<small>${d.type === 'dlna' ? 'телевизор · DLNA' : 'TorrClient'}</small></button>`).join('');
+    list.querySelectorAll('[data-dev]').forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await api('/api/handoff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: b.dataset.dev, from: devId(), hash: t.hash, index: f.id, pos: currentTc(t, f.id), title, stop_local: ov.querySelector('[data-stop]').checked }) });
+        toast('Отправлено на «' + (r.name || '') + '»' + (r.pos > 5 ? ' — с ' + fmtPos(r.pos) : ''));
+        if (ov.querySelector('[data-stop]').checked && activePanel) activePanel.stop();
+        close();
+      } catch (e) { b.disabled = false; toast(e.message, true); }
+    });
+  };
+  ov.querySelector('[data-scan]').onclick = () => load(true);
+  load(false);
+}
+async function handoffArrived(d) {
+  if (!d || d.target !== devId()) return;
+  let w = document.getElementById('handoffBox'); if (w) w.remove();
+  w = document.createElement('div'); w.id = 'handoffBox'; w.className = 'sleep-warn';
+  w.innerHTML = html`<span>📲 ${d.from ? 'С устройства «' + d.from + '»: ' : ''}<b>${d.title || 'видео'}</b>${raw(d.pos > 5 ? ' — с ' + esc(fmtPos(d.pos)) : '')}</span>
+    <button data-go class="primary">▶ Смотреть здесь</button><button data-x>✕</button>`;
+  document.body.appendChild(w);
+  w.querySelector('[data-x]').onclick = () => w.remove();
+  try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: 'Продолжить просмотр: ' + (d.title || '') }); } catch (_) { /* нет уведомлений */ }
+  w.querySelector('[data-go]').onclick = async () => {
+    w.remove();
+    let t = (state.lib || []).find(x => x.hash === d.hash);
+    if (!t || !(t.file_stats || []).length) { try { await loadLibrary(); } catch (_) { /* ниже — запасной вариант */ } t = (state.lib || []).find(x => x.hash === d.hash) || t; }
+    if (!t) t = { hash: d.hash, title: d.title, file_stats: [] };
+    if (!(t.file_stats || []).length) t = await waitForFiles(t, 20000) || t;
+    const f = (t.file_stats || []).find(x => x.id === d.index) || { id: d.index, path: (d.title || 'video') + '.mkv' };
+    if (d.pos > 5) await savePosition(d.hash, d.index, d.pos, 0, false);
+    playSelected(t, f, {});
+  };
+}
 /* ================= PLAYERS PAGE ================= */
 function renderPlayers(root) {
   root.innerHTML = html`
@@ -4791,6 +5007,8 @@ async function subsAdd(title, query) {
   const t = String(title || '').trim();
   if (!t) { toast('Нечего отслеживать: пустое название', true); return; }
   const was = subsKnown(t);
+  // Разрешение на уведомления спрашивается по нажатию — иначе браузер откажет.
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (_) { /* нет уведомлений */ }
   try {
     await subsAction('add', { title: t, query: query || '' });
     await loadSubs();
@@ -4829,6 +5047,16 @@ function fmtWhen(v) {
   if (isNaN(d.getTime())) return '';
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
+/* subsAirLine — расписание по TMDB: что уже вышло в эфир и когда следующая. */
+function subsAirLine(s) {
+  const se = (a, b) => 'S' + String(a).padStart(2, '0') + (b ? 'E' + String(b).padStart(2, '0') : '');
+  const day = v => { const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); };
+  const parts = [];
+  if (s.air_season) parts.push('в эфире вышла ' + se(s.air_season, s.air_episode) + (s.air_date ? ' (' + day(s.air_date) + ')' : ''));
+  if (s.next_air) parts.push('следующая ' + se(s.next_season, s.next_episode) + ' — ' + day(s.next_air));
+  else if (s.ended) parts.push('сериал завершён');
+  return parts.length ? html`<div class="page-sub" style="margin:0">По TMDB: ${parts.join(' · ')}</div>` : '';
+}
 function subsCard(s) {
   const known = s.season ? 'известно: сезон ' + s.season + (s.episode ? ', серия ' + s.episode : '') : 'ещё не проверялась';
   const check = fmtWhen(s.checked);
@@ -4840,14 +5068,15 @@ function subsCard(s) {
       ${raw(s.new_count ? html`<button data-sub-seen>Прочитано</button>` : '')}
       <button data-sub-del class="danger">Снять</button>
     </div>
-    <div class="page-sub" style="margin:6px 0 0">Запрос на трекере: ${s.query || s.title} · ${known}${check ? ' · проверено ' + check : ''}</div>
+    <div class="page-sub" style="margin:6px 0 0">Ищу на трекерах: ${s.query || s.title} · ${known}${check ? ' · проверено ' + check : ''}</div>
     ${raw(s.last_seen ? html`<div class="page-sub" style="margin:0">Последняя находка: ${s.last_seen}</div>` : '')}
+    ${raw(subsAirLine(s))}
   </div>`;
 }
 function renderSubs(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
-      <div class="page-sub">Демон сам спрашивает трекер о новых сериях и сообщает о них в живую ленту — проверять руками ничего не надо.</div></div>
+      <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
       <button id="subAdd" class="primary">＋ Следить</button>
       <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>
@@ -4891,7 +5120,14 @@ function subsArrived(d) {
   if (d.items && d.items[0]) s.last_seen = d.items[0].title;
   paintSubsBadge();
   const where = d.season ? ' — сезон ' + d.season + (d.episode ? ', серия ' + d.episode : '') : '';
-  toast('Новые серии: ' + (d.title || '') + where);
+  const msg = d.aired
+    ? 'Вышла серия: ' + (d.title || '') + where + '. Раздачи пока нет — сообщу, когда появится'
+    : 'Новые серии: ' + (d.title || '') + where;
+  toast(msg);
+  // Системное уведомление — когда окно свёрнуто, тост не увидеть.
+  try {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: msg });
+  } catch (_) { /* уведомления недоступны */ }
   if (state.view === 'subs') paintSubsBody();
 }
 
@@ -4931,6 +5167,20 @@ function parseSeriesEp(name) {
   m = s.match(/Сезон\s*(\d{1,2})/i);
   if (m) return { s: parseInt(m[1], 10), e: 0, e2: 0 };
   return null;
+}
+/* subsName — название для подписки: без «/ English», скобок, сезона, серий и
+   качества. Целое название раздачи трекер не находил — подписки на аниме и
+   мультсериалы молчали всегда. */
+function subsName(raw) {
+  let s = String(raw || '').trim();
+  if (!/\s/.test(s) && (s.match(/\./g) || []).length >= 2) s = s.replace(/[._]/g, ' ');
+  for (const sep of [' / ', ' | ', '[', '(', '{']) { const i = s.indexOf(sep); if (i > 0) s = s.slice(0, i); }
+  s = s.replace(/(?:^|[\s._-])s\d{1,2}(?:[\s._-]*e\d{1,4})?(?:[\s._-]|$).*$/i, '')
+    .replace(/(?:\d{1,2}\s*[-–—]\s*)?\d{1,2}\s*сезон.*$|сезон\s*\d.*$|season\s*\d.*$/i, '')
+    .replace(/\d{1,4}\s*(?:[-–—]\s*\d{1,4}\s*)?(?:сери|эпизод|из\s).*$/i, '')
+    .replace(/(?:^|\s)(?:2160p|1080p|720p|480p|4k|web-?dl|webrip|hdtv|bdrip|hdrip)\b.*$/i, '')
+    .replace(/^[\s.,:;_\-–—]+|[\s.,:;_\-–—]+$/g, '');
+  return s.length >= 2 ? s : (cleanSeriesName(raw) || String(raw || '').trim());
 }
 function cleanSeriesName(s) {
   return String(s || '')
@@ -5074,7 +5324,7 @@ function seriesCard(g) {
       <span class="chip">${g.items.length} ${plural(g.items.length, 'торрент', 'торрента', 'торрентов')}</span>
       ${raw(all ? html`<span class="chip">${seen} из ${all} ${plural(all, 'серии', 'серий', 'серий')}</span>` : '')}
       <button data-watch="${head.hash}">▶ Смотреть</button>
-      <button data-subseries="${cleanSeriesName(head.title)}" title="Демон сам сообщит о новых сериях">Следить</button></div>
+      <button data-subseries="${subsName(head.title)}" title="Демон сам сообщит о новых сериях">Следить</button></div>
     <div style="margin-top:10px">` + sels.map(sn => {
       const srows = seasons.get(sn);
       return html`<div class="eps-season" data-sn="${sn}">
@@ -5101,7 +5351,7 @@ const JACRED_ONLINE = [
 /* ================= SETTINGS ================= */
 function renderSettings(root) {
   root.innerHTML = html`
-    <div class="toolbar"><div class="grow"><h1 class="page-title">Настройки TorrClient</h1></div><input class="search-input" id="setFilter" placeholder="Найти настройку…" style="max-width:260px"></div>
+    <div class="toolbar"><div class="grow"><h1 class="page-title">Настройки TorrClient</h1></div><input class="search-input" id="setFilter" type="search" placeholder="🔍 Найти настройку (Ctrl+F)…" style="max-width:320px"></div>
     <div class="card"><h3>Серверы TorrServer <button id="setOpenTs" style="float:right">Открыть сервер в браузере</button></h3>
       <div id="profList"></div>
       <div class="divider"></div>
@@ -5197,7 +5447,9 @@ function renderSettings(root) {
       </div>
     </div>
     <div class="card"><h3>Кинозал: зеркала</h3>
-      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу. Программа на Кинозал не входит и пароль туда не передаёт.</p>
+      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу.</p>
+      <p class="page-sub">Файл .torrent Кинозал отдаёт только вошедшим. Укажите свой логин — программа войдёт сама, когда понадобится. Без логина раздача ищется в других источниках (JacRed, rutor) и запускается по магниту.</p>
+      <div class="row wrap"><input id="kzUser" placeholder="Логин Кинозала" autocomplete="username" style="max-width:200px"><input id="kzPass" type="password" placeholder="Пароль" autocomplete="current-password" style="max-width:200px"></div>
       <label style="margin:0"><input type="checkbox" id="kzOfficial"> Только официальные зеркала (и свои из списка ниже)</label>
       <label>Свои зеркала (через запятую или с новой строки), проверяются первыми</label>
       <textarea id="kzHosts" rows="2" placeholder="kinozal.tv"></textarea>
@@ -5540,21 +5792,57 @@ async function restoreBackup(file) {
 }
 
 
-// Поиск по настройкам: прячет карточки, в которых нет введённого текста.
+// Поиск по настройкам: прячет разделы без совпадений и подсвечивает строки,
+// где нашлись слова. Слова ищутся все сразу и в любом порядке, «ё» = «е»;
+// учитываются подсказки полей, подписи кнопок и пункты списков. Enter —
+// прокрутка к первому совпадению, Ctrl+F или «/» — к полю поиска.
+const SET_SYNONYMS = { плеер: 'vlc mpc potplayer mpv', язык: 'озвучк субтитр', пароль: 'логин вход', обложк: 'постер tmdb', постер: 'tmdb обложк', ключ: 'tmdb api', телефон: 'удалён qr', порт: 'адрес сервер', тема: 'оформлен вид', качество: '1080 2160 4k hdr', кэш: 'cache предзагруз', автозапуск: 'трей windows' };
+function setNorm(v) { return String(v || '').toLowerCase().replace(/ё/g, 'е'); }
 function initSettingsFilter(root) {
   const inp = $('#setFilter'); if (!inp) return;
+  const bar = inp.closest('.toolbar'); if (bar) bar.classList.add('set-sticky');
   const cards = [...root.querySelectorAll('.card')];
-  let empty = null;
-  inp.addEventListener('input', () => {
-    const q = inp.value.trim().toLowerCase();
+  const textOf = el => setNorm(el.textContent + ' ' + [...el.querySelectorAll('input,textarea,select,button,[title]')]
+    .map(x => (x.placeholder || '') + ' ' + (x.title || '') + ' ' + (x.tagName === 'SELECT' ? [...x.options].map(o => o.text).join(' ') : '')).join(' '));
+  const info = document.createElement('div'); info.className = 'page-sub'; info.style.display = 'none';
+  if (bar) bar.after(info);
+  let first = null;
+  const run = () => {
+    const words = setNorm(inp.value).split(/\s+/).filter(w => w.length > 1);
+    $$('.set-hit', root).forEach(e => e.classList.remove('set-hit'));
+    first = null;
     let shown = 0;
     for (const c of cards) {
-      const hit = !q || c.textContent.toLowerCase().includes(q) || [...c.querySelectorAll('input,textarea')].some(i => (i.placeholder || '').toLowerCase().includes(q));
-      c.style.display = hit ? '' : 'none'; if (hit) shown++;
+      const t = textOf(c);
+      const hit = !words.length || words.every(w => t.includes(w) || (SET_SYNONYMS[w] || '').split(' ').some(x => x && t.includes(x)));
+      c.style.display = hit ? '' : 'none';
+      if (!hit) continue;
+      shown++;
+      if (!words.length) continue;
+      // Подсветка самых мелких подходящих строк раздела.
+      for (const el of c.querySelectorAll('h3,label,.page-sub,button,.row > span,.field-label,summary')) {
+        const et = textOf(el);
+        if (words.some(w => et.includes(w))) { el.classList.add('set-hit'); if (!first) first = el; }
+      }
+      if (!first) first = c;
     }
-    if (!empty) { empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'Такой настройки нет'; inp.closest('.toolbar').after(empty); }
-    empty.style.display = shown ? 'none' : '';
+    info.style.display = words.length ? '' : 'none';
+    info.textContent = shown ? 'Найдено разделов: ' + shown + (first ? ' · Enter — перейти к первому' : '') : 'Такой настройки нет — попробуйте другое слово';
+  };
+  inp.addEventListener('input', run);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && first) { e.preventDefault(); first.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    if (e.key === 'Escape') { inp.value = ''; run(); }
   });
+  if (!window.__setFindKey) {
+    window.__setFindKey = true;
+    document.addEventListener('keydown', e => {
+      if (state.view !== 'settings') return;
+      const f = $('#setFilter'); if (!f || document.activeElement === f) return;
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+      if ((e.ctrlKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !typing)) { e.preventDefault(); f.focus(); f.select(); }
+    });
+  }
 }
 
 // Установка и запуск Jackett/Prowlarr из настроек (winget на Windows).
@@ -5738,6 +6026,7 @@ function renderServer(root) {
       <div class="grow">Веб-интерфейс TorrServer для углублённых настроек.</div>
       <button id="openTs" class="primary">Открыть сервер в браузере</button>
     </div></div>
+    <div class="card" id="tsUpdCard"><h3>Обновление TorrServer MatriX</h3><div id="tsUpdBody" class="page-sub">Проверяю версию…</div></div>
     <div class="card"><div class="tabs">
       <button data-ss="settings" class="on">BitTorr</button>
       <button data-ss="info">О сервере</button>
@@ -5750,6 +6039,36 @@ function renderServer(root) {
   }));
   renderServerPane('settings');
   const ob = $('#openTs'); if (ob) ob.addEventListener('click', openServerInBrowser);
+  paintTsUpdate(false);
+}
+/* paintTsUpdate — текущая и последняя версия TorrServer и кнопка обновления.
+   Скачивает и ставит демон; здесь только кнопка и ход процесса. */
+let tsUpdPoll = null;
+async function paintTsUpdate(force, body) {
+  const el = $('#tsUpdBody'); if (!el) { clearTimeout(tsUpdPoll); return; }
+  let j;
+  try {
+    j = await api('/api/tsupdate' + (force ? '?force=1' : ''), body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  } catch (e) { el.innerHTML = html`<span class="err-text">${e.message}</span> <button id="tsUpdRetry">Проверить снова</button>`; const b = $('#tsUpdRetry'); if (b) b.onclick = () => paintTsUpdate(true); return; }
+  const mb = n => (n / 1048576).toFixed(1) + ' МБ';
+  const busy = j.state === 'downloading' || j.state === 'restarting';
+  let line = 'Установлена: <b>' + (j.current ? esc(j.current) : 'не отвечает') + '</b> · последняя: <b>' + (j.latest ? esc(j.latest) : '—') + '</b>' + (j.size ? ' (' + mb(j.size) + ')' : '');
+  let act = '';
+  if (busy) act = esc(j.note || '') + (j.state === 'downloading' && j.total ? ' — ' + Math.round(100 * j.got / j.total) + '%' : '') + '…';
+  else if (j.state === 'done') act = '✓ ' + esc(j.note || 'Обновлено');
+  else if (j.state === 'failed') act = '<span class="err-text">Не удалось: ' + esc(j.note || '') + '</span>';
+  let btn = '';
+  if (!busy) {
+    if (!j.local) btn = '<div>Активный сервер не на этом компьютере — обновите TorrServer там, где он установлен.</div>';
+    else if (!j.found) btn = '<div>Файл TorrServer не найден рядом с программой — обновить можно только тот, что поставлен вместе с TorrClient.</div>';
+    else if (j.newer) btn = '<button id="tsUpdGo" class="primary">Обновить до ' + esc(j.latest) + '</button>';
+    else if (j.latest && j.current) btn = '<span>Установлена последняя версия.</span> <button id="tsUpdGo">Переустановить</button>';
+  }
+  el.innerHTML = line + (j.error ? '<div class="err-text">' + esc(j.error) + '</div>' : '') + (act ? '<div>' + act + '</div>' : '') + '<div class="row wrap" style="margin-top:6px">' + btn + ' <button id="tsUpdCheck" class="iconbtn" title="Проверить на GitHub">⟳</button></div>';
+  const go = $('#tsUpdGo'); if (go) go.onclick = () => { if (confirm('TorrServer перезапустится — текущий просмотр прервётся. Обновить?')) paintTsUpdate(false, { action: 'install' }); };
+  const ck = $('#tsUpdCheck'); if (ck) ck.onclick = () => paintTsUpdate(true);
+  clearTimeout(tsUpdPoll);
+  if (busy) tsUpdPoll = setTimeout(() => paintTsUpdate(false), 1000);
 }
 let _serverSets = null;
 

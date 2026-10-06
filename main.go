@@ -178,6 +178,10 @@ func main() {
 	mux.HandleFunc("/api/userdata", c.apiUserData)
 	// Подписки на сериалы: список, добавление, снятие и проверка по кнопке.
 	mux.HandleFunc("/api/subs", c.apiSubs)
+	mux.HandleFunc("/api/sleep", c.apiSleep)
+	mux.HandleFunc("/api/tsupdate", c.apiTsUpdate)
+	mux.HandleFunc("/api/devices", c.apiDevices)
+	mux.HandleFunc("/api/handoff", c.apiHandoff)
 	mux.HandleFunc("/api/download", c.apiDownload)
 	// Доступны ли папки загрузок и наблюдения: путь на отключённом диске
 	// выглядит правильным, а писать в него нельзя.

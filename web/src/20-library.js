@@ -100,9 +100,19 @@ function refreshLibrary() {
 /* Paint-first library: list is shown immediately, per-torrent stats are
    enriched in background (limited concurrency, cached 30 s) so opening the
    library never blocks on N /stream?stat round-trips. */
+const libRetry = { timer: 0, n: 0 };
 async function loadLibrary(paint) {
-  try { state.lib = await listTorrents(); }
-  catch (e) { toast('Ошибка загрузки библиотеки: ' + e.message, true); state.lib = []; }
+  try { state.lib = await listTorrents(); state.libError = ''; libRetry.n = 0; }
+  catch (e) {
+    // Сервер ещё поднимается (так бывает сразу после запуска) — список
+    // запрашивается снова сам, всё реже: 1,5 с, 3 с, 6 с… до 30 с.
+    state.libError = e.message;
+    if (!Array.isArray(state.lib)) state.lib = [];
+    if (!libRetry.timer) {
+      const delay = Math.min(30000, 1500 * Math.pow(2, libRetry.n++));
+      libRetry.timer = setTimeout(() => { libRetry.timer = 0; if (state.view === 'library') refreshLibrary(); }, delay);
+    }
+  }
   await loadPositions();
   state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
@@ -248,7 +258,7 @@ function painting() {
   const reset = $('#libReset');
   if (reset) reset.classList.toggle('hidden', !libFiltered());
   const grid = $('#libGrid');
-  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
+  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = state.libError ? 'Сервер пока не отвечает (' + state.libError + ') — пробую снова…' : libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
   $('#libEmpty').classList.add('hidden');
   grid.innerHTML = list.map(t => tile(t)).join('');
   bindTiles(grid);
@@ -400,6 +410,9 @@ function tile(t) {
   const sp = seriesProgress(t);
   const q = qTag(t.title || t.name || '');
   const ser = isSeries(t.title || t.name || '');
+  // Многосерийная раздача без пометок в названии (часто у аниме и мультиков)
+  // — тоже сериал для подписки.
+  const multi = ser || (t.file_stats || []).filter(f => isPlayable(f.path)).length > 1;
   const title = t.title || t.name || (t.hash || '').slice(0, 12);
   const st = String(t.stat_string || t.stat || '');
   let scls = 'idle';
@@ -457,7 +470,8 @@ function tile(t) {
       <button data-act="info">Инфо о раздаче</button>
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>
-      ${raw(ser ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
+      ${raw(multi ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
+      <button data-act="send">📲 Отправить на устройство…</button>
       <button data-act="bm">Закладка просмотра</button>
       <button data-act="coll">В подборку…</button>
       <div class="sep"></div>
@@ -478,7 +492,7 @@ function isPlayable(p) { return isVideo(p) || isAudio(p); }
 // Сериал по названию раздачи. Трекеры пишут по-разному: [S02], S01E01-08,
 // [02x01-02 из 10], «1 сезон: 1-8 серии из 8», «Сезон 3». Прежняя проверка
 // ловила только S01E01 и «сезон» — раздачи вида [S02] шли как фильмы.
-const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,3}\s*(?:-\s*\d{1,3}\s*)?из\s*\d{1,3}/i;
+const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,4}\s*(?:-\s*\d{1,4}\s*)?из\s*(?:\d{1,4}|xx)|\[(?:tv|тв)(?:-\d)?\]|\[\d{1,4}\s*-\s*\d{1,4}\]/i;
 function isSeries(name) { return SERIES_RE.test(name || ''); }
 // seriesTag — короткая метка «Сериал · S02» / «Сериал · S02, 1–2 из 10».
 function seriesTag(name) {

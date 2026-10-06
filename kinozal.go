@@ -9,10 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -278,6 +275,8 @@ func parseKinozalRow(row, base string) rutorItem {
 }
 
 // apiKinozalAdd — скачивает .torrent (get.php) и добавляет на сервер.
+// Ответ — хеш раздачи, чтобы интерфейс сразу запустил показ. Если .torrent не
+// получить, ищет ту же раздачу в других источниках и отдаёт магнит.
 func (c *Comp) apiKinozalAdd(w http.ResponseWriter, r *http.Request) {
 	// Добавление раздачи меняет состояние сервера и принимается только POST'ом.
 	if r.Method != http.MethodPost {
@@ -285,30 +284,40 @@ func (c *Comp) apiKinozalAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := strings.TrimSpace(r.URL.Query().Get("url"))
+	title := strings.TrimSpace(r.URL.Query().Get("title"))
+	size := strings.TrimSpace(r.URL.Query().Get("size"))
 	if u == "" {
-		http.Error(w, `{"error":"url empty"}`, http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "url empty")
 		return
 	}
 	if kzDetailsRe.MatchString(u) {
 		u = strings.Replace(u, "details.php", "get.php", 1)
 	}
 	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
-		http.Error(w, `{"error":"bad url"}`, http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "bad url")
 		return
 	}
-	name := "kz-" + strconv.FormatInt(time.Now().UnixNano(), 10) + ".torrent"
-	data, err := c.downloadTorrent(u)
-	if err != nil {
-		http.Error(w, `{"error":"download failed"}`, http.StatusBadGateway)
+	data, hash, err := kinozalTorrent(u)
+	if err == nil {
+		if uerr := uploadTorrentData("kz-"+hash+".torrent", data); uerr != nil {
+			writeJSONError(w, http.StatusBadGateway, uerr.Error())
+			return
+		}
+		jj(w, map[string]any{"ok": true, "hash": hash})
 		return
 	}
-	path := filepath.Join(curCfg().WatchFolder, name)
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		http.Error(w, `{"error":"write failed"}`, http.StatusInternalServerError)
-		return
+	if title != "" {
+		if it, ok := c.sameReleaseElsewhere(title, size); ok {
+			magnet := it.Magnet
+			if magnet == "" {
+				magnet = "magnet:?xt=urn:btih:" + it.Hash
+			}
+			jj(w, map[string]any{"ok": true, "magnet": magnet, "hash": strings.ToLower(it.Hash), "via": it.Title,
+				"note": err.Error()})
+			return
+		}
 	}
-	c.addTorrentFromFile(path, false)
-	jj(w, map[string]any{"ok": true})
+	writeJSONError(w, http.StatusBadGateway, err.Error()+". Укажите логин Кинозала в Настройках или подключите индексатор (JacRed) — тогда раздача найдётся по магниту")
 }
 
 // downloadClient — клиент для скачивания .torrent: таймаут больше, чем у
@@ -343,7 +352,9 @@ func (c *Comp) apiKinozalMirrors(w http.ResponseWriter, r *http.Request) {
 		cur := curCfg()
 		last, _ := kinozalLastGood.Load().(string)
 		return map[string]any{"hosts": cur.KinozalHosts, "official_only": cur.KinozalOfficialOnly,
-			"official": kinozalOfficialHosts, "unofficial": kinozalUnofficialHosts, "last_good": last}
+			"official": kinozalOfficialHosts, "unofficial": kinozalUnofficialHosts, "last_good": last,
+			// Пароль наружу не отдаётся: только признак, что он задан.
+			"user": cur.KinozalUser, "pass_set": cur.KinozalPass != ""}
 	}
 	switch r.Method {
 	case http.MethodGet:
@@ -353,6 +364,8 @@ func (c *Comp) apiKinozalMirrors(w http.ResponseWriter, r *http.Request) {
 			Probe        bool     `json:"probe"`
 			Hosts        []string `json:"hosts"`
 			OfficialOnly *bool    `json:"official_only"`
+			User         *string  `json:"user"`
+			Pass         *string  `json:"pass"`
 		}
 		if err := decodeTorznabBody(w, r, &in); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "тело запроса не разобрано")
@@ -370,6 +383,17 @@ func (c *Comp) apiKinozalMirrors(w http.ResponseWriter, r *http.Request) {
 			nc.KinozalHosts = hosts
 			if in.OfficialOnly != nil {
 				nc.KinozalOfficialOnly = *in.OfficialOnly
+			}
+			if in.User != nil {
+				nc.KinozalUser = strings.TrimSpace(*in.User)
+			}
+			// Пустой пароль в форме — «не менять»: поле пароля не заполняется
+			// сохранённым, и сохранение зеркал не должно его стирать.
+			if in.Pass != nil && *in.Pass != "" {
+				nc.KinozalPass = *in.Pass
+			}
+			if in.User != nil && strings.TrimSpace(*in.User) == "" {
+				nc.KinozalPass = ""
 			}
 		}); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err.Error())

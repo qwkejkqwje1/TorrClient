@@ -353,6 +353,8 @@ async function subsAdd(title, query) {
   const t = String(title || '').trim();
   if (!t) { toast('Нечего отслеживать: пустое название', true); return; }
   const was = subsKnown(t);
+  // Разрешение на уведомления спрашивается по нажатию — иначе браузер откажет.
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (_) { /* нет уведомлений */ }
   try {
     await subsAction('add', { title: t, query: query || '' });
     await loadSubs();
@@ -391,6 +393,16 @@ function fmtWhen(v) {
   if (isNaN(d.getTime())) return '';
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
+/* subsAirLine — расписание по TMDB: что уже вышло в эфир и когда следующая. */
+function subsAirLine(s) {
+  const se = (a, b) => 'S' + String(a).padStart(2, '0') + (b ? 'E' + String(b).padStart(2, '0') : '');
+  const day = v => { const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); };
+  const parts = [];
+  if (s.air_season) parts.push('в эфире вышла ' + se(s.air_season, s.air_episode) + (s.air_date ? ' (' + day(s.air_date) + ')' : ''));
+  if (s.next_air) parts.push('следующая ' + se(s.next_season, s.next_episode) + ' — ' + day(s.next_air));
+  else if (s.ended) parts.push('сериал завершён');
+  return parts.length ? html`<div class="page-sub" style="margin:0">По TMDB: ${parts.join(' · ')}</div>` : '';
+}
 function subsCard(s) {
   const known = s.season ? 'известно: сезон ' + s.season + (s.episode ? ', серия ' + s.episode : '') : 'ещё не проверялась';
   const check = fmtWhen(s.checked);
@@ -402,7 +414,8 @@ function subsCard(s) {
       ${raw(s.new_count ? html`<button data-sub-seen>Прочитано</button>` : '')}
       <button data-sub-del class="danger">Снять</button>
     </div>
-    <div class="page-sub" style="margin:6px 0 0">Запрос на трекере: ${s.query || s.title} · ${known}${check ? ' · проверено ' + check : ''}</div>
+    <div class="page-sub" style="margin:6px 0 0">Ищу на трекерах: ${s.query || s.title} · ${known}${check ? ' · проверено ' + check : ''}</div>
     ${raw(s.last_seen ? html`<div class="page-sub" style="margin:0">Последняя находка: ${s.last_seen}</div>` : '')}
+    ${raw(subsAirLine(s))}
   </div>`;
 }

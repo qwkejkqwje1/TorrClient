@@ -7,6 +7,7 @@ function renderServer(root) {
       <div class="grow">Веб-интерфейс TorrServer для углублённых настроек.</div>
       <button id="openTs" class="primary">Открыть сервер в браузере</button>
     </div></div>
+    <div class="card" id="tsUpdCard"><h3>Обновление TorrServer MatriX</h3><div id="tsUpdBody" class="page-sub">Проверяю версию…</div></div>
     <div class="card"><div class="tabs">
       <button data-ss="settings" class="on">BitTorr</button>
       <button data-ss="info">О сервере</button>
@@ -19,6 +20,36 @@ function renderServer(root) {
   }));
   renderServerPane('settings');
   const ob = $('#openTs'); if (ob) ob.addEventListener('click', openServerInBrowser);
+  paintTsUpdate(false);
+}
+/* paintTsUpdate — текущая и последняя версия TorrServer и кнопка обновления.
+   Скачивает и ставит демон; здесь только кнопка и ход процесса. */
+let tsUpdPoll = null;
+async function paintTsUpdate(force, body) {
+  const el = $('#tsUpdBody'); if (!el) { clearTimeout(tsUpdPoll); return; }
+  let j;
+  try {
+    j = await api('/api/tsupdate' + (force ? '?force=1' : ''), body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  } catch (e) { el.innerHTML = html`<span class="err-text">${e.message}</span> <button id="tsUpdRetry">Проверить снова</button>`; const b = $('#tsUpdRetry'); if (b) b.onclick = () => paintTsUpdate(true); return; }
+  const mb = n => (n / 1048576).toFixed(1) + ' МБ';
+  const busy = j.state === 'downloading' || j.state === 'restarting';
+  let line = 'Установлена: <b>' + (j.current ? esc(j.current) : 'не отвечает') + '</b> · последняя: <b>' + (j.latest ? esc(j.latest) : '—') + '</b>' + (j.size ? ' (' + mb(j.size) + ')' : '');
+  let act = '';
+  if (busy) act = esc(j.note || '') + (j.state === 'downloading' && j.total ? ' — ' + Math.round(100 * j.got / j.total) + '%' : '') + '…';
+  else if (j.state === 'done') act = '✓ ' + esc(j.note || 'Обновлено');
+  else if (j.state === 'failed') act = '<span class="err-text">Не удалось: ' + esc(j.note || '') + '</span>';
+  let btn = '';
+  if (!busy) {
+    if (!j.local) btn = '<div>Активный сервер не на этом компьютере — обновите TorrServer там, где он установлен.</div>';
+    else if (!j.found) btn = '<div>Файл TorrServer не найден рядом с программой — обновить можно только тот, что поставлен вместе с TorrClient.</div>';
+    else if (j.newer) btn = '<button id="tsUpdGo" class="primary">Обновить до ' + esc(j.latest) + '</button>';
+    else if (j.latest && j.current) btn = '<span>Установлена последняя версия.</span> <button id="tsUpdGo">Переустановить</button>';
+  }
+  el.innerHTML = line + (j.error ? '<div class="err-text">' + esc(j.error) + '</div>' : '') + (act ? '<div>' + act + '</div>' : '') + '<div class="row wrap" style="margin-top:6px">' + btn + ' <button id="tsUpdCheck" class="iconbtn" title="Проверить на GitHub">⟳</button></div>';
+  const go = $('#tsUpdGo'); if (go) go.onclick = () => { if (confirm('TorrServer перезапустится — текущий просмотр прервётся. Обновить?')) paintTsUpdate(false, { action: 'install' }); };
+  const ck = $('#tsUpdCheck'); if (ck) ck.onclick = () => paintTsUpdate(true);
+  clearTimeout(tsUpdPoll);
+  if (busy) tsUpdPoll = setTimeout(() => paintTsUpdate(false), 1000);
 }
 let _serverSets = null;
 

@@ -35,8 +35,9 @@ type rutorItem struct {
 var (
 	topMu   sync.Mutex
 	topItem struct {
-		items []rutorItem
-		t     time.Time
+		items  []rutorItem
+		source string
+		t      time.Time
 	}
 )
 
@@ -336,23 +337,24 @@ func (c *Comp) rutorSearch(q string, page, cat int) ([]rutorItem, error) {
 func (c *Comp) apiTop24(w http.ResponseWriter, r *http.Request) {
 	topMu.Lock()
 	if time.Since(topItem.t) < 5*time.Minute && topItem.items != nil {
-		items := topItem.items
+		items, source := topItem.items, topItem.source
 		topMu.Unlock()
-		jj(w, map[string]any{"ok": true, "items": items})
+		jj(w, map[string]any{"ok": true, "items": items, "source": source})
 		return
 	}
 	topMu.Unlock()
 
-	items, err := c.fetchRutorTop()
+	items, source, err := c.fetchTop24All()
 	if err != nil {
 		jj(w, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
 	topMu.Lock()
 	topItem.items = items
+	topItem.source = source
 	topItem.t = time.Now()
 	topMu.Unlock()
-	jj(w, map[string]any{"ok": true, "items": items})
+	jj(w, map[string]any{"ok": true, "items": items, "source": source})
 }
 
 // apiTopcat: ТОП раздач по категории раздела rutor.info (/kino, /anime, ...).

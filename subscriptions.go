@@ -56,6 +56,18 @@ type subscription struct {
 	Checked  time.Time `json:"checked"`
 	LastSeen string    `json:"last_seen,omitempty"`
 	NewCount int       `json:"new_count"`
+
+	// Расписание по TMDB: последняя вышедшая в эфир серия и следующая.
+	// Знает о выходе серии раньше, чем появится раздача.
+	TmdbID      int       `json:"tmdb_id,omitempty"`
+	AirSeason   int       `json:"air_season,omitempty"`
+	AirEpisode  int       `json:"air_episode,omitempty"`
+	AirDate     string    `json:"air_date,omitempty"`
+	NextSeason  int       `json:"next_season,omitempty"`
+	NextEpisode int       `json:"next_episode,omitempty"`
+	NextAir     string    `json:"next_air,omitempty"`
+	Ended       bool      `json:"ended,omitempty"`
+	AirChecked  time.Time `json:"air_checked,omitempty"`
 }
 
 var (
@@ -76,6 +88,11 @@ func loadSubs() {
 	// Файл новой версии, битый и чужой формат оставляют список как есть, но не
 	// стирают файл: перезапись уничтожила бы то, что не прочиталось.
 	_ = readStateDoc(subsPath(), &subsList)
+	// Подписки прежних версий хранили запросом всё название раздачи со
+	// скобками — по нему трекер не находил ничего.
+	for _, s := range subsList {
+		s.Query = cleanSubQuery(s.Query)
+	}
 }
 
 func saveSubs() error {
@@ -88,7 +105,8 @@ func saveSubs() error {
 
 var (
 	// «S01E02», «s1.e2», «s01_e02»
-	reSE = regexp.MustCompile(`(?i)s(\d{1,2})[\s._-]*e(\d{1,2})`)
+	// «S01E01-05», «S01E01-E05» — пачка серий: считается последняя.
+	reSE = regexp.MustCompile(`(?i)s(\d{1,2})[\s._-]*e(\d{1,4})(?:\s*[-–—]\s*e?(\d{1,4}))?`)
 	// «1x02» — запись, привычная по старым раздачам
 	reX = regexp.MustCompile(`(?i)(?:^|[\s._\[(])(\d{1,2})x(\d{1,2})(?:[\s._\])]|$)`)
 	// «1-8 сезон» — диапазон: сезоном считается его начало, иначе подписка
@@ -102,9 +120,17 @@ var (
 	// после цифры делает то же самое.
 	reSeasonAfter = regexp.MustCompile(`(?i)сезон\D{0,3}(\d{1,2})\b`)
 	// «4 серия», «8 серии» — число перед словом. Основная запись на трекере.
-	reEpisodeBefore = regexp.MustCompile(`(?i)(\d{1,2})\s*сери[яийе]`)
-	// «серии 1-10», «серия 5» — число после слова.
-	reEpisodeWord = regexp.MustCompile(`(?i)сери[яийе]\D{0,3}(\d{1,2})\b`)
+	reEpisodeBefore = regexp.MustCompile(`(?i)(\d{1,4})\s*(?:сери[яийе]|эпизод|эп\.)`)
+	// «серии 1-10», «серия 5», «эпизоды 1-12», «Episodes 1-5» — число после
+	// слова; у диапазона берётся конец: вышла последняя серия пачки.
+	reEpisodeWord = regexp.MustCompile(`(?i)(?:сери[яийе]|эпизод[ыа]?|эп\.|episodes?|ep\.?)\D{0,3}(\d{1,4})(?:\s*[-–—]\s*(\d{1,4}))?\b`)
+	// «[1-12 из 24]», «[12 из 12]», «1-5 из 13» — запись аниме и мультсериалов.
+	reEpisodeOf = regexp.MustCompile(`(?i)(?:(\d{1,4})\s*[-–—]\s*)?(\d{1,4})\s*(?:из|of)\s*(?:\d{1,4}|xx|\?+)`)
+	// «[01-24]», «[TV] [1-12]» — диапазон серий в скобках без слов. Годы
+	// («[2019-2020]») сюда не попадают: отсекаются отдельно.
+	reEpisodeBracket = regexp.MustCompile(`\[(\d{1,4})\s*[-–—]\s*(\d{1,4})\]`)
+	// «[TV-2]», «ТВ-3», «Season 2» — сезон в записи аниме и зарубежных раздач.
+	reSeasonTV = regexp.MustCompile(`(?i)(?:\b(?:tv|тв)[-\s]?|season\s*)(\d{1,2})\b`)
 )
 
 // parseEpisode достаёт из названия раздачи сезон и серию.
@@ -114,6 +140,9 @@ var (
 // «сезон целиком»: сезон известен, а номер серии нет.
 func parseEpisode(title string) (season, episode int, ok bool) {
 	if m := reSE.FindStringSubmatch(title); m != nil {
+		if m[3] != "" && atoiSafe(m[3]) > atoiSafe(m[2]) {
+			return atoiSafe(m[1]), atoiSafe(m[3]), true
+		}
 		return atoiSafe(m[1]), atoiSafe(m[2]), true
 	}
 	if m := reX.FindStringSubmatch(title); m != nil {
@@ -126,12 +155,24 @@ func parseEpisode(title string) (season, episode int, ok bool) {
 		season, seasonOK = atoiSafe(m[1]), true
 	} else if m := reSeasonAfter.FindStringSubmatch(title); m != nil {
 		season, seasonOK = atoiSafe(m[1]), true
+	} else if m := reSeasonTV.FindStringSubmatch(title); m != nil {
+		season, seasonOK = atoiSafe(m[1]), true
 	}
 	episode, episodeOK := 0, false
-	if m := reEpisodeBefore.FindStringSubmatch(title); m != nil {
+	if m := reEpisodeOf.FindStringSubmatch(title); m != nil {
+		episode, episodeOK = atoiSafe(m[2]), true
+	} else if m := reEpisodeBefore.FindStringSubmatch(title); m != nil {
 		episode, episodeOK = atoiSafe(m[1]), true
 	} else if m := reEpisodeWord.FindStringSubmatch(title); m != nil {
 		episode, episodeOK = atoiSafe(m[1]), true
+		if m[2] != "" && atoiSafe(m[2]) > episode {
+			episode = atoiSafe(m[2])
+		}
+	} else if m := reEpisodeBracket.FindStringSubmatch(title); m != nil {
+		a, b := atoiSafe(m[1]), atoiSafe(m[2])
+		if !(a >= 1900 && b >= 1900) && b >= a {
+			episode, episodeOK = b, true
+		}
 	}
 	if seasonOK || episodeOK {
 		return season, episode, true
@@ -144,14 +185,19 @@ func parseEpisode(title string) (season, episode int, ok bool) {
 // Отличается от parseEpisode одним: раздача без сезона в названии («5 серия»)
 // относится к известному сезону подписки. Сезон пишут не в каждой раздаче, а
 // серии выходят подряд — без этого правила такая находка не двигала бы подписку
-// никогда. Пока сезон неизвестен, сравнивать не с чем: раздача не берётся.
+// никогда. Пока сезон неизвестен, такая раздача считается первым сезоном.
 func subEpisode(title string, wasSeason int) (season, episode int, ok bool) {
 	season, episode, ok = parseEpisode(title)
 	if !ok {
 		return 0, 0, false
 	}
-	if season == 0 && episode > 0 && wasSeason > 0 {
+	if season == 0 && episode > 0 {
+		// Аниме и мультсериалы сезон часто не пишут вовсе: «[1-12 из 24]».
+		// Такая раздача — первый сезон, пока подписка не знает другого.
 		season = wasSeason
+		if season == 0 {
+			season = 1
+		}
 	}
 	return season, episode, true
 }
@@ -239,11 +285,7 @@ func (c *Comp) checkSubsWith(search subSearch, force bool) int {
 		if !force && time.Since(sub.Checked) < subsMinPause {
 			continue
 		}
-		items, err := search(sub.Query)
-		if err != nil || len(items) == 0 {
-			continue
-		}
-		if c.noteSubResult(sub, items) {
+		if c.checkOneSub(search, sub) {
 			found++
 		}
 		time.Sleep(subsSearchPause)
@@ -252,6 +294,22 @@ func (c *Comp) checkSubsWith(search subSearch, force bool) int {
 	// серия» сдвинулась, и без записи следующая проверка объявила бы ту же
 	// серию новой.
 	saveSubs()
+	return found
+}
+
+// checkOneSub проверяет одну подписку: раздачи и, при ключе TMDB, эфир.
+func (c *Comp) checkOneSub(search subSearch, sub *subscription) bool {
+	items, err := search(sub.Query)
+	found := err == nil && len(items) > 0 && c.noteSubResult(sub, items)
+	subsMu.Lock()
+	// Проверка без находок — тоже проверка: иначе карточка вечно писала бы
+	// «ещё не проверялась», хотя трекер спрашивали.
+	sub.Checked = time.Now()
+	subsMu.Unlock()
+	if c.subSearch == nil && subsAirDue(sub) {
+		c.noteSubAir(sub)
+		markSubAirChecked(sub)
+	}
 	return found
 }
 
@@ -352,7 +410,7 @@ func (c *Comp) subsWatcher() {
 func (c *Comp) checkSubs(force bool) {
 	search := c.subSearch
 	if search == nil {
-		search = c.rutorSearchAll
+		search = c.subsSearchAll
 	}
 	c.checkSubsWith(search, force)
 }
@@ -388,6 +446,15 @@ func (c *Comp) apiSubs(w http.ResponseWriter, r *http.Request) {
 				writeJSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
+			// Новая подписка проверяется сразу: полчаса «ещё не проверялась»
+			// выглядели так, будто подписка не работает.
+			if sub.Checked.IsZero() && c.subSearch == nil {
+				go func() {
+					c.checkOneSub(c.subsSearchAll, sub)
+					saveSubs()
+					events.broadcast("subs_changed", map[string]any{"id": sub.ID})
+				}()
+			}
 			jj(w, map[string]any{"ok": true, "sub": sub})
 		case "remove":
 			removeSub(in.ID)
@@ -419,6 +486,7 @@ func addSub(title, query string) (*subscription, error) {
 	if q == "" {
 		q = title
 	}
+	q = cleanSubQuery(q)
 	subsMu.Lock()
 	defer subsMu.Unlock()
 	for _, s := range subsList {

@@ -127,9 +127,10 @@ function bindTiles(grid) {
     act('[data-act="autoposter"]', () => autoPoster(t));
     // Подписка ведётся по названию сериала, а не по раздаче: сезон выходит
     // новыми раздачами, и следить за одной из них нечем.
-    act('[data-act="subs"]', () => subsAdd(cleanSeriesName(t.title || t.name || '') || t.title || t.name || ''));
+    act('[data-act="subs"]', () => subsAdd(subsName(t.title || t.name || '')));
     act('[data-act="bm"]', () => { const f = firstPlayable(t); if (!f) return toast('Нет воспроизводимых файлов', true); addBookmark(t, f.id, basename(f.path)); });
     act('[data-act="coll"]', () => openCollectionPicker(t));
+    act('[data-act="send"]', () => { const vids = playableOf(t).filter(x => isVideo(x.path)); const f = vids.find(x => currentTc(t, x.id) > 0 && !isWatched(t, x.id)) || (vids.length ? nextEpisode(t, vids) : firstPlayable(t)); if (!f) return toast('Нет воспроизводимых файлов', true); sendToDevice(t, f); });
     act('[data-sa="kp"]', () => openExternal(kpSearchUrl(t.title || t.name || '')));
     act('[data-sa="imdb"]', () => openExternal(imdbUrlFor(t)));
   });
