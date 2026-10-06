@@ -65,9 +65,36 @@ func TestSubEpisodeTakesTheKnownSeason(t *testing.T) {
 	if s, e, ok := subEpisode("Ведьмак 5 серия 1080p", 3); !ok || s != 3 || e != 5 {
 		t.Fatalf("серия без сезона: получено %d,%d,%v", s, e, ok)
 	}
-	// Пока сезон не известен, приписывать его нечему.
-	if s, _, ok := subEpisode("Ведьмак 5 серия 1080p", 0); !ok || s != 0 {
-		t.Fatalf("сезон неизвестен, а он проставлен: %d,%v", s, ok)
+	// Пока сезон не известен, раздача без сезона — первый сезон: так пишут
+	// аниме и мультсериалы, и иначе они не сравнивались бы с «1 сезон».
+	if s, _, ok := subEpisode("Ведьмак 5 серия 1080p", 0); !ok || s != 1 {
+		t.Fatalf("сезон неизвестен: получено %d,%v", s, ok)
+	}
+}
+
+// Запись аниме и мультсериалов: «[1-12 из 24]», «[TV-2]», «эпизоды», пачки.
+func TestParseEpisodeAnime(t *testing.T) {
+	cases := []struct {
+		title           string
+		season, episode int
+	}{
+		{"Магическая битва / Jujutsu Kaisen [TV-2] [1-23 из 23] [2023, WEB-DL 1080p]", 2, 23},
+		{"Ван-Пис / One Piece [TV] [1-1100 из XXXX] [1999]", 0, 1100},
+		{"Блуи / Bluey (2018) [12 из 52] WEB-DLRip", 0, 12},
+		{"Смешарики эпизоды 1-15 (2024)", 0, 15},
+		{"Arcane S02E01-09 1080p", 2, 9},
+		{"Arcane S02E01-E03 1080p", 2, 3},
+		{"Фрирен / Sousou no Frieren [01-28] [2023]", 0, 28},
+		{"Аватар / Avatar Season 3 Episode 5", 3, 5},
+	}
+	for _, c := range cases {
+		s, e, ok := parseEpisode(c.title)
+		if !ok || s != c.season || e != c.episode {
+			t.Errorf("%q: получено %d/%d (%v), ждали %d/%d", c.title, s, e, ok, c.season, c.episode)
+		}
+	}
+	if _, e, _ := parseEpisode("Фильм [2019-2020] 1080p"); e != 0 {
+		t.Errorf("годы прочитаны как серии: %d", e)
 	}
 }
 
@@ -307,5 +334,21 @@ func TestSubsAPI(t *testing.T) {
 	c.apiSubs(w, httptest.NewRequest(http.MethodDelete, "/api/subs", nil))
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("чужой метод принят: %d", w.Code)
+	}
+}
+
+func TestCleanSubQuery(t *testing.T) {
+	cases := map[string]string{
+		"Магическая битва / Jujutsu Kaisen [TV-2] [1-23 из 23] [2023, WEB-DL 1080p]": "Магическая битва",
+		"Блуи (2018) [12 из 52]":                 "Блуи",
+		"Ведьмак 3 сезон 1-8 серии 1080p":        "Ведьмак",
+		"Jujutsu.Kaisen.S02E05.1080p.WEB-DL.mkv": "Jujutsu Kaisen",
+		"Смешарики":                              "Смешарики",
+		"Дом 2":                                  "Дом 2",
+	}
+	for in, want := range cases {
+		if got := cleanSubQuery(in); got != want {
+			t.Errorf("%q → %q, ждали %q", in, got, want)
+		}
 	}
 }

@@ -180,13 +180,14 @@ async function initKinozalMirrors() {
     box.value = (j.hosts || []).join('\n');
     $('#kzOfficial').checked = !!j.official_only;
     $('#kzLast').textContent = j.last_good ? 'Последнее рабочее: ' + j.last_good.replace('https://', '') : '';
+    if ($('#kzUser')) { $('#kzUser').value = j.user || ''; $('#kzPass').value = ''; $('#kzPass').placeholder = j.pass_set ? 'Пароль сохранён' : 'Пароль'; }
   };
   try { show(await apiGetJSON('/api/kinozal/mirrors')); } catch (e) { $('#kzLast').textContent = 'Не загружено: ' + e.message; }
   const post = body => fetch('/api/kinozal/mirrors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(async r => { const j = await r.json().catch(() => null); if (!r.ok) throw new Error((j && j.error) || 'HTTP ' + r.status); return j; });
   const save = async () => {
     try {
-      show(await post({ hosts: box.value.split(/[\s,;]+/).filter(Boolean), official_only: $('#kzOfficial').checked }));
+      show(await post({ hosts: box.value.split(/[\s,;]+/).filter(Boolean), official_only: $('#kzOfficial').checked, user: $('#kzUser') ? $('#kzUser').value : undefined, pass: $('#kzPass') ? $('#kzPass').value : undefined }));
       toast('Зеркала Кинозала сохранены');
     } catch (e) { toast('Не сохранено: ' + e.message, true); }
   };
@@ -468,6 +469,10 @@ function hookEvents() {
     try { d = JSON.parse(e.data); } catch (err) { return; }
     subsArrived(d);
   });
+  // Подписка проверена (например, только что заведённая) — перечитать список.
+  eventsSrc.addEventListener('subs_changed', () => {
+    loadSubs().then(() => { if (state.view === 'subs') paintSubsBody(); }).catch(() => {});
+  });
   eventsSrc.addEventListener('torrents', e => {
     let list = [];
     try { list = JSON.parse(e.data); } catch (err) { return; }
@@ -654,8 +659,12 @@ function forgetMetaMisses() {
 async function listTorrents() {
   let arr;
   try { arr = await tsGet('/torrents'); } catch (e) { arr = null; }
-  if (!Array.isArray(arr)) { try { arr = await tsJson('/torrents', { action: 'list' }); } catch (e) { arr = []; } }
-  return Array.isArray(arr) ? arr : [];
+  if (!Array.isArray(arr)) { try { arr = await tsJson('/torrents', { action: 'list' }); } catch (e) { arr = null; } }
+  // Сервер не ответил — это ошибка, а не пустая библиотека: после запуска
+  // TorrServer поднимается не сразу, и пустой список прежде оставался на
+  // экране до ручного обновления.
+  if (!Array.isArray(arr)) throw new Error('TorrServer не отвечает');
+  return arr;
 }
 async function statTorrent(hash) {
   const r = await fetch(ts('/stream?link=' + encodeURIComponent(hash) + '&stat'));
@@ -792,9 +801,19 @@ function refreshLibrary() {
 /* Paint-first library: list is shown immediately, per-torrent stats are
    enriched in background (limited concurrency, cached 30 s) so opening the
    library never blocks on N /stream?stat round-trips. */
+const libRetry = { timer: 0, n: 0 };
 async function loadLibrary(paint) {
-  try { state.lib = await listTorrents(); }
-  catch (e) { toast('Ошибка загрузки библиотеки: ' + e.message, true); state.lib = []; }
+  try { state.lib = await listTorrents(); state.libError = ''; libRetry.n = 0; }
+  catch (e) {
+    // Сервер ещё поднимается (так бывает сразу после запуска) — список
+    // запрашивается снова сам, всё реже: 1,5 с, 3 с, 6 с… до 30 с.
+    state.libError = e.message;
+    if (!Array.isArray(state.lib)) state.lib = [];
+    if (!libRetry.timer) {
+      const delay = Math.min(30000, 1500 * Math.pow(2, libRetry.n++));
+      libRetry.timer = setTimeout(() => { libRetry.timer = 0; if (state.view === 'library') refreshLibrary(); }, delay);
+    }
+  }
   await loadPositions();
   state.lib.forEach(keepFiles);
   if (paint) paintLibrary();
@@ -940,7 +959,7 @@ function painting() {
   const reset = $('#libReset');
   if (reset) reset.classList.toggle('hidden', !libFiltered());
   const grid = $('#libGrid');
-  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
+  if (!list.length) { grid.innerHTML = ''; $('#libEmpty').classList.remove('hidden'); $('#libEmpty').textContent = state.libError ? 'Сервер пока не отвечает (' + state.libError + ') — пробую снова…' : libFiltered() ? 'Ничего не подошло под фильтр.' : 'Библиотека пуста. Добавьте магнит или .torrent.'; return; }
   $('#libEmpty').classList.add('hidden');
   grid.innerHTML = list.map(t => tile(t)).join('');
   bindTiles(grid);
@@ -1092,6 +1111,9 @@ function tile(t) {
   const sp = seriesProgress(t);
   const q = qTag(t.title || t.name || '');
   const ser = isSeries(t.title || t.name || '');
+  // Многосерийная раздача без пометок в названии (часто у аниме и мультиков)
+  // — тоже сериал для подписки.
+  const multi = ser || (t.file_stats || []).filter(f => isPlayable(f.path)).length > 1;
   const title = t.title || t.name || (t.hash || '').slice(0, 12);
   const st = String(t.stat_string || t.stat || '');
   let scls = 'idle';
@@ -1149,7 +1171,7 @@ function tile(t) {
       <button data-act="info">Инфо о раздаче</button>
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>
-      ${raw(ser ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
+      ${raw(multi ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
       <button data-act="bm">Закладка просмотра</button>
       <button data-act="coll">В подборку…</button>
       <div class="sep"></div>
@@ -1170,7 +1192,7 @@ function isPlayable(p) { return isVideo(p) || isAudio(p); }
 // Сериал по названию раздачи. Трекеры пишут по-разному: [S02], S01E01-08,
 // [02x01-02 из 10], «1 сезон: 1-8 серии из 8», «Сезон 3». Прежняя проверка
 // ловила только S01E01 и «сезон» — раздачи вида [S02] шли как фильмы.
-const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,3}\s*(?:-\s*\d{1,3}\s*)?из\s*\d{1,3}/i;
+const SERIES_RE = /\b[sс]\d{1,2}(?:\s*[eе]\d{1,3})?\b|\b\d{1,2}x\d{1,3}\b|\bseason\b|\bepisodes?\b|sezon|сезон|сери[яий]|эпизод|\d{1,4}\s*(?:-\s*\d{1,4}\s*)?из\s*(?:\d{1,4}|xx)|\[(?:tv|тв)(?:-\d)?\]|\[\d{1,4}\s*-\s*\d{1,4}\]/i;
 function isSeries(name) { return SERIES_RE.test(name || ''); }
 // seriesTag — короткая метка «Сериал · S02» / «Сериал · S02, 1–2 из 10».
 function seriesTag(name) {
@@ -1311,7 +1333,7 @@ function bindTiles(grid) {
     act('[data-act="autoposter"]', () => autoPoster(t));
     // Подписка ведётся по названию сериала, а не по раздаче: сезон выходит
     // новыми раздачами, и следить за одной из них нечем.
-    act('[data-act="subs"]', () => subsAdd(cleanSeriesName(t.title || t.name || '') || t.title || t.name || ''));
+    act('[data-act="subs"]', () => subsAdd(subsName(t.title || t.name || '')));
     act('[data-act="bm"]', () => { const f = firstPlayable(t); if (!f) return toast('Нет воспроизводимых файлов', true); addBookmark(t, f.id, basename(f.path)); });
     act('[data-act="coll"]', () => openCollectionPicker(t));
     act('[data-sa="kp"]', () => openExternal(kpSearchUrl(t.title || t.name || '')));
@@ -2315,6 +2337,7 @@ async function fetchTop24() {
   moreSources = {};
   state.top24Hash = resp.hash || '';
   button.disabled = false; updateTopBtnLabel();
+  if (resp.source === 'indexers') toast('rutor не ответил — ТОП собран через индексаторы по трендам дня');
   paintResults(el);
 }
 async function fetchTopCat(sec, label) {
@@ -2611,8 +2634,10 @@ const isTrending = k => k === 'trending' || k === 'trending_day';
 function fillDiscGenres() {
   const kind = $('#dKind').value;
   const sec = DISC_SECTIONS[kind];
+  // В трендах второй список выбирает и аниме с мультфильмами: в общих
+  // трендах TMDB их почти нет.
   $('#dGenre').innerHTML = sec
-    ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>`
+    ? html`<option value="tv">Сериалы</option><option value="movie">Фильмы</option>` + (isTrending(kind) ? html`<option value="anime">Аниме</option><option value="cartoon">Мультфильмы</option><option value="anime_movie">Аниме-фильмы</option>` : '')
     : DISC_GENRES[kind].map(g => html`<option value="${g[0]}">${g[1]}</option>`).join('');
   if (sec) $('#dGenre').value = sec;
   // «Сейчас смотрят» — тренды недели: подпись панели говорит об этом прямо.
@@ -2630,6 +2655,8 @@ function fillDiscGenres() {
 /* discQuery — параметры запроса подборки по выбору в панели. */
 function discQuery(p) {
   const sec = DISC_SECTIONS[p.kind];
+  if (isTrending(p.kind) && (p.genre === 'anime' || p.genre === 'anime_movie')) return 'kind=' + (p.genre === 'anime' ? 'tv' : 'movie') + '&cat=trend_anime&origin=any';
+  if (isTrending(p.kind) && p.genre === 'cartoon') return 'kind=movie&cat=trend_cartoon&origin=' + p.origin;
   if (sec) return 'kind=' + (p.genre === 'tv' ? 'tv' : 'movie') + '&cat=' + p.kind + '&origin=' + p.origin;
   return 'kind=' + p.kind + '&origin=' + p.origin + '&genre=' + encodeURIComponent(p.genre);
 }
@@ -3353,11 +3380,18 @@ async function playSearchLink(r) {
     const magnet = r.magnet || (r.hash ? magnetFromHash(r.hash, r.title || r.name) : '');
     if (!magnet && (r._p === 'kinozal' || /get\.php|details\.php/i.test(r.link || '')) && (r.get || r.link)) {
       toast('Добавляю из Кинозал.ТВ...');
-      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link), { method: 'POST' });
-      const j = await rr.json();
-      if (!rr.ok || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
-      const hash = ((j.hash || '').match(/btih:([0-9a-fA-F]{40})/) || [null, j.hash || ''])[1].toLowerCase();
-      if (hash) await playHashLoop(hash);
+      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link) + '&title=' + encodeURIComponent(r.title || r.name || '') + '&size=' + encodeURIComponent(r.size || ''), { method: 'POST' });
+      const j = await rr.json().catch(() => null);
+      if (!rr.ok || !j || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
+      // .torrent не отдали — демон нашёл ту же раздачу в другом источнике.
+      if (j.magnet) {
+        toast('Кинозал не отдал .torrent — запускаю ту же раздачу из другого источника');
+        await torrentAction('add', { link: j.magnet, save_to_db: true });
+      }
+      const hash = ((j.hash || '').match(/btih:([0-9a-fA-F]{40})/) || [null, j.hash || ''])[1].toLowerCase()
+        || ((j.magnet || '').match(/btih:([0-9a-fA-F]{40})/i) || [null, ''])[1].toLowerCase();
+      if (!hash) throw new Error('не удалось узнать хеш раздачи');
+      await playHashLoop(hash);
       return;
     }
     const hash = (magnet.match(/btih:([0-9a-fA-F]{40})/) || [null, ''])[1].toLowerCase();
@@ -4791,6 +4825,8 @@ async function subsAdd(title, query) {
   const t = String(title || '').trim();
   if (!t) { toast('Нечего отслеживать: пустое название', true); return; }
   const was = subsKnown(t);
+  // Разрешение на уведомления спрашивается по нажатию — иначе браузер откажет.
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (_) { /* нет уведомлений */ }
   try {
     await subsAction('add', { title: t, query: query || '' });
     await loadSubs();
@@ -4829,6 +4865,16 @@ function fmtWhen(v) {
   if (isNaN(d.getTime())) return '';
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
+/* subsAirLine — расписание по TMDB: что уже вышло в эфир и когда следующая. */
+function subsAirLine(s) {
+  const se = (a, b) => 'S' + String(a).padStart(2, '0') + (b ? 'E' + String(b).padStart(2, '0') : '');
+  const day = v => { const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); };
+  const parts = [];
+  if (s.air_season) parts.push('в эфире вышла ' + se(s.air_season, s.air_episode) + (s.air_date ? ' (' + day(s.air_date) + ')' : ''));
+  if (s.next_air) parts.push('следующая ' + se(s.next_season, s.next_episode) + ' — ' + day(s.next_air));
+  else if (s.ended) parts.push('сериал завершён');
+  return parts.length ? html`<div class="page-sub" style="margin:0">По TMDB: ${parts.join(' · ')}</div>` : '';
+}
 function subsCard(s) {
   const known = s.season ? 'известно: сезон ' + s.season + (s.episode ? ', серия ' + s.episode : '') : 'ещё не проверялась';
   const check = fmtWhen(s.checked);
@@ -4840,14 +4886,15 @@ function subsCard(s) {
       ${raw(s.new_count ? html`<button data-sub-seen>Прочитано</button>` : '')}
       <button data-sub-del class="danger">Снять</button>
     </div>
-    <div class="page-sub" style="margin:6px 0 0">Запрос на трекере: ${s.query || s.title} · ${known}${check ? ' · проверено ' + check : ''}</div>
+    <div class="page-sub" style="margin:6px 0 0">Ищу на трекерах: ${s.query || s.title} · ${known}${check ? ' · проверено ' + check : ''}</div>
     ${raw(s.last_seen ? html`<div class="page-sub" style="margin:0">Последняя находка: ${s.last_seen}</div>` : '')}
+    ${raw(subsAirLine(s))}
   </div>`;
 }
 function renderSubs(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
-      <div class="page-sub">Демон сам спрашивает трекер о новых сериях и сообщает о них в живую ленту — проверять руками ничего не надо.</div></div>
+      <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
       <button id="subAdd" class="primary">＋ Следить</button>
       <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>
@@ -4891,7 +4938,14 @@ function subsArrived(d) {
   if (d.items && d.items[0]) s.last_seen = d.items[0].title;
   paintSubsBadge();
   const where = d.season ? ' — сезон ' + d.season + (d.episode ? ', серия ' + d.episode : '') : '';
-  toast('Новые серии: ' + (d.title || '') + where);
+  const msg = d.aired
+    ? 'Вышла серия: ' + (d.title || '') + where + '. Раздачи пока нет — сообщу, когда появится'
+    : 'Новые серии: ' + (d.title || '') + where;
+  toast(msg);
+  // Системное уведомление — когда окно свёрнуто, тост не увидеть.
+  try {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: msg });
+  } catch (_) { /* уведомления недоступны */ }
   if (state.view === 'subs') paintSubsBody();
 }
 
@@ -4931,6 +4985,20 @@ function parseSeriesEp(name) {
   m = s.match(/Сезон\s*(\d{1,2})/i);
   if (m) return { s: parseInt(m[1], 10), e: 0, e2: 0 };
   return null;
+}
+/* subsName — название для подписки: без «/ English», скобок, сезона, серий и
+   качества. Целое название раздачи трекер не находил — подписки на аниме и
+   мультсериалы молчали всегда. */
+function subsName(raw) {
+  let s = String(raw || '').trim();
+  if (!/\s/.test(s) && (s.match(/\./g) || []).length >= 2) s = s.replace(/[._]/g, ' ');
+  for (const sep of [' / ', ' | ', '[', '(', '{']) { const i = s.indexOf(sep); if (i > 0) s = s.slice(0, i); }
+  s = s.replace(/(?:^|[\s._-])s\d{1,2}(?:[\s._-]*e\d{1,4})?(?:[\s._-]|$).*$/i, '')
+    .replace(/(?:\d{1,2}\s*[-–—]\s*)?\d{1,2}\s*сезон.*$|сезон\s*\d.*$|season\s*\d.*$/i, '')
+    .replace(/\d{1,4}\s*(?:[-–—]\s*\d{1,4}\s*)?(?:сери|эпизод|из\s).*$/i, '')
+    .replace(/(?:^|\s)(?:2160p|1080p|720p|480p|4k|web-?dl|webrip|hdtv|bdrip|hdrip)\b.*$/i, '')
+    .replace(/^[\s.,:;_\-–—]+|[\s.,:;_\-–—]+$/g, '');
+  return s.length >= 2 ? s : (cleanSeriesName(raw) || String(raw || '').trim());
 }
 function cleanSeriesName(s) {
   return String(s || '')
@@ -5074,7 +5142,7 @@ function seriesCard(g) {
       <span class="chip">${g.items.length} ${plural(g.items.length, 'торрент', 'торрента', 'торрентов')}</span>
       ${raw(all ? html`<span class="chip">${seen} из ${all} ${plural(all, 'серии', 'серий', 'серий')}</span>` : '')}
       <button data-watch="${head.hash}">▶ Смотреть</button>
-      <button data-subseries="${cleanSeriesName(head.title)}" title="Демон сам сообщит о новых сериях">Следить</button></div>
+      <button data-subseries="${subsName(head.title)}" title="Демон сам сообщит о новых сериях">Следить</button></div>
     <div style="margin-top:10px">` + sels.map(sn => {
       const srows = seasons.get(sn);
       return html`<div class="eps-season" data-sn="${sn}">
@@ -5197,7 +5265,9 @@ function renderSettings(root) {
       </div>
     </div>
     <div class="card"><h3>Кинозал: зеркала</h3>
-      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу. Программа на Кинозал не входит и пароль туда не передаёт.</p>
+      <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу.</p>
+      <p class="page-sub">Файл .torrent Кинозал отдаёт только вошедшим. Укажите свой логин — программа войдёт сама, когда понадобится. Без логина раздача ищется в других источниках (JacRed, rutor) и запускается по магниту.</p>
+      <div class="row wrap"><input id="kzUser" placeholder="Логин Кинозала" autocomplete="username" style="max-width:200px"><input id="kzPass" type="password" placeholder="Пароль" autocomplete="current-password" style="max-width:200px"></div>
       <label style="margin:0"><input type="checkbox" id="kzOfficial"> Только официальные зеркала (и свои из списка ниже)</label>
       <label>Свои зеркала (через запятую или с новой строки), проверяются первыми</label>
       <textarea id="kzHosts" rows="2" placeholder="kinozal.tv"></textarea>

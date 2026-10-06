@@ -145,6 +145,10 @@ function hookEvents() {
     try { d = JSON.parse(e.data); } catch (err) { return; }
     subsArrived(d);
   });
+  // Подписка проверена (например, только что заведённая) — перечитать список.
+  eventsSrc.addEventListener('subs_changed', () => {
+    loadSubs().then(() => { if (state.view === 'subs') paintSubsBody(); }).catch(() => {});
+  });
   eventsSrc.addEventListener('torrents', e => {
     let list = [];
     try { list = JSON.parse(e.data); } catch (err) { return; }
