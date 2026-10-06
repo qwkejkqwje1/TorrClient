@@ -954,6 +954,7 @@ func (c *Comp) watchPlayer(ctx context.Context, s *playerSession, done <-chan st
 			}
 			deadline = time.Now().Add(watchStartGrace)
 			id := s.currentFile(r)
+			sleepNoteFile(s.hash, id)
 			if s.seeked == nil {
 				s.seeked = map[int]bool{}
 			}
@@ -1035,9 +1036,12 @@ func (c *Comp) startPlayer(p *Player, args []string, hash string, fileID int, po
 	// Процесс хоронится здесь, а не вызывающим: запуск, за результатом
 	// которого никто не следит, не должен оставлять за собой зомби.
 	done := make(chan struct{})
+	trackPlayer(cmd)
 	go func() {
 		defer close(done)
 		_ = cmd.Wait()
+		untrackPlayer(cmd)
+		sleepPlayerExited()
 	}()
 	if channel.poll == nil {
 		// Плеер о позиции не сообщает, но наблюдение всё равно нужно: без него

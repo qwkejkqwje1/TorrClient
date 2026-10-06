@@ -245,6 +245,7 @@ const WHATSNEW = [
 function paintVersion() {
   const tb = document.getElementById('themeBtn'); if (tb && !tb.onclick) tb.onclick = cycleTheme;
   const rb = document.getElementById('refreshBtn'); if (rb && !rb.onclick) rb.onclick = refreshView;
+  const sb = document.getElementById('sleepBtn'); if (sb && !sb.onclick) { sb.onclick = openSleepMenu; sleepRefresh(); }
   const el = document.getElementById('appVer'); if (!el || !state.hello) return;
   const v = state.hello.app_version || '';
   el.textContent = v ? 'v' + v : '';

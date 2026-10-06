@@ -245,6 +245,7 @@ const WHATSNEW = [
 function paintVersion() {
   const tb = document.getElementById('themeBtn'); if (tb && !tb.onclick) tb.onclick = cycleTheme;
   const rb = document.getElementById('refreshBtn'); if (rb && !rb.onclick) rb.onclick = refreshView;
+  const sb = document.getElementById('sleepBtn'); if (sb && !sb.onclick) { sb.onclick = openSleepMenu; sleepRefresh(); }
   const el = document.getElementById('appVer'); if (!el || !state.hello) return;
   const v = state.hello.app_version || '';
   el.textContent = v ? 'v' + v : '';
@@ -468,6 +469,11 @@ function hookEvents() {
     let d = {};
     try { d = JSON.parse(e.data); } catch (err) { return; }
     subsArrived(d);
+  });
+  eventsSrc.addEventListener('sleep', e => {
+    let d = {};
+    try { d = JSON.parse(e.data); } catch (err) { return; }
+    sleepEvent(d);
   });
   // Подписка проверена (например, только что заведённая) — перечитать список.
   eventsSrc.addEventListener('subs_changed', () => {
@@ -699,6 +705,82 @@ async function addTorrentRes(link, save) { const r = await jFetch('/stream', 'li
    демона: позиция, длительность, признак «просмотрено». */
 function lookupView(hash) { const m = {}; (state.viewed || []).forEach(v => { if (v.hash === hash) m[v.file_index] = v; }); return m; }
 
+
+/* ================= ТАЙМЕР СНА =================
+   Отсчёт ведёт демон: закрытое окно или телефон не останавливают таймер.
+   Здесь только меню, обратный отсчёт на кнопке и предупреждение за минуту. */
+const SLEEP_ACTIONS = { stop: 'остановить плеер', sleep: 'усыпить компьютер', shutdown: 'выключить компьютер' };
+let sleepState = { active: false }, sleepTick = null;
+async function sleepApi(body) {
+  const j = await api('/api/sleep', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  sleepState = Object.assign({}, j, { until: Date.now() + (j.left || 0) * 1000 });
+  paintSleep();
+  return j;
+}
+function sleepRefresh() { sleepApi().catch(() => {}); }
+function paintSleep() {
+  const b = document.getElementById('sleepBtn'), l = document.getElementById('sleepLeft');
+  if (!b || !l) return;
+  clearInterval(sleepTick);
+  if (!sleepState.active) { l.textContent = ''; b.classList.remove('on'); return; }
+  b.classList.add('on');
+  const draw = () => {
+    if (sleepState.mode === 'episode') { l.textContent = ' после серии'; return; }
+    const s = Math.max(0, Math.round((sleepState.until - Date.now()) / 1000));
+    l.textContent = ' ' + (s >= 60 ? Math.ceil(s / 60) + ' мин' : s + ' с');
+  };
+  draw(); sleepTick = setInterval(draw, 1000);
+}
+function openSleepMenu(ev) {
+  if (ev) ev.stopPropagation();
+  let m = document.getElementById('sleepMenu');
+  if (m) { m.remove(); return; }
+  m = document.createElement('div'); m.id = 'sleepMenu'; m.className = 'sleep-menu';
+  const act = localStorage.getItem('tc_sleep_act') || 'stop';
+  const on = sleepState.active;
+  m.innerHTML = html`<div class="sm-title">Таймер сна</div>
+    ${raw(on ? html`<div class="page-sub">Сработает ${sleepState.mode === 'episode' ? 'после текущей серии' : 'через ' + Math.ceil(Math.max(0, sleepState.until - Date.now()) / 60000) + ' мин'}: ${SLEEP_ACTIONS[sleepState.action] || ''}</div>
+      <div class="row wrap"><button data-ext="15">+15 мин</button><button data-cancel class="danger">Отменить</button></div><div class="divider"></div>` : '')}
+    <label class="page-sub">Что сделать</label>
+    <select id="sleepAct">${raw(Object.keys(SLEEP_ACTIONS).map(k => html`<option value="${k}"${k === act ? ' selected' : ''}>${SLEEP_ACTIONS[k][0].toUpperCase() + SLEEP_ACTIONS[k].slice(1)}</option>`).join(''))}</select>
+    <div class="sm-grid">${raw([15, 30, 45, 60, 90, 120].map(n => html`<button data-min="${n}">${n} мин</button>`).join(''))}</div>
+    <button data-ep class="primary" style="width:100%">После этой серии</button>
+    <div class="page-sub" style="margin-top:6px">Перед выключением компьютера приложение предупредит за минуту — можно будет отложить.</div>`;
+  document.body.appendChild(m);
+  const sel = m.querySelector('#sleepAct');
+  sel.addEventListener('change', () => localStorage.setItem('tc_sleep_act', sel.value));
+  const go = body => sleepApi(body).then(j => {
+    m.remove();
+    if (body.cancel) toast('Таймер сна отменён');
+    else if (j.active) toast('Таймер сна: ' + (j.mode === 'episode' ? 'после текущей серии' : 'через ' + Math.ceil(j.left / 60) + ' мин') + ' — ' + SLEEP_ACTIONS[j.action]);
+  }).catch(e => toast('Таймер не завёлся: ' + e.message, true));
+  m.querySelectorAll('[data-min]').forEach(b => b.onclick = () => go({ minutes: +b.dataset.min, action: sel.value }));
+  m.querySelector('[data-ep]').onclick = () => go({ mode: 'episode', action: sel.value });
+  const c = m.querySelector('[data-cancel]'); if (c) c.onclick = () => go({ cancel: true });
+  const x = m.querySelector('[data-ext]'); if (x) x.onclick = () => go({ extend: 15 });
+  setTimeout(() => document.addEventListener('click', function off(e) { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('click', off); } }), 0);
+}
+function sleepEvent(d) {
+  if (d.warn) {
+    sleepState.until = Date.now() + (d.left || 60) * 1000;
+    let w = document.getElementById('sleepWarn'); if (w) w.remove();
+    w = document.createElement('div'); w.id = 'sleepWarn'; w.className = 'sleep-warn';
+    w.innerHTML = html`<b>Таймер сна:</b> через минуту — ${SLEEP_ACTIONS[d.action] || 'остановка'}.
+      <button data-ext class="primary">Отложить на 15 мин</button><button data-cancel>Отменить</button>`;
+    document.body.appendChild(w);
+    w.querySelector('[data-ext]').onclick = () => { sleepApi({ extend: 15 }).catch(() => {}); w.remove(); };
+    w.querySelector('[data-cancel]').onclick = () => { sleepApi({ cancel: true }).catch(() => {}); w.remove(); };
+    try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: 'Таймер сна: через минуту — ' + (SLEEP_ACTIONS[d.action] || '') }); } catch (_) { /* нет уведомлений */ }
+    return;
+  }
+  const w = document.getElementById('sleepWarn'); if (w) w.remove();
+  if (d.fired) {
+    // Видео, открытое в окне программы, тоже останавливается.
+    document.querySelectorAll('video').forEach(v => { try { v.pause(); } catch (_) { /* уже закрыто */ } });
+    toast('Таймер сна сработал: ' + (SLEEP_ACTIONS[d.action] || ''));
+  }
+  sleepState = { active: false }; paintSleep();
+}
 async function renderLibrary(root) {
   const lv = localStorage.getItem('tc_libview') || 'grid';
   root.innerHTML = html`
