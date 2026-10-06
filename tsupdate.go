@@ -124,12 +124,29 @@ func isLocalURL(raw string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+// tsEcho — версия сервера: /echo отвечает строкой вида «MatriX.135».
 func tsEcho(p *Profile) string {
-	ok, _, ver := probeServer(p)
-	if !ok {
+	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(p.URL, "/")+"/echo", nil)
+	if err != nil {
 		return ""
 	}
-	return ver
+	if p.User != "" {
+		req.SetBasicAuth(p.User, p.Pass)
+	}
+	resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+	v := strings.Trim(strings.TrimSpace(string(b)), "\"")
+	if _, after, ok := strings.Cut(v, ":"); ok && !strings.Contains(v, ".") {
+		v = strings.TrimSpace(after)
+	}
+	return v
 }
 
 func (u *tsUpdater) latest(force bool) (*relInfo, error) {
