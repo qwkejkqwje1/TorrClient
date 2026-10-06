@@ -145,6 +145,11 @@ function hookEvents() {
     try { d = JSON.parse(e.data); } catch (err) { return; }
     subsArrived(d);
   });
+  eventsSrc.addEventListener('handoff', e => {
+    let d = {};
+    try { d = JSON.parse(e.data); } catch (err) { return; }
+    handoffArrived(d);
+  });
   eventsSrc.addEventListener('sleep', e => {
     let d = {};
     try { d = JSON.parse(e.data); } catch (err) { return; }

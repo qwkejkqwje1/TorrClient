@@ -471,6 +471,7 @@ function tile(t) {
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>
       ${raw(multi ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
+      <button data-act="send">📲 Отправить на устройство…</button>
       <button data-act="bm">Закладка просмотра</button>
       <button data-act="coll">В подборку…</button>
       <div class="sep"></div>

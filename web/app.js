@@ -470,6 +470,11 @@ function hookEvents() {
     try { d = JSON.parse(e.data); } catch (err) { return; }
     subsArrived(d);
   });
+  eventsSrc.addEventListener('handoff', e => {
+    let d = {};
+    try { d = JSON.parse(e.data); } catch (err) { return; }
+    handoffArrived(d);
+  });
   eventsSrc.addEventListener('sleep', e => {
     let d = {};
     try { d = JSON.parse(e.data); } catch (err) { return; }
@@ -1254,6 +1259,7 @@ function tile(t) {
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>
       ${raw(multi ? '<button data-act="subs">Следить за новыми сериями</button>' : '')}
+      <button data-act="send">📲 Отправить на устройство…</button>
       <button data-act="bm">Закладка просмотра</button>
       <button data-act="coll">В подборку…</button>
       <div class="sep"></div>
@@ -1418,6 +1424,7 @@ function bindTiles(grid) {
     act('[data-act="subs"]', () => subsAdd(subsName(t.title || t.name || '')));
     act('[data-act="bm"]', () => { const f = firstPlayable(t); if (!f) return toast('Нет воспроизводимых файлов', true); addBookmark(t, f.id, basename(f.path)); });
     act('[data-act="coll"]', () => openCollectionPicker(t));
+    act('[data-act="send"]', () => { const vids = playableOf(t).filter(x => isVideo(x.path)); const f = vids.find(x => currentTc(t, x.id) > 0 && !isWatched(t, x.id)) || (vids.length ? nextEpisode(t, vids) : firstPlayable(t)); if (!f) return toast('Нет воспроизводимых файлов', true); sendToDevice(t, f); });
     act('[data-sa="kp"]', () => openExternal(kpSearchUrl(t.title || t.name || '')));
     act('[data-sa="imdb"]', () => openExternal(imdbUrlFor(t)));
   });
@@ -3824,6 +3831,7 @@ function progressPanel(t, f, next) {
   ov.className = 'dlpanel';
   ov.innerHTML = html`<div class="dlpanel-h"><span class="spin"></span>
       <b data-title>${t.title || t.name || t.hash}</b>
+      <button data-send title="Отправить на устройство: телефон, планшет, телевизор">📲</button>
       <button data-hide title="Скрыть">✕</button></div>
     <div class="dlpanel-sub" data-sub>${epSuffix(f).replace(/^ — /, '') || basename(f.path)}</div>
     <div class="prep-bar"><i data-bar></i></div>
@@ -3832,6 +3840,7 @@ function progressPanel(t, f, next) {
     <div class="prep-next hidden" data-nextbox></div>`;
   document.body.appendChild(ov);
   const el = s => ov.querySelector(s);
+  el('[data-send]').addEventListener('click', () => sendToDevice(t, f));
   const started = Date.now();
   let stopped = false;
   let announced = false;
@@ -4551,6 +4560,96 @@ function phonePlay(t, f, opts) {
     phoneOpenPlayer(url, title);
     refreshViewedSoon();
   }));
+}
+
+/* ================= ОТПРАВИТЬ НА УСТРОЙСТВО =================
+   Каждое открытое окно TorrClient (компьютер, телефон, планшет) отмечается у
+   демона. Отправка приходит на выбранное устройство событием handoff — там
+   появляется «Смотреть здесь» с того же места. Телевизоры с DLNA в той же
+   сети демон находит сам и включает им поток с нужного времени. */
+function devId() {
+  let id = localStorage.getItem('tc_dev_id');
+  if (!id) { id = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem('tc_dev_id', id); }
+  return id;
+}
+function devKind() {
+  const ua = navigator.userAgent || '';
+  if (/ipad|tablet/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) return 'tablet';
+  if (/iphone|ipod|android|mobile/i.test(ua)) return 'phone';
+  return 'pc';
+}
+function devName() {
+  const own = localStorage.getItem('tc_dev_name'); if (own) return own;
+  const ua = navigator.userAgent || '';
+  const k = devKind();
+  const os = /iphone/i.test(ua) ? 'iPhone' : /ipad/i.test(ua) ? 'iPad' : /android/i.test(ua) ? 'Android' : /windows/i.test(ua) ? 'Windows' : /mac os/i.test(ua) ? 'Mac' : /linux/i.test(ua) ? 'Linux' : '';
+  return (k === 'phone' ? 'Телефон' : k === 'tablet' ? 'Планшет' : isRemoteUI() ? 'Браузер' : 'Этот компьютер') + (os ? ' · ' + os : '');
+}
+const DEV_ICON = { phone: '📱', tablet: '📱', pc: '💻', tv: '📺' };
+function devHeartbeat() {
+  api('/api/devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: devId(), name: devName(), kind: devKind() }) }).catch(() => {});
+}
+setTimeout(devHeartbeat, 1500);
+setInterval(devHeartbeat, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) devHeartbeat(); });
+
+async function sendToDevice(t, f) {
+  const title = (t.title || t.name || 'stream') + epSuffix(f);
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  ov.innerHTML = html`<div class="modal"><button class="modal-close" data-close>✕</button>
+    <h3 style="margin-top:0">📲 Отправить на устройство</h3>
+    <div class="page-sub" style="margin-bottom:8px">${title}${raw(currentTc(t, f.id) > 5 ? ' · с ' + esc(fmtPos(currentTc(t, f.id))) : '')}</div>
+    <div class="dev-list" data-list><div class="empty">Ищу устройства в сети…</div></div>
+    <label class="row" style="gap:6px;margin:8px 0"><input type="checkbox" data-stop${isRemoteUI() ? '' : ' checked'}> Остановить плеер на компьютере</label>
+    <div class="row wrap"><button data-scan>⟳ Искать снова</button>
+      <span class="page-sub" style="flex:1;margin:0">Устройство — это открытый TorrClient на телефоне или планшете (по адресу удалённого доступа) либо телевизор с DLNA в той же сети.</span></div>
+    <div class="row" style="margin-top:6px;gap:6px"><span class="page-sub" style="margin:0">Имя этого устройства:</span><input data-myname value="${devName()}" style="flex:1"></div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelector('[data-close]').onclick = close;
+  const nm = ov.querySelector('[data-myname]');
+  nm.addEventListener('change', () => { const v = nm.value.trim(); if (v) localStorage.setItem('tc_dev_name', v); else localStorage.removeItem('tc_dev_name'); devHeartbeat(); });
+  const list = ov.querySelector('[data-list]');
+  const load = async scan => {
+    list.innerHTML = '<div class="empty">Ищу устройства в сети…</div>';
+    let j;
+    try { j = await api('/api/devices?self=' + encodeURIComponent(devId()) + (scan ? '&scan=1' : '')); } catch (e) { list.innerHTML = html`<div class="empty">Не удалось спросить демон: ${e.message}</div>`; return; }
+    const devs = (j.devices || []).sort((a, b) => (a.type === 'app' ? 0 : 1) - (b.type === 'app' ? 0 : 1));
+    if (!devs.length) { list.innerHTML = '<div class="empty">Устройств не видно. Откройте TorrClient на телефоне (Настройки → Удалённый доступ, QR-код) или включите телевизор.</div>'; return; }
+    list.innerHTML = devs.map(d => html`<button class="dev-item" data-dev="${d.id}">${DEV_ICON[d.kind] || '🖥'} ${d.name}<small>${d.type === 'dlna' ? 'телевизор · DLNA' : 'TorrClient'}</small></button>`).join('');
+    list.querySelectorAll('[data-dev]').forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await api('/api/handoff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: b.dataset.dev, from: devId(), hash: t.hash, index: f.id, pos: currentTc(t, f.id), title, stop_local: ov.querySelector('[data-stop]').checked }) });
+        toast('Отправлено на «' + (r.name || '') + '»' + (r.pos > 5 ? ' — с ' + fmtPos(r.pos) : ''));
+        if (ov.querySelector('[data-stop]').checked && activePanel) activePanel.stop();
+        close();
+      } catch (e) { b.disabled = false; toast(e.message, true); }
+    });
+  };
+  ov.querySelector('[data-scan]').onclick = () => load(true);
+  load(false);
+}
+async function handoffArrived(d) {
+  if (!d || d.target !== devId()) return;
+  let w = document.getElementById('handoffBox'); if (w) w.remove();
+  w = document.createElement('div'); w.id = 'handoffBox'; w.className = 'sleep-warn';
+  w.innerHTML = html`<span>📲 ${d.from ? 'С устройства «' + d.from + '»: ' : ''}<b>${d.title || 'видео'}</b>${raw(d.pos > 5 ? ' — с ' + esc(fmtPos(d.pos)) : '')}</span>
+    <button data-go class="primary">▶ Смотреть здесь</button><button data-x>✕</button>`;
+  document.body.appendChild(w);
+  w.querySelector('[data-x]').onclick = () => w.remove();
+  try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: 'Продолжить просмотр: ' + (d.title || '') }); } catch (_) { /* нет уведомлений */ }
+  w.querySelector('[data-go]').onclick = async () => {
+    w.remove();
+    let t = (state.lib || []).find(x => x.hash === d.hash);
+    if (!t || !(t.file_stats || []).length) { try { await loadLibrary(); } catch (_) { /* ниже — запасной вариант */ } t = (state.lib || []).find(x => x.hash === d.hash) || t; }
+    if (!t) t = { hash: d.hash, title: d.title, file_stats: [] };
+    if (!(t.file_stats || []).length) t = await waitForFiles(t, 20000) || t;
+    const f = (t.file_stats || []).find(x => x.id === d.index) || { id: d.index, path: (d.title || 'video') + '.mkv' };
+    if (d.pos > 5) await savePosition(d.hash, d.index, d.pos, 0, false);
+    playSelected(t, f, {});
+  };
 }
 /* ================= PLAYERS PAGE ================= */
 function renderPlayers(root) {
