@@ -489,3 +489,4 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .sleep-menu .sm-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
 .sleep-menu select{width:100%}
 .sleep-warn{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:70; background:var(--bg3); border:1px solid var(--gold); border-radius:12px; padding:12px 16px; display:flex; gap:10px; align-items:center; box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.err-text{color:var(--red)}
