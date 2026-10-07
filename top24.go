@@ -79,8 +79,80 @@ func mergeTop(lists ...[]rutorItem) []rutorItem {
 	return out
 }
 
-// fetchTop24All собирает ТОП суток. source — откуда он: rutor или индексаторы.
+// top24Wait — сколько ждать индексаторы: поиск по сорока названиям через
+// JacRed или Jackett бывает долгим, а ТОП не должен висеть из-за одного
+// медленного источника.
+const top24Wait = 20 * time.Second
+
+type topPart struct {
+	items []rutorItem
+	err   error
+}
+
+// fetchTop24All собирает ТОП суток из всех доступных источников разом: rutor
+// (если не выключен) и индексаторы (JacRed, Jackett, Prowlarr). Ни один из
+// них не обязателен — хватает любого. source: "rutor", "indexers" или
+// "rutor+indexers".
 func (c *Comp) fetchTop24All() ([]rutorItem, string, error) {
+	rch := make(chan topPart, 1)
+	ich := make(chan topPart, 1)
+	useRutor := rutorEnabled()
+	useIdx := len(curCfg().TorznabSources) > 0
+	if useRutor {
+		go func() {
+			items, err := c.top24FromRutor()
+			rch <- topPart{items, err}
+		}()
+	}
+	if useIdx {
+		go func() {
+			items, err := c.top24FromIndexers()
+			ich <- topPart{items, err}
+		}()
+	}
+	var rut, idx topPart
+	if useRutor {
+		rut = <-rch
+	} else {
+		rut.err = errRutorOff
+	}
+	if useIdx {
+		select {
+		case idx = <-ich:
+		case <-time.After(top24Wait):
+			idx.err = errors.New("индексаторы не ответили вовремя")
+		}
+	} else {
+		idx.err = errors.New("индексаторы не подключены (Настройки → Torznab, например JacRed)")
+	}
+	rok, iok := rut.err == nil && len(rut.items) > 0, idx.err == nil && len(idx.items) > 0
+	switch {
+	case rok && iok:
+		return mergeTop(rut.items, idx.items), "rutor+indexers", nil
+	case rok:
+		return mergeTop(rut.items), "rutor", nil
+	case iok:
+		return mergeTop(idx.items), "indexers", nil
+	}
+	var why []string
+	if useRutor {
+		why = append(why, errText(rut.err, "rutor пуст"))
+	} else {
+		why = append(why, "rutor выключен")
+	}
+	why = append(why, errText(idx.err, "индексаторы ничего не нашли"))
+	return nil, "", errors.New(strings.Join(why, "; "))
+}
+
+func errText(err error, empty string) string {
+	if err != nil {
+		return err.Error()
+	}
+	return empty
+}
+
+// top24FromRutor — блок «Топ за 24 часа» и свежие раздачи видеоразделов rutor.
+func (c *Comp) top24FromRutor() ([]rutorItem, error) {
 	var (
 		mu    sync.Mutex
 		wg    sync.WaitGroup
@@ -124,28 +196,107 @@ func (c *Comp) fetchTop24All() ([]rutorItem, string, error) {
 	}
 	wg.Wait()
 	if len(block) > 0 || len(fresh) > 0 {
-		return mergeTop(append([][]rutorItem{block}, fresh...)...), "rutor", nil
+		return mergeTop(append([][]rutorItem{block}, fresh...)...), nil
 	}
-	items, err := c.top24FromIndexers()
-	if err != nil {
-		reason := "rutor не отвечает"
-		if len(errs) > 0 {
-			reason = errs[0]
-		}
-		return nil, "", errors.New(reason + "; запасной путь: " + err.Error())
+	reason := "rutor не отвечает"
+	if len(errs) > 0 {
+		reason = errs[0]
 	}
-	return items, "indexers", nil
+	return nil, errors.New(reason)
 }
 
-// top24FromIndexers — запасной ТОП: тренды TMDB за день, найденные через
-// индексаторы. По каждому названию берётся раздача с наибольшим числом сидов.
+// top24FromIndexers — ТОП суток через индексаторы. С ключом TMDB это тренды дня,
+// найденные по названиям; без ключа (или если TMDB не ответил) — свежие раздачи
+// фильмов и сериалов прямо из ленты индексатора.
 func (c *Comp) top24FromIndexers() ([]rutorItem, error) {
 	if len(curCfg().TorznabSources) == 0 {
 		return nil, errors.New("индексаторы не подключены (Настройки → Torznab, например JacRed)")
 	}
-	if !tmdbConfigured() {
-		return nil, errors.New("нужен ключ TMDB, чтобы узнать, что смотрят сегодня")
+	var trendErr error
+	if tmdbConfigured() {
+		items, err := c.top24FromTrends()
+		if err == nil {
+			return items, nil
+		}
+		trendErr = err
 	}
+	items, err := c.top24FromFeeds(time.Now())
+	if err == nil {
+		return items, nil
+	}
+	if trendErr != nil {
+		return nil, errors.New(trendErr.Error() + "; лента индексаторов: " + err.Error())
+	}
+	return nil, err
+}
+
+// torznabCatsTop — категории Torznab для ленты: фильмы и сериалы (аниме и
+// мультфильмы лежат внутри них).
+var torznabCatsTop = []string{"2000", "5000"}
+
+// torznabDate читает дату раздачи из ленты: RSS (RFC 1123) или ISO 8601.
+func torznabDate(s string) (time.Time, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, false
+	}
+	for _, layout := range []string{time.RFC1123Z, time.RFC1123, time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05", "Mon, 02 Jan 2006 15:04:05 -0700"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// top24FromFeeds спрашивает каждый индексатор без запроса — это лента
+// последних раздач — и оставляет вышедшие за последние сутки с запасом в
+// несколько часов (индексаторы отдают время в UTC, а часовые пояса бывают
+// кривыми). Раздачи без понятной даты отбрасываются: суточным ТОПом их не
+// назвать.
+func (c *Comp) top24FromFeeds(now time.Time) ([]rutorItem, error) {
+	srcs := curCfg().TorznabSources
+	var (
+		mu    sync.Mutex
+		wg    sync.WaitGroup
+		lists [][]rutorItem
+		errs  []string
+	)
+	for _, s := range srcs {
+		for _, cat := range torznabCatsTop {
+			wg.Add(1)
+			go func(name, addr, key, cat string) {
+				defer wg.Done()
+				items, err := fetchTorznab(addr, key, "", cat, 0)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					errs = append(errs, name+": "+err.Error())
+					return
+				}
+				var day []rutorItem
+				for _, it := range items {
+					if t, ok := torznabDate(it.Date); ok && now.Sub(t) < 30*time.Hour && t.Sub(now) < 12*time.Hour {
+						day = append(day, it)
+					}
+				}
+				lists = append(lists, day)
+			}(s.Name, s.URL, s.APIKey, cat)
+		}
+	}
+	wg.Wait()
+	out := mergeTop(lists...)
+	if len(out) == 0 {
+		if len(errs) > 0 {
+			return nil, errors.New(errs[0])
+		}
+		return nil, errors.New("в ленте нет свежих раздач (индексатор не отдаёт последние без запроса)")
+	}
+	return out, nil
+}
+
+// top24FromTrends — тренды TMDB за день, найденные через индексаторы. По
+// каждому названию берётся раздача с наибольшим числом сидов.
+func (c *Comp) top24FromTrends() ([]rutorItem, error) {
 	var titles []string
 	for _, kind := range []string{"movie", "tv"} {
 		u, _ := discoverURL(kind, "", "any", "trending_day", 1)

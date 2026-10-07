@@ -496,3 +496,10 @@ code.inline{background:#1c2532; padding:1px 5px; border-radius:4px; font-size:12
 .dev-item{text-align:left; padding:10px 12px; display:flex; flex-direction:column}
 .dev-item small{color:var(--mut); font-size:12px}
 .dlpanel-h [data-send]{background:transparent; border:0; cursor:pointer; font-size:15px}
+
+/* ♥ на карточке подборки («Сейчас смотрят», «Для вас») */
+.disc-fav{position:absolute;top:6px;left:6px;z-index:3;width:30px;height:30px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;background:rgba(10,15,22,.55);border:1.5px solid rgba(255,255,255,.32);color:#ffc9c9;cursor:pointer;opacity:0;transition:opacity .15s}
+.disc-card:hover .disc-fav,.disc-fav:focus-visible,.disc-fav.on{opacity:1}
+.disc-fav:hover{background:rgba(214,48,44,.7);border-color:rgba(255,110,100,.8);color:#fff;filter:none}
+.disc-fav.on{background:rgba(214,48,44,.78);color:#fff;border-color:rgba(255,110,100,.9)}
+@media (hover:none){.disc-fav{opacity:1}}

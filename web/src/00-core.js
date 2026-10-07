@@ -33,7 +33,7 @@ const fmtDur = s => { if (!s) return ''; s = Math.round(s); const h = Math.floor
 const state = {
   view: 'library', hello: null, profiles: [], active: null, players: [],
   lib: [], viewed: [], dlJobs: [], settings: null, watch: { folder: '', log: [] }, folders: null,
-  query: '', category: 'all', searchState: { loading: false, results: [], provider: savedPref('tc_prov', ['rutor', 'torznab', 'kinozal', 'both'], 'rutor'), cat: savedPref('tc_cat', null, ''), q: '' },
+  query: '', category: 'all', searchState: { loading: false, results: [], provider: savedPref('tc_prov', ['rutor', 'torznab', 'kinozal', 'both'], 'both'), cat: savedPref('tc_cat', null, ''), q: '' },
   // seen — фильтр по состоянию просмотра, coll — выбранная подборка. Пустая
   // подборка означает «вся библиотека», 'fav' — избранное. Отдельно от query и
   // category: те фильтруют и поиск, а эти два — только библиотеку.
@@ -206,6 +206,35 @@ async function initKinozalMirrors() {
   });
 }
 
+// rutor можно выключить в настройках: тогда поиск, ТОП, «Популярное» и подписки
+// живут на индексаторах и Кинозале. Флаг читается с сервера и лежит в state.
+async function loadRutorFlag() {
+  try {
+    const j = await apiGetJSON('/api/rutor/settings');
+    state.rutorOff = !!j && j.enabled === false;
+  } catch {}
+  const prov = $('#searchProv');
+  if (prov) {
+    const o = [...prov.options].find(x => x.value === 'rutor');
+    if (o) o.textContent = state.rutorOff ? 'rutor (выключен)' : 'rutor';
+    if (state.rutorOff && prov.value === 'rutor') { prov.value = 'both'; state.searchState.provider = 'both'; savePref('tc_prov', 'both'); }
+  }
+  return !state.rutorOff;
+}
+async function initRutorToggle() {
+  const box = $('#rutorOn'); if (!box) return;
+  box.checked = await loadRutorFlag();
+  box.addEventListener('change', async () => {
+    try {
+      const r = await fetch('/api/rutor/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: box.checked }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((j && j.error) || 'HTTP ' + r.status);
+      state.rutorOff = j.enabled === false;
+      toast(state.rutorOff ? 'rutor выключен: поиск идёт через индексаторы и Кинозал' : 'rutor включён');
+    } catch (e) { box.checked = !box.checked; toast('Не сохранено: ' + e.message, true); }
+  });
+}
+
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 /* savedPref — выбор, запомненный в браузере: источник поиска, категория,
@@ -219,6 +248,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['1.20.0', ['♥ «Сейчас смотрят» и «Для вас»: сердечко на карточке добавляет название в избранное — оттуда одним нажатием подбирается лучшая раздача', 'Больше нет привязки к одному источнику: ТОП за 24 часа собирается из rutor и индексаторов (JacRed, Jackett, Prowlarr) разом, а без ключа TMDB — из ленты свежих раздач индексатора', '«Популярное» при недоступном rutor строится через индексаторы', 'Настройки → «Источники поиска»: rutor можно выключить совсем; по умолчанию поиск идёт по всем источникам', 'Удаление из «Избранного» снова работает']],
   ['1.19.0', ['📲 Отправить на устройство: продолжить просмотр с того же места на телефоне, планшете, другом компьютере с открытым TorrClient или на телевизоре с DLNA в той же сети (меню плитки и кнопка в панели показа)', '⏾ Таймер сна в шапке: через 15–120 минут или после текущей серии — остановить плеер, усыпить или выключить компьютер; предупреждение за минуту с «Отложить»', 'Поиск по настройкам: несколько слов в любом порядке, синонимы, подсветка найденного, Enter — к первому, Ctrl+F или «/»', 'ТОП за 24 часа без ограничения в 24 раздачи: свежие раздачи всех категорий rutor; если rutor не отвечает — ТОП собирается через индексаторы по трендам TMDB', 'Учёт просмотра при плейлисте VLC: серия определяется по текущему элементу плейлиста, позиции следующих серий больше не пишутся на первую', '«Сейчас смотрят»: в жанрах появились Аниме, Мультфильмы и Аниме-фильмы', 'Кинозал: вход по логину и паролю в настройках, проверка файла, а если .torrent не скачивается — та же раздача ищется на rutor и в индексаторах', 'Подписки на сериалы: поиск по rutor и индексаторам, понятная запись аниме и мультиков («[1-12 из 24]», «TV-2», «эпизоды»), чистый запрос вместо названия раздачи со скобками, проверка сразу после подписки, дата следующей серии по TMDB, системные уведомления', 'Обновление TorrServer MatriX в разделе «Сервер»: версия, скачивание с GitHub и перезапуск одной кнопкой', 'Библиотека после запуска больше не остаётся пустой: пока TorrServer поднимается, список запрашивается повторно сам']],
   ['1.18.3', ['«Продолжить просмотр» показывает и то, что запускали в плеере без отчёта о позиции или с телефона: по списку просмотренного TorrServer']],
   ['1.18.2', ['Постер сериала в библиотеке: из ответов TMDB выбирается совпадающее название с обложкой, а не первый попавшийся фильм (так было с «Rick and Morty»); старые ответы без постера перепроверяются', 'Кнопка «Следующая серия» видна сразу после запуска серии и не пропадает вместе с панелью']],

@@ -69,7 +69,7 @@ function paintRecommendations(el) {
   const cards = list.map(it => html`
     <div class="disc-card" data-rk="${it.kind + ':' + it.id}" title="${it.overview || 'Подобрать лучшую раздачу из всех источников'}">
       <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}
-        <button class="rec-x" data-hide="${it.kind + ':' + it.id}" title="Не показывать">✕</button></div>
+        ${raw(discFavHtml(it))}<button class="rec-x" data-hide="${it.kind + ':' + it.id}" title="Не показывать">✕</button></div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
       ${raw((it.because || []).length ? html`<div class="rec-why">Похоже на: ${it.because.join(', ')}</div>` : '')}
@@ -77,6 +77,8 @@ function paintRecommendations(el) {
   el.innerHTML = html`<div class="disc-head">Рекомендации по библиотеке (${list.length}) <span class="page-sub" style="font-weight:400">— по ${recState.matched} из ${recState.seeds} названий, найденных в TMDB</span></div>
     <div class="disc-grid">${raw(cards)}</div>`;
   el.querySelector('.disc-grid').addEventListener('click', e => {
+    const fv = e.target.closest('[data-fk]');
+    if (fv) { e.stopPropagation(); toggleDiscFav(recState.items.find(i => discFavKey(i) === fv.dataset.fk)); return; }
     const x = e.target.closest('[data-hide]');
     if (x) { e.stopPropagation(); recHide(x.dataset.hide); paintRecommendations(el); return; }
     const c = e.target.closest('[data-rk]'); if (!c) return;

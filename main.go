@@ -158,6 +158,7 @@ func main() {
 	mux.HandleFunc("/api/kinozal/search", limitSearch(c.apiKinozalSearch))
 
 	mux.HandleFunc("/api/rutor/search", limitSearch(c.apiRutorSearch))
+	mux.HandleFunc("/api/rutor/settings", c.apiRutorSettings)
 	// Torznab-поиск идёт напрямую в индексаторы, поэтому ограничитель здесь
 	// обязателен: иначе один человек с кнопкой «ещё» уронит и трекер, и себя.
 	mux.HandleFunc("/api/torznab/search", limitSearch(c.apiTorznabSearch))

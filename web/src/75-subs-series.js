@@ -1,7 +1,7 @@
 function renderSubs(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
-      <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
+      <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах (источники — в Настройках) — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
       <button id="subAdd" class="primary">＋ Следить</button>
       <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>

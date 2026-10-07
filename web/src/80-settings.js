@@ -103,6 +103,10 @@ function renderSettings(root) {
         <input type="file" id="restoreInput" accept=".zip" hidden>
       </div>
     </div>
+    <div class="card"><h3>Источники поиска</h3>
+      <p class="page-sub">Поиск, ТОП за 24 часа, «Популярное», «Лучшая раздача» и подписки работают с любым набором источников: rutor, Кинозал и индексаторы Torznab (JacRed, Jackett, Prowlarr). Если rutor закрыт или не нужен — выключите его, остальные продолжат работать.</p>
+      <label style="margin:0"><input type="checkbox" id="rutorOn" checked> Использовать rutor</label>
+    </div>
     <div class="card"><h3>Кинозал: зеркала</h3>
       <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу.</p>
       <p class="page-sub">Файл .torrent Кинозал отдаёт только вошедшим. Укажите свой логин — программа войдёт сама, когда понадобится. Без логина раздача ищется в других источниках (JacRed, rutor) и запускается по магниту.</p>
@@ -193,6 +197,7 @@ function renderSettings(root) {
   if (bd) bd.addEventListener('click', () => { window.location.href = '/api/backup'; });
   $('#autoOpen').addEventListener('change', e => localStorage.setItem('tc_autoopen', e.target.checked ? '1' : '0'));
   initKinozalMirrors();
+  initRutorToggle();
   initSettingsFilter(root);
   const diagBtn = $('#diagBtn');
   if (diagBtn) diagBtn.addEventListener('click', () => showDiagnostics(diagBtn));
