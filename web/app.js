@@ -33,7 +33,7 @@ const fmtDur = s => { if (!s) return ''; s = Math.round(s); const h = Math.floor
 const state = {
   view: 'library', hello: null, profiles: [], active: null, players: [],
   lib: [], viewed: [], dlJobs: [], settings: null, watch: { folder: '', log: [] }, folders: null,
-  query: '', category: 'all', searchState: { loading: false, results: [], provider: savedPref('tc_prov', ['rutor', 'torznab', 'kinozal', 'both'], 'rutor'), cat: savedPref('tc_cat', null, ''), q: '' },
+  query: '', category: 'all', searchState: { loading: false, results: [], provider: savedPref('tc_prov', ['rutor', 'torznab', 'kinozal', 'both'], 'both'), cat: savedPref('tc_cat', null, ''), q: '' },
   // seen — фильтр по состоянию просмотра, coll — выбранная подборка. Пустая
   // подборка означает «вся библиотека», 'fav' — избранное. Отдельно от query и
   // category: те фильтруют и поиск, а эти два — только библиотеку.
@@ -206,6 +206,35 @@ async function initKinozalMirrors() {
   });
 }
 
+// rutor можно выключить в настройках: тогда поиск, ТОП, «Популярное» и подписки
+// живут на индексаторах и Кинозале. Флаг читается с сервера и лежит в state.
+async function loadRutorFlag() {
+  try {
+    const j = await apiGetJSON('/api/rutor/settings');
+    state.rutorOff = !!j && j.enabled === false;
+  } catch {}
+  const prov = $('#searchProv');
+  if (prov) {
+    const o = [...prov.options].find(x => x.value === 'rutor');
+    if (o) o.textContent = state.rutorOff ? 'rutor (выключен)' : 'rutor';
+    if (state.rutorOff && prov.value === 'rutor') { prov.value = 'both'; state.searchState.provider = 'both'; savePref('tc_prov', 'both'); }
+  }
+  return !state.rutorOff;
+}
+async function initRutorToggle() {
+  const box = $('#rutorOn'); if (!box) return;
+  box.checked = await loadRutorFlag();
+  box.addEventListener('change', async () => {
+    try {
+      const r = await fetch('/api/rutor/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: box.checked }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((j && j.error) || 'HTTP ' + r.status);
+      state.rutorOff = j.enabled === false;
+      toast(state.rutorOff ? 'rutor выключен: поиск идёт через индексаторы и Кинозал' : 'rutor включён');
+    } catch (e) { box.checked = !box.checked; toast('Не сохранено: ' + e.message, true); }
+  });
+}
+
 // Что нового — по версиям, новые сверху. Номер берётся из файла VERSION
 // (ответ /api/hello → app_version); при каждом этапе он повышается.
 /* savedPref — выбор, запомненный в браузере: источник поиска, категория,
@@ -219,6 +248,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['1.20.0', ['♥ «Сейчас смотрят» и «Для вас»: сердечко на карточке добавляет название в избранное — оттуда одним нажатием подбирается лучшая раздача', 'Больше нет привязки к одному источнику: ТОП за 24 часа собирается из rutor и индексаторов (JacRed, Jackett, Prowlarr) разом, а без ключа TMDB — из ленты свежих раздач индексатора', '«Популярное» при недоступном rutor строится через индексаторы', 'Настройки → «Источники поиска»: rutor можно выключить совсем; по умолчанию поиск идёт по всем источникам', 'Удаление из «Избранного» снова работает']],
   ['1.19.0', ['📲 Отправить на устройство: продолжить просмотр с того же места на телефоне, планшете, другом компьютере с открытым TorrClient или на телевизоре с DLNA в той же сети (меню плитки и кнопка в панели показа)', '⏾ Таймер сна в шапке: через 15–120 минут или после текущей серии — остановить плеер, усыпить или выключить компьютер; предупреждение за минуту с «Отложить»', 'Поиск по настройкам: несколько слов в любом порядке, синонимы, подсветка найденного, Enter — к первому, Ctrl+F или «/»', 'ТОП за 24 часа без ограничения в 24 раздачи: свежие раздачи всех категорий rutor; если rutor не отвечает — ТОП собирается через индексаторы по трендам TMDB', 'Учёт просмотра при плейлисте VLC: серия определяется по текущему элементу плейлиста, позиции следующих серий больше не пишутся на первую', '«Сейчас смотрят»: в жанрах появились Аниме, Мультфильмы и Аниме-фильмы', 'Кинозал: вход по логину и паролю в настройках, проверка файла, а если .torrent не скачивается — та же раздача ищется на rutor и в индексаторах', 'Подписки на сериалы: поиск по rutor и индексаторам, понятная запись аниме и мультиков («[1-12 из 24]», «TV-2», «эпизоды»), чистый запрос вместо названия раздачи со скобками, проверка сразу после подписки, дата следующей серии по TMDB, системные уведомления', 'Обновление TorrServer MatriX в разделе «Сервер»: версия, скачивание с GitHub и перезапуск одной кнопкой', 'Библиотека после запуска больше не остаётся пустой: пока TorrServer поднимается, список запрашивается повторно сам']],
   ['1.18.3', ['«Продолжить просмотр» показывает и то, что запускали в плеере без отчёта о позиции или с телефона: по списку просмотренного TorrServer']],
   ['1.18.2', ['Постер сериала в библиотеке: из ответов TMDB выбирается совпадающее название с обложкой, а не первый попавшийся фильм (так было с «Rick and Morty»); старые ответы без постера перепроверяются', 'Кнопка «Следующая серия» видна сразу после запуска серии и не пропадает вместе с панелью']],
@@ -1918,16 +1948,42 @@ function addBookmark(t, fi, fname, explicitPos) {
 function delBookmark(b) { saveBookmarks(getBookmarks().filter(x => !(x.hash === b.hash && x.file_index === b.file_index))); }
 
 /* ----- Избранное ----- */
+// В избранном лежат два вида записей: раздача (магнит) и «название» — карточка
+// из «Сейчас смотрят» / «Для вас», у которой раздачи ещё нет. Для названия
+// раздача подбирается в момент просмотра (★ Лучшая раздача по всем источникам).
+const isTitleFav = x => !!x && x.fav === 'title';
+function favSame(a, b) {
+  if (isTitleFav(a) || isTitleFav(b)) return isTitleFav(a) && isTitleFav(b) && a.kind === b.kind && String(a.tmdb) === String(b.tmdb);
+  return (a.hash || '') + '|' + (a.title || '') === (b.hash || '') + '|' + (b.title || '');
+}
+const discFavKey = it => it.kind + ':' + it.id;
+function discFavHtml(it) {
+  const on = favList().some(x => isTitleFav(x) && x.kind + ':' + x.tmdb === discFavKey(it));
+  return html`<button class="disc-fav${on ? ' on' : ''}" data-fk="${discFavKey(it)}" title="${on ? 'Убрать из избранного' : 'В избранное'}">♥</button>`;
+}
+function markDiscFavs() {
+  const keys = new Set(favList().filter(isTitleFav).map(x => x.kind + ':' + x.tmdb));
+  $$('.disc-fav').forEach(b => { const on = keys.has(b.dataset.fk); b.classList.toggle('on', on); b.title = on ? 'Убрать из избранного' : 'В избранное'; });
+}
+function toggleDiscFav(it) {
+  if (!it) return;
+  const ul = favList();
+  const i = ul.findIndex(x => isTitleFav(x) && x.kind + ':' + x.tmdb === discFavKey(it));
+  if (i >= 0) { ul.splice(i, 1); toast('Удалено из избранного'); }
+  else { ul.push({ fav: 'title', title: it.title, year: it.year || '', kind: it.kind, tmdb: it.id, poster: it.poster || '', time: Date.now() }); toast('Добавлено в избранное'); }
+  saveFavList(ul);
+  markDiscFavs();
+}
 async function renderFavorites(root) {
   const list = favList();
   root.innerHTML = `<div class="toolbar"><h1 class="page-title">Избранное</h1>
-    <div class="page-sub">Магниты, отложенные в поиске · кнопка «В избранное»</div>
+    <div class="page-sub">Раздачи и названия, отложенные в поиске и в «Сейчас смотрят» · кнопка «♥»</div>
     <span class="spacer"></span>
     <button id="favClear" class="danger">Очистить список</button></div>
     <div id="favBody"></div>`;
   $('#favClear').addEventListener('click', () => { if (list.length && confirm('Очистить весь список избранного?')) { saveFavList([]); renderFavorites($('main')); } });
   const body = $('#favBody');
-  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. В результатах поиска нажмите «⋮ → В избранное».</div>'; return; }
+  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «⋮ → В избранное» в результатах поиска.</div>'; return; }
   const sorted = [...list].sort((a, b) => (b.time || 0) - (a.time || 0));
   body.innerHTML = '<div class="grid results">' + sorted.map((it, i) => favCard(it, i)).join('') + '</div>';
   $$('.tile.fav', body).forEach(card => bindFavCard(card, sorted[parseInt(card.dataset.ix, 10)]));
@@ -1935,13 +1991,14 @@ async function renderFavorites(root) {
 }
 function favCard(it, ix) {
   const title = it.title || 'магнит';
+  const isT = isTitleFav(it);
   return html`
   <div class="tile result fav" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (it.poster ? 'hidden' : '') + '"'))}
       ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
-      <button class="play-ov" data-fa="play" title="Смотреть"><span class="tri"></span></button>
-      <div class="badges"><span class="chip grey">избранное</span></div>
+      <button class="play-ov" data-fa="play" title="${isT ? 'Подобрать лучшую раздачу' : 'Смотреть'}"><span class="tri"></span></button>
+      <div class="badges"><span class="chip grey">${isT ? 'название' : 'избранное'}</span></div>
       <div class="rate-stack">
         <span class="chip rating" data-tmdb hidden></span>
         <span class="chip rt-imdb" data-imdb hidden></span>
@@ -1954,12 +2011,12 @@ function favCard(it, ix) {
     <div class="body">
       <div class="title-row"><span class="title clamp2" title="${title}">${title}</span></div>
       <div class="metabar">
-        <span class="mb-stats">${it.time ? 'добавлено ' + new Date(it.time).toLocaleDateString('ru-RU') : '—'}</span>
+        <span class="mb-stats">${isT ? (it.kind === 'tv' ? 'Сериал · ' : '') + (it.year || '') + ' · ' : ''}${it.time ? 'добавлено ' + new Date(it.time).toLocaleDateString('ru-RU') : '—'}</span>
       </div>
       <button class="menu-ico" data-menu title="Ещё">⋮</button>
     </div>
     <div class="ctxmenu hidden">
-      <button data-fa="magnet">Магнит-ссылка</button>
+      ${raw(isT ? '' : '<button data-fa="magnet">Магнит-ссылка</button>')}
       <button data-fa="kp">Кинопоиск</button>
       <button data-fa="imdb">IMDb</button>
       <button data-fa="trailer">Трейлер</button>
@@ -1973,12 +2030,12 @@ function bindFavCard(card, it) {
   const menuBtn = card.querySelector('[data-menu]'); const menu = card.querySelector('.ctxmenu');
   if (menuBtn && menu) menuBtn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
   const act = (sel, fn) => card.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { if (menu) menu.classList.add('hidden'); fn(); }));
-  act('[data-fa="play"]', () => playSearchLink(it));
+  act('[data-fa="play"]', () => { if (isTitleFav(it)) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0); else playSearchLink(it); });
   act('[data-fa="magnet"]', () => copyToClip(it.magnet || magnetFromHash(it.hash, it.title), 'Магнит скопирован'));
   act('[data-fa="kp"]', () => openExternal(kpSearchUrl(it.title || '')));
   act('[data-fa="imdb"]', () => openExternal(imdbUrlFor(it)));
   act('[data-fa="trailer"]', () => openTrailer(it));
-  act('[data-fa="del"]', () => { saveFavList(favList().filter(x => x !== it)); toast('Удалено из избранного'); renderFavorites($('main')); });
+  act('[data-fa="del"]', () => { saveFavList(favList().filter(x => !favSame(x, it))); toast('Удалено из избранного'); renderFavorites($('main')); });
 }
 async function favEnrich(list) {
   /* Та же схема дорожек, что и у библиотеки (ratingsOnce + RATING_WORKERS):
@@ -2179,7 +2236,7 @@ async function renderSearch(root) {
       </select>
       <button id="top24Btn" class="top24btn">ТОП-24</button>
       <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
-      <button id="popBtn" class="top24btn" title="Раздачи выбранной категории rutor за всё время, по числу сидов">Популярное</button>
+      <button id="popBtn" class="top24btn" title="Раздачи выбранной категории за всё время, по числу сидов (rutor или индексаторы)">Популярное</button>
       <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">✨ Для вас</button>
       <span class="spacer"></span>
       <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
@@ -2202,6 +2259,7 @@ async function renderSearch(root) {
 
   initDiscoverBar();
   $('#searchProv').value = sd.provider;
+  loadRutorFlag();
   $('#searchCat').value = sd.cat || '';
   $('#searchQual').value = qualOn();
   $('#searchBtn').addEventListener('click', () => doSearch());
@@ -2427,7 +2485,7 @@ async function fetchTop24() {
   moreSources = {};
   state.top24Hash = resp.hash || '';
   button.disabled = false; updateTopBtnLabel();
-  if (resp.source === 'indexers') toast('rutor не ответил — ТОП собран через индексаторы по трендам дня');
+  if (resp.source === 'indexers' && !resp.rutor_off) toast('rutor не ответил — ТОП собран через индексаторы');
   paintResults(el);
 }
 async function fetchTopCat(sec, label) {
@@ -2530,7 +2588,7 @@ async function doSearch() {
   sd().exclude = parts.drop; // «ведьмак -игра» отсекает игру по названию
   state.searchState.results = sd().append ? state.searchState.results : [];
   moreSources = {};
-  if (prov === 'rutor' || prov === 'both') moreSources.rutor = { query: q, page: 0, count: 0, cat };
+  if (prov === 'rutor' || (prov === 'both' && !state.rutorOff)) moreSources.rutor = { query: q, page: 0, count: 0, cat };
   if (prov === 'torznab' || prov === 'both') moreSources.torznab = { query: q, page: 0, count: 0, cat: 0 };
   if (prov === 'kinozal' || prov === 'both') moreSources.kinozal = { query: q, page: 0, count: 0, cat: 0 };
   paintResults($('#searchResults'));
@@ -2804,13 +2862,17 @@ function paintDiscover(el) {
   if (!discState.items.length) { el.innerHTML = '<div class="empty">В подборке пусто</div>'; return; }
   const cards = discState.items.map((it, i) => html`
     <div class="disc-card" data-di="${i}" title="Подобрать лучшую раздачу из всех источников">
-      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}</div>
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}${raw(discFavHtml(it))}</div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
   el.innerHTML = html`<div class="disc-head">${discState.params && isTrending(discState.params.kind) ? (discState.params.kind === 'trending_day' ? 'Сейчас смотрят — тренды дня' : 'Сейчас смотрят — тренды недели') : 'Популярное за всё время'} (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>
     ${raw(discState.hasMore ? '<div style="text-align:center;margin:14px"><button id="discMore" class="primary">Показать ещё</button></div>' : '')}`;
+  $$('.disc-fav', el).forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleDiscFav(discState.items.find(x => discFavKey(x) === b.dataset.fk));
+  }));
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
     const it = discState.items[+c.dataset.di];
     if (!it) return;
@@ -3583,7 +3645,7 @@ function paintRecommendations(el) {
   const cards = list.map(it => html`
     <div class="disc-card" data-rk="${it.kind + ':' + it.id}" title="${it.overview || 'Подобрать лучшую раздачу из всех источников'}">
       <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}
-        <button class="rec-x" data-hide="${it.kind + ':' + it.id}" title="Не показывать">✕</button></div>
+        ${raw(discFavHtml(it))}<button class="rec-x" data-hide="${it.kind + ':' + it.id}" title="Не показывать">✕</button></div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
       ${raw((it.because || []).length ? html`<div class="rec-why">Похоже на: ${it.because.join(', ')}</div>` : '')}
@@ -3591,6 +3653,8 @@ function paintRecommendations(el) {
   el.innerHTML = html`<div class="disc-head">Рекомендации по библиотеке (${list.length}) <span class="page-sub" style="font-weight:400">— по ${recState.matched} из ${recState.seeds} названий, найденных в TMDB</span></div>
     <div class="disc-grid">${raw(cards)}</div>`;
   el.querySelector('.disc-grid').addEventListener('click', e => {
+    const fv = e.target.closest('[data-fk]');
+    if (fv) { e.stopPropagation(); toggleDiscFav(recState.items.find(i => discFavKey(i) === fv.dataset.fk)); return; }
     const x = e.target.closest('[data-hide]');
     if (x) { e.stopPropagation(); recHide(x.dataset.hide); paintRecommendations(el); return; }
     const c = e.target.closest('[data-rk]'); if (!c) return;
@@ -3658,11 +3722,12 @@ async function findBest(q, year) {
   q = String(q || '').trim(); if (!q) return;
   $$('body > .overlay.best-ov').forEach(o => o.remove());
   const ov = document.createElement('div'); ov.className = 'overlay best-ov';
-  ov.innerHTML = html`<div class="modal" style="max-width:720px"><h3>Лучшая раздача: ${q}${year ? ' (' + year + ')' : ''}</h3><div id="bestBody">${raw(skeleton('Опрашиваю rutor, Кинозал и Torznab…', 3))}</div></div>`;
+  ov.innerHTML = html`<div class="modal" style="max-width:720px"><h3>Лучшая раздача: ${q}${year ? ' (' + year + ')' : ''}</h3><div id="bestBody">${raw(skeleton('Опрашиваю все источники…', 3))}</div></div>`;
   document.body.appendChild(ov);
   ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
   const body = ov.querySelector('#bestBody');
-  const jobs = [['rutor', () => searchRutor(q, 0, 0)], ['kinozal', () => searchKinozal(q, 0)], ['torznab', () => searchTorznab(q, 0)]];
+  const jobs = [['kinozal', () => searchKinozal(q, 0)], ['torznab', () => searchTorznab(q, 0)]];
+  if (!state.rutorOff) jobs.unshift(['rutor', () => searchRutor(q, 0, 0)]);
   const res = await Promise.allSettled(jobs.map(([, f]) => f()));
   const failed = res.map((x, i) => x.status === 'rejected' ? SRC_NAME[jobs[i][0]] : '').filter(Boolean);
   const lists = res.map((x, i) => (x.status === 'fulfilled' ? x.value : []).map(r => ({ ...r, _p: r._p || jobs[i][0] })));
@@ -5076,7 +5141,7 @@ function subsCard(s) {
 function renderSubs(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
-      <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
+      <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах (источники — в Настройках) — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
       <button id="subAdd" class="primary">＋ Следить</button>
       <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>
@@ -5446,6 +5511,10 @@ function renderSettings(root) {
         <input type="file" id="restoreInput" accept=".zip" hidden>
       </div>
     </div>
+    <div class="card"><h3>Источники поиска</h3>
+      <p class="page-sub">Поиск, ТОП за 24 часа, «Популярное», «Лучшая раздача» и подписки работают с любым набором источников: rutor, Кинозал и индексаторы Torznab (JacRed, Jackett, Prowlarr). Если rutor закрыт или не нужен — выключите его, остальные продолжат работать.</p>
+      <label style="margin:0"><input type="checkbox" id="rutorOn" checked> Использовать rutor</label>
+    </div>
     <div class="card"><h3>Кинозал: зеркала</h3>
       <p class="page-sub">Официальные: kinozal.tv, kinozal.me, kinozal.guru — они проверяются первыми. Неофициальные зеркала — запасной путь, если официальные не отдают выдачу.</p>
       <p class="page-sub">Файл .torrent Кинозал отдаёт только вошедшим. Укажите свой логин — программа войдёт сама, когда понадобится. Без логина раздача ищется в других источниках (JacRed, rutor) и запускается по магниту.</p>
@@ -5536,6 +5605,7 @@ function renderSettings(root) {
   if (bd) bd.addEventListener('click', () => { window.location.href = '/api/backup'; });
   $('#autoOpen').addEventListener('change', e => localStorage.setItem('tc_autoopen', e.target.checked ? '1' : '0'));
   initKinozalMirrors();
+  initRutorToggle();
   initSettingsFilter(root);
   const diagBtn = $('#diagBtn');
   if (diagBtn) diagBtn.addEventListener('click', () => showDiagnostics(diagBtn));

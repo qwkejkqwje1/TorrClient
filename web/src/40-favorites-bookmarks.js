@@ -1,14 +1,40 @@
 /* ----- Избранное ----- */
+// В избранном лежат два вида записей: раздача (магнит) и «название» — карточка
+// из «Сейчас смотрят» / «Для вас», у которой раздачи ещё нет. Для названия
+// раздача подбирается в момент просмотра (★ Лучшая раздача по всем источникам).
+const isTitleFav = x => !!x && x.fav === 'title';
+function favSame(a, b) {
+  if (isTitleFav(a) || isTitleFav(b)) return isTitleFav(a) && isTitleFav(b) && a.kind === b.kind && String(a.tmdb) === String(b.tmdb);
+  return (a.hash || '') + '|' + (a.title || '') === (b.hash || '') + '|' + (b.title || '');
+}
+const discFavKey = it => it.kind + ':' + it.id;
+function discFavHtml(it) {
+  const on = favList().some(x => isTitleFav(x) && x.kind + ':' + x.tmdb === discFavKey(it));
+  return html`<button class="disc-fav${on ? ' on' : ''}" data-fk="${discFavKey(it)}" title="${on ? 'Убрать из избранного' : 'В избранное'}">♥</button>`;
+}
+function markDiscFavs() {
+  const keys = new Set(favList().filter(isTitleFav).map(x => x.kind + ':' + x.tmdb));
+  $$('.disc-fav').forEach(b => { const on = keys.has(b.dataset.fk); b.classList.toggle('on', on); b.title = on ? 'Убрать из избранного' : 'В избранное'; });
+}
+function toggleDiscFav(it) {
+  if (!it) return;
+  const ul = favList();
+  const i = ul.findIndex(x => isTitleFav(x) && x.kind + ':' + x.tmdb === discFavKey(it));
+  if (i >= 0) { ul.splice(i, 1); toast('Удалено из избранного'); }
+  else { ul.push({ fav: 'title', title: it.title, year: it.year || '', kind: it.kind, tmdb: it.id, poster: it.poster || '', time: Date.now() }); toast('Добавлено в избранное'); }
+  saveFavList(ul);
+  markDiscFavs();
+}
 async function renderFavorites(root) {
   const list = favList();
   root.innerHTML = `<div class="toolbar"><h1 class="page-title">Избранное</h1>
-    <div class="page-sub">Магниты, отложенные в поиске · кнопка «В избранное»</div>
+    <div class="page-sub">Раздачи и названия, отложенные в поиске и в «Сейчас смотрят» · кнопка «♥»</div>
     <span class="spacer"></span>
     <button id="favClear" class="danger">Очистить список</button></div>
     <div id="favBody"></div>`;
   $('#favClear').addEventListener('click', () => { if (list.length && confirm('Очистить весь список избранного?')) { saveFavList([]); renderFavorites($('main')); } });
   const body = $('#favBody');
-  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. В результатах поиска нажмите «⋮ → В избранное».</div>'; return; }
+  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «⋮ → В избранное» в результатах поиска.</div>'; return; }
   const sorted = [...list].sort((a, b) => (b.time || 0) - (a.time || 0));
   body.innerHTML = '<div class="grid results">' + sorted.map((it, i) => favCard(it, i)).join('') + '</div>';
   $$('.tile.fav', body).forEach(card => bindFavCard(card, sorted[parseInt(card.dataset.ix, 10)]));
@@ -16,13 +42,14 @@ async function renderFavorites(root) {
 }
 function favCard(it, ix) {
   const title = it.title || 'магнит';
+  const isT = isTitleFav(it);
   return html`
   <div class="tile result fav" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (it.poster ? 'hidden' : '') + '"'))}
       ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
-      <button class="play-ov" data-fa="play" title="Смотреть"><span class="tri"></span></button>
-      <div class="badges"><span class="chip grey">избранное</span></div>
+      <button class="play-ov" data-fa="play" title="${isT ? 'Подобрать лучшую раздачу' : 'Смотреть'}"><span class="tri"></span></button>
+      <div class="badges"><span class="chip grey">${isT ? 'название' : 'избранное'}</span></div>
       <div class="rate-stack">
         <span class="chip rating" data-tmdb hidden></span>
         <span class="chip rt-imdb" data-imdb hidden></span>
@@ -35,12 +62,12 @@ function favCard(it, ix) {
     <div class="body">
       <div class="title-row"><span class="title clamp2" title="${title}">${title}</span></div>
       <div class="metabar">
-        <span class="mb-stats">${it.time ? 'добавлено ' + new Date(it.time).toLocaleDateString('ru-RU') : '—'}</span>
+        <span class="mb-stats">${isT ? (it.kind === 'tv' ? 'Сериал · ' : '') + (it.year || '') + ' · ' : ''}${it.time ? 'добавлено ' + new Date(it.time).toLocaleDateString('ru-RU') : '—'}</span>
       </div>
       <button class="menu-ico" data-menu title="Ещё">⋮</button>
     </div>
     <div class="ctxmenu hidden">
-      <button data-fa="magnet">Магнит-ссылка</button>
+      ${raw(isT ? '' : '<button data-fa="magnet">Магнит-ссылка</button>')}
       <button data-fa="kp">Кинопоиск</button>
       <button data-fa="imdb">IMDb</button>
       <button data-fa="trailer">Трейлер</button>
@@ -54,12 +81,12 @@ function bindFavCard(card, it) {
   const menuBtn = card.querySelector('[data-menu]'); const menu = card.querySelector('.ctxmenu');
   if (menuBtn && menu) menuBtn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
   const act = (sel, fn) => card.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { if (menu) menu.classList.add('hidden'); fn(); }));
-  act('[data-fa="play"]', () => playSearchLink(it));
+  act('[data-fa="play"]', () => { if (isTitleFav(it)) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0); else playSearchLink(it); });
   act('[data-fa="magnet"]', () => copyToClip(it.magnet || magnetFromHash(it.hash, it.title), 'Магнит скопирован'));
   act('[data-fa="kp"]', () => openExternal(kpSearchUrl(it.title || '')));
   act('[data-fa="imdb"]', () => openExternal(imdbUrlFor(it)));
   act('[data-fa="trailer"]', () => openTrailer(it));
-  act('[data-fa="del"]', () => { saveFavList(favList().filter(x => x !== it)); toast('Удалено из избранного'); renderFavorites($('main')); });
+  act('[data-fa="del"]', () => { saveFavList(favList().filter(x => !favSame(x, it))); toast('Удалено из избранного'); renderFavorites($('main')); });
 }
 async function favEnrich(list) {
   /* Та же схема дорожек, что и у библиотеки (ratingsOnce + RATING_WORKERS):

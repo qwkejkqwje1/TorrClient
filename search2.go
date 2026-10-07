@@ -10,6 +10,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -205,15 +206,74 @@ func (c *Comp) apiPopular(w http.ResponseWriter, r *http.Request) {
 		page = 0
 	}
 	cat := normalizeRutorCat(atoiSafe(q.Get("cat")))
-	items, err := c.rutorPopular(q.Get("query"), page, cat)
+	var (
+		items  []rutorItem
+		err    error
+		source = "rutor"
+	)
+	if rutorEnabled() {
+		items, err = c.rutorPopular(q.Get("query"), page, cat)
+	} else {
+		err = errRutorOff
+	}
+	// rutor выключен или не ответил — то же «Популярное» собирается через
+	// индексаторы: они сортируются по сидам здесь же.
+	if err != nil && len(curCfg().TorznabSources) > 0 {
+		var ierr error
+		items, ierr = c.torznabPopular(q.Get("query"), page, cat)
+		if ierr == nil {
+			err, source = nil, "indexers"
+		} else if errors.Is(err, errRutorOff) {
+			err = ierr
+		}
+	}
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, err.Error())
 		return
+	}
+	more := len(items) >= rutorPageSize/2 && page < rutorPopularMaxPage
+	if source == "indexers" {
+		more = len(items) >= rutorPageSize/2 && page < torznabMaxPages-1
 	}
 	jj(w, map[string]any{
 		"ok":       true,
 		"items":    items,
 		"page":     page,
-		"has_more": len(items) >= rutorPageSize/2 && page < rutorPopularMaxPage,
+		"has_more": more,
+		"source":   source,
 	})
+}
+
+// torznabCatForRutor переводит категорию rutor в категории Torznab. Пусто —
+// все категории.
+func torznabCatForRutor(cat int) string {
+	switch cat {
+	case 1, 5:
+		return "2000"
+	case 4, 16:
+		return "5000"
+	case 7, 10, 12, 6:
+		return "2000,5000"
+	case 2:
+		return "3000"
+	case 8, 9:
+		return "4000"
+	case 11:
+		return "7000"
+	}
+	return ""
+}
+
+// torznabPopular — популярное через индексаторы: страница выдачи по сидам.
+func (c *Comp) torznabPopular(q string, page, rutorCat int) ([]rutorItem, error) {
+	res, err := c.torznabSearchAll(strings.TrimSpace(q), torznabCatForRutor(rutorCat), page)
+	if err != nil {
+		return nil, err
+	}
+	items := res.Items
+	sort.SliceStable(items, func(i, j int) bool { return items[i].Seed > items[j].Seed })
+	if len(items) > rutorPageSize {
+		items = items[:rutorPageSize]
+	}
+	return items, nil
 }

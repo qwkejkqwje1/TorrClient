@@ -22,7 +22,7 @@ async function renderSearch(root) {
       </select>
       <button id="top24Btn" class="top24btn">ТОП-24</button>
       <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
-      <button id="popBtn" class="top24btn" title="Раздачи выбранной категории rutor за всё время, по числу сидов">Популярное</button>
+      <button id="popBtn" class="top24btn" title="Раздачи выбранной категории за всё время, по числу сидов (rutor или индексаторы)">Популярное</button>
       <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">✨ Для вас</button>
       <span class="spacer"></span>
       <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
@@ -45,6 +45,7 @@ async function renderSearch(root) {
 
   initDiscoverBar();
   $('#searchProv').value = sd.provider;
+  loadRutorFlag();
   $('#searchCat').value = sd.cat || '';
   $('#searchQual').value = qualOn();
   $('#searchBtn').addEventListener('click', () => doSearch());
@@ -270,7 +271,7 @@ async function fetchTop24() {
   moreSources = {};
   state.top24Hash = resp.hash || '';
   button.disabled = false; updateTopBtnLabel();
-  if (resp.source === 'indexers') toast('rutor не ответил — ТОП собран через индексаторы по трендам дня');
+  if (resp.source === 'indexers' && !resp.rutor_off) toast('rutor не ответил — ТОП собран через индексаторы');
   paintResults(el);
 }
 async function fetchTopCat(sec, label) {
@@ -373,7 +374,7 @@ async function doSearch() {
   sd().exclude = parts.drop; // «ведьмак -игра» отсекает игру по названию
   state.searchState.results = sd().append ? state.searchState.results : [];
   moreSources = {};
-  if (prov === 'rutor' || prov === 'both') moreSources.rutor = { query: q, page: 0, count: 0, cat };
+  if (prov === 'rutor' || (prov === 'both' && !state.rutorOff)) moreSources.rutor = { query: q, page: 0, count: 0, cat };
   if (prov === 'torznab' || prov === 'both') moreSources.torznab = { query: q, page: 0, count: 0, cat: 0 };
   if (prov === 'kinozal' || prov === 'both') moreSources.kinozal = { query: q, page: 0, count: 0, cat: 0 };
   paintResults($('#searchResults'));
@@ -647,13 +648,17 @@ function paintDiscover(el) {
   if (!discState.items.length) { el.innerHTML = '<div class="empty">В подборке пусто</div>'; return; }
   const cards = discState.items.map((it, i) => html`
     <div class="disc-card" data-di="${i}" title="Подобрать лучшую раздачу из всех источников">
-      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}</div>
+      <div class="disc-poster">${raw(it.poster ? html`<img loading="lazy" src="${pimg(it.poster)}" alt="">` : '')}${raw(discFavHtml(it))}</div>
       <div class="disc-title">${it.title}</div>
       <div class="disc-meta">${it.kind === 'tv' ? 'Сериал · ' : ''}${it.year || ''}${it.rating ? ' · ★ ' + it.rating.toFixed(1) : ''}</div>
     </div>`).join('');
   el.innerHTML = html`<div class="disc-head">${discState.params && isTrending(discState.params.kind) ? (discState.params.kind === 'trending_day' ? 'Сейчас смотрят — тренды дня' : 'Сейчас смотрят — тренды недели') : 'Популярное за всё время'} (${discState.items.length})</div>
     <div class="disc-grid">${raw(cards)}</div>
     ${raw(discState.hasMore ? '<div style="text-align:center;margin:14px"><button id="discMore" class="primary">Показать ещё</button></div>' : '')}`;
+  $$('.disc-fav', el).forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleDiscFav(discState.items.find(x => discFavKey(x) === b.dataset.fk));
+  }));
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
     const it = discState.items[+c.dataset.di];
     if (!it) return;

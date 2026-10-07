@@ -58,11 +58,12 @@ async function findBest(q, year) {
   q = String(q || '').trim(); if (!q) return;
   $$('body > .overlay.best-ov').forEach(o => o.remove());
   const ov = document.createElement('div'); ov.className = 'overlay best-ov';
-  ov.innerHTML = html`<div class="modal" style="max-width:720px"><h3>Лучшая раздача: ${q}${year ? ' (' + year + ')' : ''}</h3><div id="bestBody">${raw(skeleton('Опрашиваю rutor, Кинозал и Torznab…', 3))}</div></div>`;
+  ov.innerHTML = html`<div class="modal" style="max-width:720px"><h3>Лучшая раздача: ${q}${year ? ' (' + year + ')' : ''}</h3><div id="bestBody">${raw(skeleton('Опрашиваю все источники…', 3))}</div></div>`;
   document.body.appendChild(ov);
   ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
   const body = ov.querySelector('#bestBody');
-  const jobs = [['rutor', () => searchRutor(q, 0, 0)], ['kinozal', () => searchKinozal(q, 0)], ['torznab', () => searchTorznab(q, 0)]];
+  const jobs = [['kinozal', () => searchKinozal(q, 0)], ['torznab', () => searchTorznab(q, 0)]];
+  if (!state.rutorOff) jobs.unshift(['rutor', () => searchRutor(q, 0, 0)]);
   const res = await Promise.allSettled(jobs.map(([, f]) => f()));
   const failed = res.map((x, i) => x.status === 'rejected' ? SRC_NAME[jobs[i][0]] : '').filter(Boolean);
   const lists = res.map((x, i) => (x.status === 'fulfilled' ? x.value : []).map(r => ({ ...r, _p: r._p || jobs[i][0] })));

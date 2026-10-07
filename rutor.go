@@ -37,6 +37,7 @@ var (
 	topItem struct {
 		items  []rutorItem
 		source string
+		off    bool
 		t      time.Time
 	}
 )
@@ -160,7 +161,9 @@ func dedupeItems(items []rutorItem) []rutorItem {
 // найдено», и поломка разбора живёт незамеченной месяцами.
 var (
 	errRutorNetwork = errors.New("трекер не ответил")
-	errRutorMarkup  = errors.New("страница получена, но выдача не разобрана (возможна капча или изменившаяся разметка)")
+	// errRutorOff — rutor выключен в настройках (Config.RutorOff).
+	errRutorOff    = errors.New("rutor выключен в настройках")
+	errRutorMarkup = errors.New("страница получена, но выдача не разобрана (возможна капча или изменившаяся разметка)")
 )
 
 var (
@@ -274,6 +277,38 @@ func (c *searchCacheStore) reset() {
 	c.mu.Unlock()
 }
 
+// rutorEnabled — rutor включён в настройках (по умолчанию да).
+func rutorEnabled() bool { return !curCfg().RutorOff }
+
+// apiRutorSettings — GET: {"enabled":bool}; POST {"enabled":bool} включает или
+// выключает rutor. Кэши выдачи сбрасываются, чтобы выключенный источник не
+// отвечал из памяти.
+func (c *Comp) apiRutorSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		jj(w, map[string]any{"enabled": rutorEnabled()})
+	case http.MethodPost:
+		var in struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := decodeTorznabBody(w, r, &in); err != nil || in.Enabled == nil {
+			writeJSONError(w, http.StatusBadRequest, "тело запроса не разобрано")
+			return
+		}
+		if err := updateCfg(func(nc *Config) { nc.RutorOff = !*in.Enabled }); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		rutorSearch.clear()
+		topMu.Lock()
+		topItem.items = nil
+		topMu.Unlock()
+		jj(w, map[string]any{"enabled": rutorEnabled()})
+	default:
+		writeJSONError(w, http.StatusMethodNotAllowed, "метод не поддерживается")
+	}
+}
+
 func (c *Comp) apiRutorSearch(w http.ResponseWriter, r *http.Request) {
 	page := atoiSafe(r.URL.Query().Get("page"))
 	if page < 0 || page > 20 {
@@ -298,6 +333,9 @@ func (c *Comp) rutorSearch(q string, page, cat int) ([]rutorItem, error) {
 	q = strings.TrimSpace(q)
 	if q == "" {
 		return []rutorItem{}, nil
+	}
+	if !rutorEnabled() {
+		return nil, errRutorOff
 	}
 	if page < 0 {
 		page = 0
@@ -336,10 +374,10 @@ func (c *Comp) rutorSearch(q string, page, cat int) ([]rutorItem, error) {
 
 func (c *Comp) apiTop24(w http.ResponseWriter, r *http.Request) {
 	topMu.Lock()
-	if time.Since(topItem.t) < 5*time.Minute && topItem.items != nil {
+	if time.Since(topItem.t) < 5*time.Minute && topItem.items != nil && topItem.off == !rutorEnabled() {
 		items, source := topItem.items, topItem.source
 		topMu.Unlock()
-		jj(w, map[string]any{"ok": true, "items": items, "source": source})
+		jj(w, map[string]any{"ok": true, "items": items, "source": source, "rutor_off": !rutorEnabled()})
 		return
 	}
 	topMu.Unlock()
@@ -352,9 +390,10 @@ func (c *Comp) apiTop24(w http.ResponseWriter, r *http.Request) {
 	topMu.Lock()
 	topItem.items = items
 	topItem.source = source
+	topItem.off = !rutorEnabled()
 	topItem.t = time.Now()
 	topMu.Unlock()
-	jj(w, map[string]any{"ok": true, "items": items, "source": source})
+	jj(w, map[string]any{"ok": true, "items": items, "source": source, "rutor_off": !rutorEnabled()})
 }
 
 // apiTopcat: ТОП раздач по категории раздела rutor.info (/kino, /anime, ...).
@@ -452,6 +491,9 @@ func rutorBases() []string {
 // ответить живое зеркало. Если не ответил ни один — ошибка с причиной
 // последней попытки и числом проверенных адресов.
 func (c *Comp) fetchRutorFrom(path string, docParse func(doc string) []rutorItem) ([]rutorItem, error) {
+	if !rutorEnabled() {
+		return nil, errRutorOff
+	}
 	// Причины собираются по всем адресам: раньше показывалась только
 	// последняя («rutor.top: 403»), а отказ основного rutor.info терялся.
 	var reasons []string

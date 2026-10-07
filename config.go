@@ -56,6 +56,10 @@ type Config struct {
 	// KinozalOfficialOnly — искать только на официальных зеркалах
 	// (kinozal.tv, kinozal.me, kinozal.guru) и своих из KinozalHosts.
 	KinozalOfficialOnly bool `json:"kinozal_official_only,omitempty"`
+	// RutorOff — не обращаться к rutor вовсе: поиск, ТОП, «Популярное» и
+	// подписки идут через индексаторы и Кинозал. Нужен тем, у кого rutor
+	// закрыт или кто хочет жить на одном JacRed/Jackett.
+	RutorOff bool `json:"rutor_off,omitempty"`
 	// KinozalUser/KinozalPass — вход на Кинозал: .torrent он отдаёт только
 	// вошедшим. Необязательны: без них раздача ищется в других источниках.
 	KinozalUser string `json:"kinozal_user,omitempty"`
@@ -130,6 +134,7 @@ func loadConfig() *Config {
 		// но пропадали после перезапуска программы.
 		cfg.KinozalHosts = c.KinozalHosts
 		cfg.KinozalOfficialOnly = c.KinozalOfficialOnly
+		cfg.RutorOff = c.RutorOff
 		cfg.KinozalUser = c.KinozalUser
 		cfg.KinozalPass = c.KinozalPass
 		cfg.TorznabSources = c.TorznabSources
