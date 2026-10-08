@@ -360,6 +360,9 @@ async function subsAdd(title, query) {
 }
 async function subsRemove(id) {
   try {
+    // Снятую руками подписку автослежение больше не заводит.
+    const gone = (state.subs || []).find(s => s.id === id);
+    if (gone) autoFollowSkip(gone.title);
     await subsAction('remove', { id });
     state.subs = (state.subs || []).filter(s => s.id !== id);
     paintSubsBadge();

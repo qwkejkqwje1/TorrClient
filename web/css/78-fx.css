@@ -1,0 +1,12 @@
+/* ───────────── эффекты: звёздное небо, варп-прыжок ───────────── */
+#fxSky{position:fixed; inset:0; width:100vw; height:100vh; z-index:0; pointer-events:none}
+.shell{position:relative; z-index:1}
+.fx-warp{position:fixed; inset:0; width:100vw; height:100vh; z-index:400; pointer-events:none; background:#02040c; animation:warpin .25s ease}
+.fx-warp.cruise{z-index:99}
+.fx-warp.out{opacity:0; transition:opacity .35s ease}
+.overlay.warp-host{background:transparent!important; backdrop-filter:none!important}
+.overlay.warp-host .modal{background:color-mix(in srgb,var(--bg2) 82%,transparent); backdrop-filter:blur(8px)}
+.fx-flash{position:fixed; inset:0; z-index:401; pointer-events:none; background:radial-gradient(circle,#fff 0,rgba(190,215,255,.85) 30%,rgba(124,176,255,0) 75%); animation:warpflash .65s ease-out forwards}
+.fx-flash.retro{background:#fcfcfc; animation:warpflash .45s steps(3) forwards}
+@keyframes warpin{from{opacity:0}}
+@keyframes warpflash{0%{opacity:0}18%{opacity:1}100%{opacity:0}}

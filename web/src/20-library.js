@@ -99,7 +99,8 @@ function refreshLibrary() {
    library never blocks on N /stream?stat round-trips. */
 const libRetry = { timer: 0, n: 0 };
 async function loadLibrary(paint) {
-  try { state.lib = await listTorrents(); state.libError = ''; libRetry.n = 0; }
+  // Музыка живёт в своём разделе: в Библиотеку, «Продолжить» и Сериалы она не идёт.
+  try { const ms = musicHashes(); state.lib = (await listTorrents()).filter(t => !isMusicTorrent(t, ms)); state.libError = ''; libRetry.n = 0; }
   catch (e) {
     // Сервер ещё поднимается (так бывает сразу после запуска) — список
     // запрашивается снова сам, всё реже: 1,5 с, 3 с, 6 с… до 30 с.
@@ -345,8 +346,17 @@ function continueItems() {
     }
     if (f) out.push({ t, f, kind: 'resume', pos: 0, duration: 0, share: 0, updated: 0 });
   });
-  return out.sort((a, b) => b.updated - a.updated);
+  /* Порядок — от последнего открытого. Демон пишет время в секундах, запуск
+     из окна помнится в миллисекундах; берётся более свежее из двух. Прежде
+     раздачи без отметки демона (updated = 0) уходили в конец, даже если их
+     запустили минуту назад. */
+  const lp = lastPlayed();
+  out.forEach(it => { const l = lp[it.t.hash]; it.recent = Math.max((it.updated || 0) * 1000, l ? l.at : 0); });
+  return out.sort((a, b) => b.recent - a.recent);
 }
+// Сколько карточек «Продолжить просмотр» показывать: больше шести — уже не
+// «продолжить», а список всего начатого (он — в Библиотеке и Закладках).
+const CONT_MAX = 6;
 function continueCard(it) {
   const title = it.t.title || it.t.name || it.t.hash;
   const next = it.kind === 'next';
@@ -375,8 +385,8 @@ function paintContinue() {
   const items = continueItems();
   if (!items.length) { box.innerHTML = ''; box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  box.innerHTML = html`<div class="cont-head">Продолжить просмотр <span class="cont-n">${items.length}</span></div>`
-    + html`<div class="cont-row">${raw(items.slice(0, 20).map(continueCard).join(''))}</div>`;
+  box.innerHTML = html`<div class="cont-head">Продолжить просмотр <span class="cont-n">${Math.min(items.length, CONT_MAX)}</span></div>`
+    + html`<div class="cont-row">${raw(items.slice(0, CONT_MAX).map(continueCard).join(''))}</div>`;
 }
 function bindContinue() {
   const box = $('#libContinue');
@@ -447,7 +457,7 @@ function tile(t) {
       <div class="badges">
         ${raw(lq.q.res ? html`<span class="chip ${q}">${lq.q.res}</span>` : '')}
         ${raw(ser ? html`<span class="chip series">${seriesTag(t.title || t.name || '')}</span>` : '')}
-        ${raw(lq.q.res || lq.q.source ? html`<span class="chip rq rq-${lq.q.tier}" title="${lq.tip}">${lq.q.score}${lq.q.ru ? ' · RU' : ''}</span>` : '')}
+        ${raw(lq.q.res || lq.q.source || lq.q.audio ? html`<span class="chip rq rq-${lq.q.tier}" title="${lq.tip}">${lq.q.score}${lq.q.ru ? ' · RU' : ''}</span>` : '')}
         <span class="statusdot ${scls}" title="${st || 'статус'}"></span>
       </div>
       <div class="rate-stack">

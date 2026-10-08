@@ -134,6 +134,10 @@ var (
 	// Размер опознаётся по единице измерения, а не по классу ячейки: рядом стоят
 	// ячейки с тем же классом s — число комментариев и дата.
 	kzSizeRe = regexp.MustCompile(`([\d.,]+)\s*(ТБ|ГБ|МБ|КБ|TB|GB|MB|KB)`)
+	// kzSizeCellRe — размер именно из ячейки таблицы. Название раздачи тоже
+	// бывает с единицами («… | 320 kbps | 1.2 GB» у музыки, «2 x 45 ГБ» у
+	// сборников), и первое совпадение по всей строке брало размер из названия.
+	kzSizeCellRe = regexp.MustCompile(`<td[^>]*class=['"]?s['"]?[^>]*>\s*([\d.,]+)\s*(ТБ|ГБ|МБ|КБ|TB|GB|MB|KB)\s*</td>`)
 	// Сиды и пиры. Прежний разбор ждал class="sl_sl" и class="sl_ll" в двойных
 	// кавычках; на живой странице это class='sl_s' и class='sl_p'.
 	kzSeedRe = regexp.MustCompile(`class=['"]sl_s['"][^>]*>\s*(\d+)`)
@@ -255,8 +259,10 @@ func parseKinozalRow(row, base string) rutorItem {
 	if m := kzDateRe.FindStringSubmatch(row); len(m) == 2 {
 		it.Date = m[1]
 	}
-	if m := kzSizeRe.FindStringSubmatch(row); len(m) == 3 {
-		it.Size = m[1] + " " + m[2]
+	if m := kzSizeCellRe.FindStringSubmatch(row); len(m) == 3 {
+		it.Size = strings.ReplaceAll(m[1], ",", ".") + " " + m[2]
+	} else if m := kzSizeRe.FindStringSubmatch(row); len(m) == 3 {
+		it.Size = strings.ReplaceAll(m[1], ",", ".") + " " + m[2]
 	}
 	if m := kzSeedRe.FindStringSubmatch(row); len(m) == 2 {
 		it.Seed = atoiSafe(m[1])

@@ -106,7 +106,7 @@ function paintHome() {
   if (nn) sum.push(nn + ' ' + plural(nn, 'новая серия', 'новые серии', 'новых серий'));
   const s = $('#homeSum'); if (s) s.textContent = state.libError && !n ? 'TorrServer ещё не ответил — библиотека появится, как только он поднимется' : sum.join(' · ');
 
-  if (on('cont')) paintRail(railDomId('cont'), 'Продолжить просмотр', cont.length, cont.slice(0, 16).map(contBig).join(''), 'library', 'Библиотека', 'cw');
+  if (on('cont')) paintRail(railDomId('cont'), 'Продолжить просмотр', Math.min(cont.length, CONT_MAX), cont.slice(0, CONT_MAX).map(contBig).join(''), 'library', 'Библиотека', 'cw');
   if (on('new')) paintRail(railDomId('new'), 'Новые серии по подпискам', newSubs.length, newSubs.map(newSubCard).join(''), 'subs', 'Все подписки', 'ns');
   if (on('fav')) paintRail(railDomId('fav'), 'Избранное', favs.length, favs.slice(0, 18).map((f, i) => favMini(f, favs.length - 1 - i)).join(''), 'favorites', 'Всё избранное', 'pc');
   if (on('recent')) paintRail(railDomId('recent'), 'Недавно добавлено', recent.length, recent.map(recentMini).join(''), 'library', 'Вся библиотека', 'pc');

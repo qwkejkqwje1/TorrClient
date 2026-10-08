@@ -96,6 +96,9 @@ const THEME_LIST = [
   { id: 'dracula', name: 'Дракула', tone: 'dark', sw: ['#1e1f29', '#2e303f', '#bd93f9', '#50fa7b'] },
   { id: 'forest', name: 'Лес', tone: 'dark', sw: ['#0f1512', '#1c2620', '#6fcf98', '#b5e06a'] },
   { id: 'sepia', name: 'Сепия', tone: 'light', sw: ['#f4ecdc', '#efe5d0', '#9a5a22', '#527a30'] },
+  // Глобальная тема: не только цвета, но и шрифт, пиксельные рамки, ЭЛТ-развёртка
+  // и свои анимации (95-retro.css, 78-fx.js).
+  { id: 'retro', name: 'Денди 90-х', tone: 'dark', sw: ['#000000', '#1c1c3a', '#f83800', '#f8b800'] },
 ];
 const THEMES = THEME_LIST.map(t => t.id);
 const THEME_NAMES = Object.fromEntries(THEME_LIST.map(t => [t.id, t.name.toLowerCase()]));
@@ -114,6 +117,7 @@ function applyTheme() {
 function setTheme(id) {
   try { localStorage.setItem('tc_theme', id); } catch {}
   applyTheme(); toast('Тема: ' + THEME_NAMES[id]);
+  if (id === 'retro' && typeof fxCrtOn === 'function') fxCrtOn();
 }
 function cycleTheme() { setTheme(THEMES[(THEMES.indexOf(themeMode()) + 1) % THEMES.length]); }
 function themePickerHtml() {
@@ -388,5 +392,6 @@ function streamBase(fname) { return fname ? `/stream/${encodeURIComponent(fname)
     // отметок спрашивается постоянно, а не только при открытии страницы.
     setInterval(refreshViewed, 10000);
   }
+  extrasBoot();
 })();
 

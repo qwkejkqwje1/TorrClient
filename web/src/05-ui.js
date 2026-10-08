@@ -41,6 +41,11 @@ const ICONS = {
   list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   edit: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M13.5 8.5l3 3"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+  music: '<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  prev: '<path d="M6 5v14"/><path d="M19 5.5v13L9 12Z" fill="currentColor"/>',
+  next: '<path d="M18 5v14"/><path d="M5 5.5v13L15 12Z" fill="currentColor"/>',
+  pause: '<path d="M8 5v14M16 5v14" stroke-width="3"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor" stroke="none"/>',
   film: '<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8.5h4.5M3 15.5h4.5M16.5 8.5H21M16.5 15.5H21"/>',
 };
 function ico(name, size) {
@@ -50,7 +55,7 @@ function ico(name, size) {
 
 /* Разделы по группам. Порядок задаёт и Alt+1…Alt+0 (первые десять). */
 const NAV_GROUPS = [
-  { label: '', items: [['home', 'Главная', 'home'], ['library', 'Библиотека', 'grid'], ['search', 'Поиск', 'search']] },
+  { label: '', items: [['home', 'Главная', 'home'], ['library', 'Библиотека', 'grid'], ['search', 'Поиск', 'search'], ['music', 'Музыка', 'music']] },
   { label: 'Моё', items: [['favorites', 'Избранное', 'heart'], ['bookmarks', 'Закладки', 'bookmark'], ['series', 'Сериалы', 'tv'], ['subs', 'Подписки', 'bell']] },
   { label: 'Система', items: [['downloads', 'Загрузки', 'download'], ['players', 'Плееры', 'player'], ['settings', 'Настройки', 'sliders'], ['server', 'Сервер', 'server']] },
 ];

@@ -144,6 +144,7 @@ func main() {
 	mux.HandleFunc("/api/playlist", c.apiPlaylist)
 	mux.HandleFunc("/api/playlist/", c.apiPlaylist)
 	mux.HandleFunc("/api/positions", c.apiPositions)
+	mux.HandleFunc("/api/nowplaying", c.apiNowPlaying)
 	mux.HandleFunc("/api/watch", c.apiWatch)
 	mux.HandleFunc("/api/meta", c.apiMeta)
 	mux.HandleFunc("/api/tmdb", c.apiTmdb)

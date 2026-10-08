@@ -955,6 +955,7 @@ func (c *Comp) watchPlayer(ctx context.Context, s *playerSession, done <-chan st
 			deadline = time.Now().Add(watchStartGrace)
 			id := s.currentFile(r)
 			sleepNoteFile(s.hash, id)
+			nowTrack(s.hash, id, r.Position, r.Duration)
 			if s.seeked == nil {
 				s.seeked = map[int]bool{}
 			}
@@ -1037,9 +1038,11 @@ func (c *Comp) startPlayer(p *Player, args []string, hash string, fileID int, po
 	// которого никто не следит, не должен оставлять за собой зомби.
 	done := make(chan struct{})
 	trackPlayer(cmd)
+	nowID := nowStart(hash, fileID, p.Name)
 	go func() {
 		defer close(done)
 		_ = cmd.Wait()
+		nowStop(nowID)
 		untrackPlayer(cmd)
 		sleepPlayerExited()
 	}()

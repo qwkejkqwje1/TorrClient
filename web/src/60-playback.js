@@ -64,6 +64,8 @@ function prepOverlay(title) {
     <div class="btn-group"><button data-cancel>Отмена</button></div>
   </div>`;
   document.body.appendChild(ov);
+  // Пока раздача ищет раздающих — полёт в гиперпространстве за окном.
+  const warpEnd = fxWarpCruise(ov);
   const started = Date.now();
   const el = s => ov.querySelector(s);
   const api = {
@@ -77,7 +79,7 @@ function prepOverlay(title) {
     },
     hint(text) { el('[data-hint]').textContent = text; },
     fail(text) { el('[data-stage]').textContent = text; ov.querySelector('.spin').classList.add('stop'); },
-    close() { api.cancelled = true; ov.remove(); },
+    close(ok) { api.cancelled = true; warpEnd(!!ok); ov.remove(); },
   };
   ov.querySelector('[data-cancel]').addEventListener('click', () => api.close());
   ov.addEventListener('click', e => { if (e.target === ov) api.close(); });
@@ -356,6 +358,7 @@ function playSelected(cur, f, opts = {}) {
   // ничего не происходило. Теперь спрашиваем, где смотреть.
   if (isRemoteUI() && !opts.player && !opts.onPC) return phonePlay(cur, f, opts);
   const key = opts.player || pickPlayer();
+  fxWarp(); // прыжок к фильму: запуск плеера
   const title = (cur.title || cur.name || 'stream') + epSuffix(f);
   trackPlay(cur.hash, f.id, opts.fromZero ? 0 : currentTc(cur, f.id));
   // Ход подгрузки виден всегда, а не только пока сервер не отдал список файлов:

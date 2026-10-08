@@ -1,0 +1,42 @@
+/* ───────────── шапка: «Сейчас играет», уведомления; поиск: крестик, карточка ───────────── */
+.tb-notif{position:relative}
+.tb-badge{position:absolute; top:3px; right:2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--red); color:#fff; font-size:10px; font-weight:700; line-height:16px}
+.tb-notif.ring .ico{animation:bellring .9s ease}
+@keyframes bellring{0%,100%{transform:rotate(0)}15%{transform:rotate(16deg)}30%{transform:rotate(-14deg)}45%{transform:rotate(10deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(3deg)}}
+.notif-pop{position:fixed; z-index:150; width:min(380px,92vw); max-height:min(70vh,520px); overflow:auto; background:var(--bg2); border:1px solid var(--line2); border-radius:var(--r-lg); box-shadow:var(--sh-2); padding:6px; animation:pop .14s ease}
+.notif-h{display:flex; align-items:center; gap:8px; padding:6px 8px 8px; border-bottom:1px solid var(--line); margin-bottom:4px}
+.notif-it{display:flex; gap:10px; width:100%; text-align:left; border:0; background:none; padding:8px; border-radius:var(--r-sm); font-weight:400; min-height:0}
+.notif-it:hover{background:var(--hover)}
+.notif-it.new{background:var(--acc-soft)}
+.notif-ico{color:var(--acc); flex:none; padding-top:2px}
+.notif-tx{display:flex; flex-direction:column; gap:2px; font-size:13px; min-width:0}
+.notif-tx small{color:var(--faint); font-size:11.5px}
+.notif-empty{padding:18px 10px; color:var(--mut); font-size:13px; text-align:center}
+.tb-now{display:inline-flex; align-items:center; gap:10px; max-width:300px; height:38px; padding:0 12px 0 10px; border:1px solid var(--line2); border-radius:999px; background:var(--bg2); min-height:0; text-align:left}
+.tb-now:hover{border-color:var(--acc)}
+.np-tx{display:flex; flex-direction:column; min-width:0; line-height:1.15}
+.np-tx b{font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px}
+.np-tx small{font-size:10.5px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px}
+.np-eq{display:flex; align-items:flex-end; gap:2px; height:14px; flex:none}
+.np-eq i{width:3px; background:var(--acc2); border-radius:1px; animation:npeq 1s ease-in-out infinite}
+.np-eq i:nth-child(2){animation-delay:-.35s}
+.np-eq i:nth-child(3){animation-delay:-.7s}
+.np-eq.paused i{animation:none; height:4px}
+@keyframes npeq{0%,100%{height:4px}50%{height:14px}}
+@media (max-width:900px){.tb-now .np-tx{display:none} .tb-now{padding:0 10px}}
+.sb-clear{min-height:30px!important; width:30px; padding:0!important; display:flex; align-items:center; justify-content:center; background:none; border:0; color:var(--faint); border-radius:8px}
+.sb-clear:hover{color:var(--fg); background:var(--hover)}
+.sb-clear.hidden{display:none}
+.st-card{display:flex; align-items:center; gap:14px; max-width:880px; margin:14px 0 6px; padding:10px 14px 10px 10px; border:1px solid var(--line2); border-radius:var(--r-lg); background:linear-gradient(110deg,var(--acc-soft),var(--bg2) 55%); cursor:pointer; animation:pop .18s ease}
+.st-card:hover{border-color:var(--acc)}
+.st-poster{width:54px; height:80px; flex:none; border-radius:8px; overflow:hidden; background:var(--bg3); display:flex; align-items:center; justify-content:center; color:var(--faint)}
+.st-poster img{width:100%; height:100%; object-fit:cover}
+.st-info{flex:1; min-width:0}
+.st-k{font-size:11.5px; color:var(--acc); text-transform:uppercase; letter-spacing:.05em}
+.st-t{font-size:17px; font-weight:650}
+.st-o{font-size:12.5px; color:var(--mut); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+@media (max-width:640px){.st-o{display:none}}
+.mv-relfav{flex:none; color:var(--faint)}
+.mv-relfav.on{color:var(--pink)}
+#searchInput::-webkit-calendar-picker-indicator{display:none!important}
+.mu-ctl .iconbtn .ico{display:block}

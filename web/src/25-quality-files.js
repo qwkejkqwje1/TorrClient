@@ -107,9 +107,23 @@ function playVerdict(j) {
    без сидов (в библиотеке это снимок, а не свойство раздачи). */
 function libQuality(t) {
   const title = (t && (t.title || t.name)) || '';
-  const q = rateRelease({ title, size_bytes: t && t.torrent_size });
+  /* У аниме и многосерийных мультфильмов название раздачи часто без
+     пометок: «Наруто [1-220 из 220]». Разрешение и источник там стоят в
+     именах файлов — «[SubsPlease] Frieren - 01 (1080p).mkv». Без них оценка
+     не показывалась вовсе. Имя торрента (name) и первый видеофайл дописываются
+     к названию, а размер берётся на серию: 80 ГБ на сезон в 1080p — норма,
+     а не «очень большой». */
+  const files = ((t && t.file_stats) || []).filter(f => isVideo(f.path));
+  const extra = [];
+  if (t && t.name && t.name !== title) extra.push(t.name);
+  if (files.length) extra.push(basename(files[0].path).replace(/[._]+/g, ' '));
+  const probe = rateRelease({ title });
+  const full = probe.res && probe.source ? title : [title].concat(extra).join(' ');
+  const per = files.length > 1 && t.torrent_size ? t.torrent_size / files.length : t && t.torrent_size;
+  const q = rateRelease({ title: full, size_bytes: per });
   const bits = [q.source, q.codec, q.hdr, q.audio].filter(Boolean);
-  return { q, line: bits.join(' · '), tip: rateTip(q) };
+  if (files.length > 1) bits.push(files.length + ' ' + plural(files.length, 'файл', 'файла', 'файлов'));
+  return { q, line: bits.join(' · '), tip: rateTip(q) + (full !== title ? ' · учтены имена файлов' : '') };
 }
 
 function qTag(name) {
