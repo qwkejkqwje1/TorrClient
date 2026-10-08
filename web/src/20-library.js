@@ -408,6 +408,7 @@ function tile(t) {
   const loaded = t.torrent_size ? (t.bytes_read || 0) / t.torrent_size : 0;
   const sp = seriesProgress(t);
   const q = qTag(t.title || t.name || '');
+  const lq = libQuality(t);
   const ser = isSeries(t.title || t.name || '');
   // Многосерийная раздача без пометок в названии (часто у аниме и мультиков)
   // — тоже сериал для подписки.
@@ -444,8 +445,9 @@ function tile(t) {
       ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
-        ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
+        ${raw(lq.q.res ? html`<span class="chip ${q}">${lq.q.res}</span>` : '')}
         ${raw(ser ? html`<span class="chip series">${seriesTag(t.title || t.name || '')}</span>` : '')}
+        ${raw(lq.q.res || lq.q.source ? html`<span class="chip rq rq-${lq.q.tier}" title="${lq.tip}">${lq.q.score}${lq.q.ru ? ' · RU' : ''}</span>` : '')}
         <span class="statusdot ${scls}" title="${st || 'статус'}"></span>
       </div>
       <div class="rate-stack">
@@ -459,6 +461,7 @@ function tile(t) {
     </div>
     <div class="body">
       <div class="title-row"><span class="title clamp2${ser ? ' clickable' : ''}" data-act="titled" title="${t.title || t.name || ''}">${title}</span></div>
+      ${raw(lq.line ? html`<div class="qline" title="${lq.tip}">${lq.line}</div>` : '')}
       ${raw(pg)}
       ${raw(pgNote)}
       <div class="metabar">
@@ -467,6 +470,7 @@ function tile(t) {
       <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
+      <button data-act="card">Карточка фильма</button>
       <button data-act="info">Инфо о раздаче</button>
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>

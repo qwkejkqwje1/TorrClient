@@ -58,6 +58,32 @@ function toast(msg, isErr) {
   $('#toast').appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }
+/* toastUndo — уведомление с кнопкой «Вернуть» вместо окна подтверждения.
+   Действие уже выполнено (или отложено): пока уведомление на экране, его можно
+   отменить. По истечении времени вызывается onExpire — там можно довести дело до
+   конца (например, действительно удалить с сервера). */
+function toastUndo(msg, onUndo, onExpire, ms) {
+  const el = document.createElement('div');
+  el.className = 'undo';
+  const span = document.createElement('span'); span.textContent = msg;
+  const b = document.createElement('button'); b.textContent = 'Вернуть'; b.className = 'undo-btn';
+  el.append(span, b);
+  $('#toast').appendChild(el);
+  let done = false;
+  const flush = () => finish(false);
+  const finish = undo => {
+    if (done) return; done = true; clearTimeout(timer); el.remove(); pendingUndo.delete(flush);
+    if (undo) { try { onUndo && onUndo(); } catch (e) { toast('Не удалось вернуть: ' + e.message, true); } }
+    else if (onExpire) { try { onExpire(); } catch {} }
+  };
+  const timer = setTimeout(() => finish(false), ms || 7000);
+  b.addEventListener('click', () => finish(true));
+  pendingUndo.add(flush);
+  return el;
+}
+/* Окно закрывают — отложенное доводится до конца, а не теряется. */
+const pendingUndo = new Set();
+window.addEventListener('pagehide', () => { pendingUndo.forEach(f => f()); });
 // ── Этап 6: тема, горячие клавиши, скелетоны ──
 // Темы — только наборы цветов (переменные CSS), переключение мгновенное.
 // sw — образец для выбора в настройках: фон, панель, акцент, второй акцент.
@@ -249,6 +275,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['2.1.0', ['Карточка фильма: постер, описание, сезоны и серии с отметками просмотра, все раздачи с оценкой качества и числом раздающих, «Смотреть» и «Следить». Открывается с любой карточки названия и с раздач поиска, кроме ТОПа за 24 часа', 'Лучшая раздача считается по качеству, русской дорожке, раздающим и размеру; для сериала выберите сезон — лишние раздачи уйдут', 'Поиск показывает раздачи по мере ответа каждого источника, а зависший отрезается через 12 секунд', 'Главная настраивается: включить, выключить и переставить ряды, свои ряды (подборка TMDB, ТОП раздела, поиск — например «Новинки аниме»), ряд «Детское»; приветствие убрано', 'Любой раздел можно сделать стартовым: правый клик по нему в панели или «Настроить» на Главной', 'Кнопки мыши «назад» и «вперёд» ходят по разделам и карточкам', 'Удаление без окна подтверждения: «Удалено · Вернуть»', 'В библиотеке у раздач — оценка качества и источник/кодек/звук', 'Исправлена кнопка «Смотреть» на постере (вместо значка был синий круг); сердечки — по центру сверху']],
   ['2.0.0', ['Новый облик: спокойная графитовая тема по умолчанию, крупные постеры, единые карточки, кнопки и окна во всех разделах; все восемь тем перерисованы', 'Разделы теперь в боковой панели тремя группами — основное, «Моё» и «Система»; панель сворачивается до значков (клавиша [ ). На телефоне — полоса вкладок внизу и лист «Ещё»', '«Главная» — новый стартовый раздел: продолжить просмотр крупными карточками, новые серии по подпискам, избранное, «Сейчас смотрят» и недавно добавленное — всё на одном экране', 'Палитра команд Ctrl+K: любой раздел, действие, тема, раздача из библиотеки или избранного — по нескольким буквам; Enter ищет набранное на трекерах, вторая строка — лучшая раздача', 'Поиск: большое поле, фильтры одной строкой, подборки (ТОП-24, Популярное, Для вас, Сейчас смотрят) отдельными кнопками', 'Кнопка «Добавить» всегда в шапке, а не только в Библиотеке и Поиске']],
   ['1.20.0', ['♥ «Сейчас смотрят» и «Для вас»: сердечко на карточке добавляет название в избранное — оттуда одним нажатием подбирается лучшая раздача', 'Больше нет привязки к одному источнику: ТОП за 24 часа собирается из rutor и индексаторов (JacRed, Jackett, Prowlarr) разом, а без ключа TMDB — из ленты свежих раздач индексатора', '«Популярное» при недоступном rutor строится через индексаторы', 'Настройки → «Источники поиска»: rutor можно выключить совсем; по умолчанию поиск идёт по всем источникам', 'Удаление из «Избранного» снова работает']],
   ['1.19.0', ['📲 Отправить на устройство: продолжить просмотр с того же места на телефоне, планшете, другом компьютере с открытым TorrClient или на телевизоре с DLNA в той же сети (меню плитки и кнопка в панели показа)', '⏾ Таймер сна в шапке: через 15–120 минут или после текущей серии — остановить плеер, усыпить или выключить компьютер; предупреждение за минуту с «Отложить»', 'Поиск по настройкам: несколько слов в любом порядке, синонимы, подсветка найденного, Enter — к первому, Ctrl+F или «/»', 'ТОП за 24 часа без ограничения в 24 раздачи: свежие раздачи всех категорий rutor; если rutor не отвечает — ТОП собирается через индексаторы по трендам TMDB', 'Учёт просмотра при плейлисте VLC: серия определяется по текущему элементу плейлиста, позиции следующих серий больше не пишутся на первую', '«Сейчас смотрят»: в жанрах появились Аниме, Мультфильмы и Аниме-фильмы', 'Кинозал: вход по логину и паролю в настройках, проверка файла, а если .torrent не скачивается — та же раздача ищется на rutor и в индексаторах', 'Подписки на сериалы: поиск по rutor и индексаторам, понятная запись аниме и мультиков («[1-12 из 24]», «TV-2», «эпизоды»), чистый запрос вместо названия раздачи со скобками, проверка сразу после подписки, дата следующей серии по TMDB, системные уведомления', 'Обновление TorrServer MatriX в разделе «Сервер»: версия, скачивание с GitHub и перезапуск одной кнопкой', 'Библиотека после запуска больше не остаётся пустой: пока TorrServer поднимается, список запрашивается повторно сам']],
@@ -344,6 +371,13 @@ function streamBase(fname) { return fname ? `/stream/${encodeURIComponent(fname)
   renderTopbar();
   hookNav();
   hookGlobal();
+  // Первая страница: при перезагрузке — та, что в истории (с параметрами), иначе
+  // стартовая, которую выбрал пользователь.
+  const hs = history.state;
+  if (hs && hs.v) { state.view = hs.v; state.params = hs.p || null; }
+  else { state.view = startView(); state.params = null; try { history.replaceState({ v: state.view, p: null }, '', '#/' + state.view); } catch {} }
+  markNav();
+  $$('#nav [data-view]').forEach(b => b.classList.toggle('is-start', b.dataset.view === (localStorage.getItem(START_KEY) || 'home')));
   route();
   pollDownloads();
   /* Живая лента вместо опроса: демон сам сообщает об изменениях. Опрос оставлен
@@ -397,6 +431,8 @@ const ICONS = {
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  edit: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M13.5 8.5l3 3"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
   film: '<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8.5h4.5M3 15.5h4.5M16.5 8.5H21M16.5 15.5H21"/>',
 };
 function ico(name, size) {
@@ -542,7 +578,7 @@ function palItems(q) {
     const lib = (state.lib || []).map(t => ({ t, sc: palScore(t.title || t.name || '', words) })).filter(x => x.sc).sort((a, b) => b.sc - a.sc).slice(0, 6);
     lib.forEach(({ t, sc }) => out.push({ group: 'Библиотека', label: t.title || t.name || t.hash, icon: 'play', run: () => watchNow(t), sc: sc + 0.5, poster: t.poster }));
     const fav = favList().map(f => ({ f, sc: palScore(f.title || '', words) })).filter(x => x.sc).slice(0, 4);
-    fav.forEach(({ f, sc }) => out.push({ group: 'Избранное', label: f.title || 'магнит', icon: 'heart', run: () => (isTitleFav(f) ? findBest(f.title, f.year ? +String(f.year).slice(0, 4) : 0) : playSearchLink(f)), sc, poster: f.poster }));
+    fav.forEach(({ f, sc }) => out.push({ group: 'Избранное', label: f.title || 'магнит', icon: 'heart', run: () => (isTitleFav(f) ? openMovie({ title: f.title, year: f.year, kind: f.kind, tmdb: f.tmdb, poster: f.poster }) : playSearchLink(f)), sc, poster: f.poster }));
   }
   const order = ['Поиск', 'Библиотека', 'Избранное', 'Разделы', 'Действия', 'Темы'];
   if (!words.length) return out.filter(x => x.group !== 'Поиск');
@@ -839,14 +875,56 @@ function imdbUrlFor(r) {
   return 'https://www.imdb.com/find/?q=' + encodeURIComponent(c.q || '');
 }
 
-function setView(v) {
+/* ---------- переходы и история ----------
+   Каждый переход — запись в истории браузера, поэтому «назад» и «вперёд» работают
+   и кнопками мыши (боковые), и Alt+←/→, и жестом на телефоне. Параметры страницы
+   (например, какой фильм открыт) лежат в записи истории — так они переживают и
+   возврат, и перезагрузку. */
+function sameParams(a, b) { return JSON.stringify(a || null) === JSON.stringify(b || null); }
+function setView(v, params, opts) {
+  const same = state.view === v && sameParams(state.params, params);
   state.view = v;
+  state.params = params || null;
   try { localStorage.setItem(LS.view, v); } catch {}
+  if (!(opts && opts.noPush)) {
+    try {
+      const rec = { v, p: state.params };
+      if (same) history.replaceState(rec, '', '#/' + v);
+      else history.pushState(rec, '', '#/' + v);
+    } catch {}
+  }
   markNav();
   closeSheet();
   route();
   // Новый раздел открывается с начала, а не с прокрутки прошлого.
   try { window.scrollTo(0, 0); } catch {}
+}
+window.addEventListener('popstate', e => {
+  const st = e.state;
+  if (!st || !st.v) return;
+  setView(st.v, st.p, { noPush: true });
+});
+/* Боковые кнопки мыши: в браузере они ходят по истории сами, но в окне
+   приложения (WebView) — не всегда, поэтому ход делаем сами и гасим
+   штатный, чтобы не получить двойной шаг. */
+['mousedown', 'auxclick'].forEach(ev => window.addEventListener(ev, e => { if (e.button === 3 || e.button === 4) e.preventDefault(); }, true));
+window.addEventListener('mouseup', e => {
+  if (e.button !== 3 && e.button !== 4) return;
+  e.preventDefault();
+  if (e.button === 3) history.back(); else history.forward();
+}, true);
+/* Стартовая страница: любой раздел или «последний открытый». */
+const START_KEY = 'tc_start';
+function startView() {
+  let s = ''; try { s = localStorage.getItem(START_KEY) || ''; } catch {}
+  if (s === 'last') { let l = ''; try { l = localStorage.getItem(LS.view) || ''; } catch {} if (l && l !== 'movie' && NAV_ITEMS.some(x => x[0] === l)) return l; return 'home'; }
+  return NAV_ITEMS.some(x => x[0] === s) ? s : 'home';
+}
+function setStartView(v) {
+  try { localStorage.setItem(START_KEY, v); } catch {}
+  const it = NAV_ITEMS.find(x => x[0] === v);
+  toast(v === 'last' ? 'Приложение будет открываться на последнем разделе' : 'Стартовая страница: «' + (it ? it[1] : v) + '»');
+  $$('[data-view]').forEach(b => { if (b.closest('#nav')) b.classList.toggle('is-start', b.dataset.view === v); });
 }
 function route() {
   const v = state.view;
@@ -854,7 +932,7 @@ function route() {
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
   $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
-  const pages = { home: renderHome, library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
+  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderHome;
   const main = $('main'); main.innerHTML = '';
   main.dataset.view = v;
@@ -868,6 +946,8 @@ function hookNav() {
   applySideCollapsed();
   markNav();
   $$('#nav [data-view], #tabbar [data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.ctxmenu').forEach(m => m.classList.add('hidden')); setView(b.dataset.view); }));
+  // Правый клик по разделу в панели — сделать его стартовым.
+  $$('#nav [data-view]').forEach(b => b.addEventListener('contextmenu', e => { e.preventDefault(); setStartView(b.dataset.view); }));
   const sc = $('#sideCollapse'); if (sc) sc.addEventListener('click', toggleSide);
   const om = $('#omni'); if (om) om.addEventListener('click', () => openPalette());
   const ad = $('#addBtn'); if (ad) ad.addEventListener('click', () => openAddModal());
@@ -956,7 +1036,7 @@ async function listTorrents() {
   // TorrServer поднимается не сразу, и пустой список прежде оставался на
   // экране до ручного обновления.
   if (!Array.isArray(arr)) throw new Error('TorrServer не отвечает');
-  return arr;
+  return pendingDrop.size ? arr.filter(t => !pendingDrop.has(t.hash)) : arr;
 }
 async function statTorrent(hash) {
   const r = await fetch(ts('/stream?link=' + encodeURIComponent(hash) + '&stat'));
@@ -1067,25 +1147,48 @@ function sleepEvent(d) {
   }
   sleepState = { active: false }; paintSleep();
 }
-
 /* ================= ГЛАВНАЯ =================
-   Стартовый экран 2.0: всё, с чего обычно начинается вечер, — на одном
-   экране и без поиска по разделам. Полосы появляются только тогда, когда им
-   есть что показать: пустая полоса места не занимает. */
-const homeState = { trend: null, trendAt: 0, trendErr: '', trendBusy: false };
-
-function greeting() {
-  const h = new Date().getHours();
-  return h >= 5 && h < 12 ? 'Доброе утро' : h >= 12 && h < 17 ? 'Добрый день' : h >= 17 && h < 23 ? 'Добрый вечер' : 'Доброй ночи';
+   Стартовый экран собирается из рядов, и состав ряда задаёт пользователь:
+   включить, выключить, поменять порядок, добавить свой. Встроенные ряды —
+   поиск, «Продолжить», новые серии, избранное, «Сейчас смотрят», «Детское»,
+   «Недавно добавлено». Свои — подборка TMDB, ТОП раздела трекера или поиск по
+   трекерам (например, «новинки аниме» или «мультфильмы Full HD»).
+   Пустой ряд места не занимает. */
+const homeState = { feeds: {}, trendErr: '' };
+const HOME_KEY = 'tc_home';
+const HOME_BUILTIN = [
+  { id: 'search', title: 'Поиск и подборки', on: true },
+  { id: 'cont', title: 'Продолжить просмотр', on: true },
+  { id: 'new', title: 'Новые серии по подпискам', on: true },
+  { id: 'fav', title: 'Избранное', on: true },
+  { id: 'trend', title: 'Сейчас смотрят', on: true },
+  { id: 'kids', title: 'Детское', on: true },
+  { id: 'recent', title: 'Недавно добавлено', on: true },
+];
+function homeConfig() {
+  let saved = [];
+  try { const a = JSON.parse(localStorage.getItem(HOME_KEY) || '[]'); if (Array.isArray(a)) saved = a; } catch {}
+  const out = [];
+  const seen = new Set();
+  for (const x of saved) {
+    if (!x || !x.id || seen.has(x.id)) continue;
+    const b = HOME_BUILTIN.find(y => y.id === x.id);
+    if (b) { out.push({ id: b.id, title: b.title, on: x.on !== false }); seen.add(x.id); }
+    else if (x.custom) { out.push(Object.assign({}, x, { on: x.on !== false })); seen.add(x.id); }
+  }
+  // Встроенный ряд, которого нет в сохранённом, — новый в этой версии: в конец.
+  for (const b of HOME_BUILTIN) if (!seen.has(b.id)) out.push(Object.assign({}, b));
+  return out;
 }
+function saveHomeConfig(list) {
+  try { localStorage.setItem(HOME_KEY, JSON.stringify(list.map(x => x.custom ? x : { id: x.id, on: x.on !== false }))); } catch {}
+}
+const railDomId = id => 'rail-' + id;
 
 async function renderHome(root) {
-  root.innerHTML = html`
-    <section class="home-hero">
-      <div class="hh-txt">
-        <h1 class="hh-hello">${greeting()}</h1>
-        <div class="hh-sum" id="homeSum">Собираю, что у вас есть…</div>
-      </div>
+  const cfg = homeConfig();
+  const parts = cfg.filter(x => x.on).map(x => x.id === 'search'
+    ? html`<section class="home-hero">
       <form class="hh-search" id="homeSearch" autocomplete="off">
         <span class="hh-ico">${raw(ico('search', 20))}</span>
         <input id="homeQ" placeholder="Что посмотрим? Название фильма или сериала" aria-label="Название для поиска">
@@ -1098,20 +1201,22 @@ async function renderHome(root) {
         <button data-home="trend">${raw(ico('clock', 16))}Сейчас смотрят</button>
         <button data-home="rec">${raw(ico('sparkles', 16))}Для вас</button>
       </div>
-    </section>
-    <section class="rail hidden" id="railCont"></section>
-    <section class="rail hidden" id="railNew"></section>
-    <section class="rail hidden" id="railFav"></section>
-    <section class="rail hidden" id="railTrend"></section>
-    <section class="rail hidden" id="railRecent"></section>
+    </section>`
+    : html`<section class="rail hidden" id="${railDomId(x.id)}" data-rail="${x.id}"></section>`);
+  root.innerHTML = html`<div class="home-bar"><span class="hb-sum" id="homeSum">Собираю, что у вас есть…</span><span class="spacer"></span>
+      <button class="ghost" id="homeCfg" title="Включить, выключить и переставить ряды, добавить свои">${raw(ico('sliders', 16))}Настроить</button></div>
+    ${raw(parts.join(''))}
     <div id="homeEmpty"></div>`;
 
   const q = $('#homeQ');
-  $('#homeSearch').addEventListener('submit', e => { e.preventDefault(); const v = q.value.trim(); if (v) searchFor(v); else q.focus(); });
-  $('#homeBest').addEventListener('click', () => { const v = q.value.trim(); if (!v) { q.focus(); toast('Введите название'); return; } pushSearchHistory(v); findBest(v, 0); });
-  $$('[data-home]', root).forEach(b => b.addEventListener('click', () => homeGo(b.dataset.home)));
-  root.addEventListener('click', onHomeClick);
-  bindRailScroll(root);
+  const hs = $('#homeSearch');
+  if (hs) {
+    hs.addEventListener('submit', e => { e.preventDefault(); const v = q.value.trim(); if (v) searchFor(v); else q.focus(); });
+    $('#homeBest').addEventListener('click', () => { const v = q.value.trim(); if (!v) { q.focus(); toast('Введите название'); return; } pushSearchHistory(v); findBest(v, 0); });
+    $$('[data-home]', root).forEach(b => b.addEventListener('click', () => homeGo(b.dataset.home)));
+  }
+  $('#homeCfg').addEventListener('click', openHomeEditor);
+  if (!root._homeBound) { root._homeBound = true; root.addEventListener('click', e => { if (state.view === 'home') onHomeClick(e); }); bindRailScroll(root); }
 
   paintHome();
   const jobs = [];
@@ -1121,7 +1226,7 @@ async function renderHome(root) {
   await Promise.all(jobs);
   if (state.view !== 'home') return;
   paintHome();
-  loadTrend().then(() => { if (state.view === 'home') paintTrend(); });
+  loadHomeFeeds();
 }
 
 /* homeGo — подборки из шапки Главной открываются в Поиске, как и прежде. */
@@ -1136,6 +1241,8 @@ function homeGo(what) {
 
 function paintHome() {
   if (state.view !== 'home') return;
+  const cfg = homeConfig().filter(x => x.on);
+  const on = id => cfg.some(x => x.id === id);
   const cont = continueItems();
   const newSubs = (state.subs || []).filter(s => Number(s.new_count) > 0);
   const favs = favList().slice().reverse();
@@ -1148,22 +1255,143 @@ function paintHome() {
   if (nn) sum.push(nn + ' ' + plural(nn, 'новая серия', 'новые серии', 'новых серий'));
   const s = $('#homeSum'); if (s) s.textContent = state.libError && !n ? 'TorrServer ещё не ответил — библиотека появится, как только он поднимется' : sum.join(' · ');
 
-  paintRail('railCont', 'Продолжить просмотр', cont.length, cont.slice(0, 16).map(contBig).join(''), 'library', 'Библиотека', 'cw');
-  paintRail('railNew', 'Новые серии по подпискам', newSubs.length, newSubs.map(newSubCard).join(''), 'subs', 'Все подписки', 'ns');
-  paintRail('railFav', 'Избранное', favs.length, favs.slice(0, 18).map((f, i) => favMini(f, favs.length - 1 - i)).join(''), 'favorites', 'Всё избранное', 'pc');
-  paintRail('railRecent', 'Недавно добавлено', recent.length, recent.map(recentMini).join(''), 'library', 'Вся библиотека', 'pc');
-  paintTrend();
+  if (on('cont')) paintRail(railDomId('cont'), 'Продолжить просмотр', cont.length, cont.slice(0, 16).map(contBig).join(''), 'library', 'Библиотека', 'cw');
+  if (on('new')) paintRail(railDomId('new'), 'Новые серии по подпискам', newSubs.length, newSubs.map(newSubCard).join(''), 'subs', 'Все подписки', 'ns');
+  if (on('fav')) paintRail(railDomId('fav'), 'Избранное', favs.length, favs.slice(0, 18).map((f, i) => favMini(f, favs.length - 1 - i)).join(''), 'favorites', 'Всё избранное', 'pc');
+  if (on('recent')) paintRail(railDomId('recent'), 'Недавно добавлено', recent.length, recent.map(recentMini).join(''), 'library', 'Вся библиотека', 'pc');
+  cfg.forEach(x => { if (x.id === 'trend' || x.id === 'kids' || x.custom) paintFeed(x); });
 
   const empty = $('#homeEmpty');
   if (empty) {
     const nothing = !n && !favs.length && !cont.length;
-    empty.innerHTML = nothing ? html`<div class="home-empty">
+    empty.innerHTML = !cfg.length ? html`<div class="home-empty"><div class="he-art">${raw(ico('sliders', 34))}</div><h2>Все ряды выключены</h2>
+      <p>Включите нужные в настройке Главной.</p><div class="row" style="justify-content:center"><button class="primary" data-home-cfg>Настроить</button></div></div>`
+      : nothing && on('search') ? html`<div class="home-empty">
       <div class="he-art">${raw(ico('film', 34))}</div>
       <h2>С чего начать</h2>
       <p>Найдите фильм в строке выше — TorrClient опросит трекеры и предложит лучшую раздачу. Или перетащите магнит либо .torrent прямо в окно.</p>
       <div class="row" style="justify-content:center"><button class="primary" data-home-add>${raw(ico('plus', 16))} Добавить торрент</button><button data-home="top2">${raw(ico('flame', 16))} Что свежего</button></div>
     </div>` : '';
   }
+}
+
+/* ---------- ряды из внешних источников ----------
+   Каждый ряд — «ленты»: список карточек, который грузится сам и помнится
+   полчаса (Главную открывают часто, а подборки меняются медленно). У ленты
+   TMDB карточки — названия, у трекерной — раздачи. */
+const FEED_TTL = 30 * 60000;
+const DISC_FEEDS = {
+  trending: ['Сейчас смотрят', 'trending'],
+  trend_anime: ['Аниме сейчас', 'trend_anime'],
+  trend_cartoon: ['Мультфильмы сейчас', 'trend_cartoon'],
+  anime: ['Аниме — лучшее', 'anime'],
+  cartoon: ['Мультфильмы — лучшее', 'cartoon'],
+  doc: ['Документальное', 'doc'],
+  genre: ['По жанру', ''],
+};
+// Запросы к TMDB для готового ряда: [вид, cat, жанр, происхождение].
+function feedQueries(def) {
+  if (def.id === 'trend') return [['movie', 'trending', '', 'any'], ['tv', 'trending', '', 'any']];
+  if (def.id === 'kids') return [['movie', 'trend_cartoon', '', 'any'], ['tv', 'trend_cartoon', '', 'any'], ['movie', '', '10751', 'any']];
+  const f = DISC_FEEDS[def.feed] || DISC_FEEDS.trending;
+  const kinds = def.kind === 'movie' ? ['movie'] : def.kind === 'tv' ? ['tv'] : ['movie', 'tv'];
+  return kinds.map(k => [k, f[1], def.feed === 'genre' ? String(def.genre || '') : '', def.origin || 'any']);
+}
+async function loadFeed(def) {
+  const st = homeState.feeds[def.id] || (homeState.feeds[def.id] = { items: null, at: 0, err: '', busy: false });
+  if (st.busy || (st.items && Date.now() - st.at < FEED_TTL)) return;
+  st.busy = true;
+  try {
+    if (def.source === 'tracker' || def.source === 'search') st.items = await loadTrackerFeed(def);
+    else {
+      const res = await Promise.all(feedQueries(def).map(([k, cat, genre, origin]) =>
+        apiGetJSON('/api/discover?kind=' + k + '&cat=' + cat + '&origin=' + origin + (genre ? '&genre=' + genre : '') + '&page=1').catch(e => ({ ok: false, error: e.message }))));
+      const lists = res.map(r => (r && r.ok && r.items) || []);
+      const items = [], seen = new Set();
+      for (let i = 0; i < Math.max(0, ...lists.map(l => l.length)); i++) {
+        for (const l of lists) { const it = l[i]; if (it && !seen.has(it.kind + ':' + it.id)) { seen.add(it.kind + ':' + it.id); items.push(it); } }
+      }
+      st.items = items.slice(0, 24);
+      st.err = items.length ? '' : ((res.find(r => r && r.error) || {}).error || 'пустой ответ');
+      if (st.err) noteMetaError(st.err);
+    }
+    st.at = Date.now();
+  } catch (e) { st.err = e.message; st.items = st.items || []; }
+  finally { st.busy = false; }
+}
+// Раздачи с трекера: ТОП раздела (свежее, по сидам) или поиск по запросу.
+async function loadTrackerFeed(def) {
+  const cat = CATS.find(c => c.v === (def.cat || '')) || CATS[0];
+  let rows = [];
+  if (def.source === 'tracker') {
+    const j = await apiGetJSON('/api/topcat?cat=' + encodeURIComponent(cat.top || ''));
+    if (!j || !j.ok) throw new Error((j && j.error) || 'пустой ответ');
+    rows = (j.items || []).map(r => row2res(r, 'topcat')).filter(Boolean);
+  } else {
+    const q = String(def.query || '').trim();
+    if (!q) return [];
+    rows = await withTimeout(searchRutor(q, 0, cat.rutor), SEARCH_TIMEOUT, 'rutor не ответил');
+  }
+  if (def.hd) rows = rows.filter(r => isFullHD(r.title || r.name || ''));
+  // Экранки и совсем пустые раздачи в ряд не попадают; остальные — по пригодности для просмотра.
+  rows = rows.filter(r => videoLike(r.title || r.name || '') && !rateRelease(r).bad);
+  rows.sort((a, b) => bestScore(b, rateRelease(b)) - bestScore(a, rateRelease(a)));
+  // Одно кино в разном качестве — одна карточка: берём лучшую раздачу.
+  const byTitle = new Map();
+  for (const r of rows) {
+    const c = cleanSearchTitle(r.title || r.name || '');
+    if (!c.q) continue;
+    const k = bestNorm(c.q) + '|' + c.year + (isSeries(r.title) ? '|' + seasonOf(r.title) : '');
+    if (!byTitle.has(k)) byTitle.set(k, Object.assign({ _c: c }, r));
+  }
+  return [...byTitle.values()].slice(0, 24);
+}
+function videoLike(title) { return !nonVideoKind(title); }
+function loadHomeFeeds() {
+  homeConfig().filter(x => x.on && (x.id === 'trend' || x.id === 'kids' || x.custom)).forEach(def => {
+    loadFeed(def).then(() => { if (state.view === 'home') paintFeed(def); });
+  });
+}
+function relMini(r, i, feed) {
+  const c = r._c || cleanSearchTitle(r.title || r.name || '');
+  const q = rateRelease(r);
+  const sub = [c.year, isSeries(r.title) ? seriesTag(r.title).replace('Сериал · ', '') || 'Сериал' : '', r.seed != null ? '⬆ ' + r.seed : ''].filter(Boolean).join(' · ');
+  return html`<div class="pcard" data-trend="${feed}:${i}" data-rel-title="${c.q}|${c.year}" tabindex="0" role="button" title="${r.title || ''}">
+    <div class="pc-poster"><span class="pc-ph">${raw(ico('film', 28))}</span><span class="pc-play">${raw(ico('star', 22))}</span>
+      <span class="chip rq rq-${q.tier} pc-tag">${q.res || q.source || q.score}</span>
+      ${raw(isSeries(r.title) ? html`<span class="chip series pc-tag2">Сериал</span>` : '')}</div>
+    <div class="pc-title">${c.q || r.title}</div>
+    <div class="pc-sub">${sub}</div>
+  </div>`;
+}
+function paintFeed(def) {
+  const el = $('#' + railDomId(def.id)); if (!el) return;
+  const st = homeState.feeds[def.id];
+  const items = (st && st.items) || [];
+  const title = def.title || (HOME_BUILTIN.find(x => x.id === def.id) || {}).title || 'Ряд';
+  if (items.length) {
+    const body = items.map((it, i) => it.id && it.kind ? trendMini(it, i, def.id) : relMini(it, i, def.id)).join('');
+    paintRail(railDomId(def.id), title, items.length, body, '', '', 'pc');
+    if (!(items[0].id && items[0].kind)) loadRelPosters(el, items);
+    return;
+  }
+  // Подсказка про ключ TMDB — только в «Сейчас смотрят»: остальные ряды молчат.
+  if (def.id === 'trend' && st && st.err && metaErrText(st.err)) {
+    el.classList.remove('hidden');
+    el.innerHTML = html`<div class="rail-h"><h2>${title}</h2></div><div class="note-card">${raw(ico('info', 18))}<div><b>Нужен ключ TMDB</b><div class="page-sub">${metaErrText(st.err)}</div></div><button data-go="settings">Настройки</button></div>`;
+    return;
+  }
+  el.classList.add('hidden');
+}
+/* Постеры к карточкам-раздачам: по названию, через тот же кэш, что и в поиске. */
+async function loadRelPosters(el, items) {
+  const tasks = items.map((r, i) => ({ c: r._c || cleanSearchTitle(r.title || ''), i })).filter(t => t.c.q);
+  await ratingsByTitle(tasks, (j, task) => {
+    if (!j || !j.ok || !j.poster) return;
+    const card = el.querySelector('[data-rel-title="' + CSS.escape(task.c.q + '|' + task.c.year) + '"] .pc-poster');
+    if (card && !card.querySelector('img')) { card.insertAdjacentHTML('afterbegin', posterImg(j.poster)); }
+    if (items[task.i]) items[task.i].poster = j.poster;
+  });
 }
 
 function paintRail(id, title, count, body, goView, goLabel, kind) {
@@ -1243,8 +1471,8 @@ function recentMini(t) {
     <div class="pc-sub">${[c.year, t.torrent_size ? fmtSize(t.torrent_size) : '', fmtDate(t.timestamp)].filter(Boolean).join(' · ')}</div>
   </div>`;
 }
-function trendMini(it, i) {
-  return html`<div class="pcard disc-card" data-trend="${i}" tabindex="0" role="button" title="${it.title}">
+function trendMini(it, i, feed) {
+  return html`<div class="pcard disc-card" data-trend="${feed}:${i}" tabindex="0" role="button" title="${it.title}">
     <div class="pc-poster disc-poster">${raw(posterImg(it.poster))}<span class="pc-ph">${raw(ico('film', 28))}</span><span class="pc-play">${raw(ico('star', 22))}</span>${raw(discFavHtml(it))}
       ${raw(it.rating ? html`<span class="chip rating pc-rate">${Number(it.rating).toFixed(1)}</span>` : '')}</div>
     <div class="pc-title">${it.title}</div>
@@ -1252,31 +1480,119 @@ function trendMini(it, i) {
   </div>`;
 }
 
-/* «Сейчас смотрят»: тренды TMDB за неделю — фильмы и сериалы вперемешку.
-   Ответ помнится полчаса: Главную открывают часто, а тренды меняются медленно. */
-async function loadTrend() {
-  if (homeState.trendBusy || (homeState.trend && Date.now() - homeState.trendAt < 30 * 60000)) return;
-  homeState.trendBusy = true;
-  try {
-    const [m, t] = await Promise.all(['movie', 'tv'].map(k => apiGetJSON('/api/discover?kind=' + k + '&cat=trending&origin=any&page=1').catch(e => ({ ok: false, error: e.message }))));
-    const items = [];
-    const a = (m && m.ok && m.items) || [], b = (t && t.ok && t.items) || [];
-    for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) items.push(a[i]); if (b[i]) items.push(b[i]); }
-    homeState.trend = items.slice(0, 24); homeState.trendAt = Date.now();
-    homeState.trendErr = items.length ? '' : ((m && m.error) || (t && t.error) || 'пустой ответ');
-    if (homeState.trendErr) noteMetaError(homeState.trendErr);
-  } finally { homeState.trendBusy = false; }
+/* ---------- настройка Главной ---------- */
+function homeDefLabel(x) {
+  if (!x.custom) return '';
+  if (x.source === 'tmdb') return 'подборка TMDB: ' + ((DISC_FEEDS[x.feed] || [])[0] || '');
+  if (x.source === 'tracker') return 'ТОП раздела: ' + ((CATS.find(c => c.v === (x.cat || '')) || {}).label || 'все');
+  return 'поиск: «' + (x.query || '') + '»';
 }
-function paintTrend() {
-  const el = $('#railTrend'); if (!el) return;
-  const items = homeState.trend || [];
-  if (items.length) { paintRail('railTrend', 'Сейчас смотрят', items.length, items.map(trendMini).join(''), '', '', 'pc'); return; }
-  if (homeState.trendErr && metaErrText(homeState.trendErr)) {
-    el.classList.remove('hidden');
-    el.innerHTML = html`<div class="rail-h"><h2>Сейчас смотрят</h2></div><div class="note-card">${raw(ico('info', 18))}<div><b>Нужен ключ TMDB</b><div class="page-sub">С ним здесь появятся тренды недели, а в библиотеке — постеры и оценки. Ключ бесплатный.</div></div><button data-go="settings">Открыть настройки</button></div>`;
-    return;
-  }
-  el.classList.add('hidden');
+function openHomeEditor() {
+  $$('body > .overlay.home-ed').forEach(o => o.remove());
+  const ov = document.createElement('div'); ov.className = 'overlay home-ed';
+  document.body.appendChild(ov);
+  let list = homeConfig();
+  let editing = null; // свой ряд, который сейчас правится (или новый)
+  const close = () => { ov.remove(); if (state.view === 'home') { route(); } };
+  const commit = () => saveHomeConfig(list);
+  const paint = () => {
+    const startNow = (localStorage.getItem(START_KEY) || 'home');
+    if (editing) { paintCustomForm(); return; }
+    ov.innerHTML = html`<div class="modal home-modal"><h3>Настройка Главной</h3>
+      <div class="page-sub">Включайте, переставляйте и добавляйте ряды. Изменения сохраняются сразу.</div>
+      <div class="he-list">${raw(list.map((x, i) => {
+        const title = x.title || (HOME_BUILTIN.find(b => b.id === x.id) || {}).title;
+        return html`<div class="he-row${x.on ? '' : ' off'}" data-i="${i}">
+          <label class="he-sw"><input type="checkbox" data-on ${x.on ? 'checked' : ''}><span></span></label>
+          <div class="he-t"><b>${title}</b>${raw(x.custom ? html`<div class="page-sub">${homeDefLabel(x)}</div>` : '')}</div>
+          ${raw(x.custom ? '<button class="ghost" data-edit title="Изменить">' + ico('edit', 15) + '</button><button class="ghost danger" data-del title="Удалить ряд">' + ico('trash', 15) + '</button>' : '')}
+          <button class="ghost" data-up ${i === 0 ? 'disabled' : ''} title="Выше">↑</button><button class="ghost" data-down ${i === list.length - 1 ? 'disabled' : ''} title="Ниже">↓</button>
+        </div>`;
+      }).join(''))}</div>
+      <div class="row" style="margin-top:12px"><button id="heAdd" class="primary">${raw(ico('plus', 15))} Свой ряд</button><button id="heReset">Сбросить</button><span class="spacer"></span></div>
+      <div class="he-start"><label>Стартовая страница
+        <select id="heStart"><option value="home">Главная</option><option value="last">Последний открытый раздел</option>${raw(NAV_ITEMS.filter(x => x[0] !== 'home').map(x => html`<option value="${x[0]}">${x[1]}</option>`).join(''))}</select></label>
+        <div class="page-sub">Любой раздел можно сделать стартовым и правым кликом по нему в боковой панели.</div></div>
+      <div class="row" style="margin-top:12px"><span class="spacer"></span><button id="heDone" class="primary">Готово</button></div></div>`;
+    $('#heStart', ov).value = startNow;
+    $('#heStart', ov).addEventListener('change', e => setStartView(e.target.value));
+    $$('.he-row', ov).forEach(row => {
+      const i = +row.dataset.i;
+      row.querySelector('[data-on]').addEventListener('change', e => { list[i].on = e.target.checked; commit(); row.classList.toggle('off', !e.target.checked); });
+      const mv = d => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; commit(); paint(); };
+      row.querySelector('[data-up]').addEventListener('click', () => mv(-1));
+      row.querySelector('[data-down]').addEventListener('click', () => mv(1));
+      const ed = row.querySelector('[data-edit]'); if (ed) ed.addEventListener('click', () => { editing = Object.assign({}, list[i]); paint(); });
+      const dl = row.querySelector('[data-del]'); if (dl) dl.addEventListener('click', () => {
+        const gone = list[i];
+        list.splice(i, 1); commit(); paint();
+        toastUndo('Ряд «' + gone.title + '» удалён', () => { list.splice(Math.min(i, list.length), 0, gone); commit(); if (document.body.contains(ov)) paint(); });
+      });
+    });
+    $('#heAdd', ov).addEventListener('click', () => { editing = { id: 'c' + Date.now().toString(36), custom: true, on: true, source: 'tmdb', feed: 'trend_anime', kind: 'mix', title: '', fresh: true }; paint(); });
+    $('#heReset', ov).addEventListener('click', () => {
+      const keep = list.filter(x => x.custom);
+      list = HOME_BUILTIN.map(b => Object.assign({}, b)).concat(keep);
+      commit(); paint(); toast('Порядок и видимость рядов сброшены');
+    });
+    $('#heDone', ov).addEventListener('click', close);
+  };
+  const paintCustomForm = () => {
+    const e = editing;
+    const isNew = !list.some(x => x.id === e.id);
+    const catOpts = CATS.filter(c => c.v !== '' && c.top).map(c => html`<option value="${c.v}" ${e.cat === c.v ? 'selected' : ''}>${c.label}</option>`).join('');
+    const catOptsAll = CATS.filter(c => c.v !== '').map(c => html`<option value="${c.v}" ${e.cat === c.v ? 'selected' : ''}>${c.label}</option>`).join('');
+    ov.innerHTML = html`<div class="modal home-modal"><h3>${isNew ? 'Новый ряд' : 'Ряд «' + (e.title || '') + '»'}</h3>
+      <label>Название ряда</label><input id="ceTitle" value="${e.title || ''}" placeholder="например, Новинки аниме">
+      <label>Откуда брать</label>
+      <select id="ceSrc"><option value="tmdb" ${e.source === 'tmdb' ? 'selected' : ''}>Подборка TMDB (названия фильмов и сериалов)</option>
+        <option value="tracker" ${e.source === 'tracker' ? 'selected' : ''}>ТОП раздела на трекере (свежие раздачи)</option>
+        <option value="search" ${e.source === 'search' ? 'selected' : ''}>Поиск по трекеру (по вашему запросу)</option></select>
+      <div id="ceTmdb" class="${e.source === 'tmdb' ? '' : 'hidden'}">
+        <label>Подборка</label><select id="ceFeed">${raw(Object.entries(DISC_FEEDS).map(([k, v]) => html`<option value="${k}" ${e.feed === k ? 'selected' : ''}>${v[0]}</option>`).join(''))}</select>
+        <label>Что показывать</label><select id="ceKind"><option value="mix" ${e.kind === 'mix' ? 'selected' : ''}>Фильмы и сериалы</option><option value="movie" ${e.kind === 'movie' ? 'selected' : ''}>Только фильмы</option><option value="tv" ${e.kind === 'tv' ? 'selected' : ''}>Только сериалы</option></select>
+        <div id="ceGenreBox" class="${e.feed === 'genre' ? '' : 'hidden'}"><label>Жанр</label><select id="ceGenre">${raw(DISC_GENRES.movie.filter(g => g[0] !== '').map(g => html`<option value="${g[0]}" ${String(e.genre) === String(g[0]) ? 'selected' : ''}>${g[1]}</option>`).join(''))}</select></div>
+        <label>Происхождение</label><select id="ceOrigin"><option value="any" ${e.origin !== 'ru' ? 'selected' : ''}>Любое</option><option value="ru" ${e.origin === 'ru' ? 'selected' : ''}>Русское</option></select>
+      </div>
+      <div id="ceTr" class="${e.source === 'tracker' ? '' : 'hidden'}"><label>Раздел трекера</label><select id="ceCatTop">${raw(catOpts)}</select></div>
+      <div id="ceSe" class="${e.source === 'search' ? '' : 'hidden'}"><label>Запрос</label><input id="ceQuery" value="${e.query || ''}" placeholder="например, мультфильм 2025">
+        <label>Категория</label><select id="ceCatAll"><option value="">Все категории</option>${raw(catOptsAll)}</select></div>
+      <label class="fhd" id="ceHdBox" style="margin-top:10px"><input type="checkbox" id="ceHd" ${e.hd ? 'checked' : ''}> только Full HD и выше</label>
+      <div class="row" style="margin-top:14px"><button id="ceBack">Назад</button><span class="spacer"></span><button id="ceSave" class="primary">Сохранить</button></div></div>`;
+    const src = $('#ceSrc', ov);
+    const sync = () => {
+      $('#ceTmdb', ov).classList.toggle('hidden', src.value !== 'tmdb');
+      $('#ceTr', ov).classList.toggle('hidden', src.value !== 'tracker');
+      $('#ceSe', ov).classList.toggle('hidden', src.value !== 'search');
+      $('#ceHdBox', ov).classList.toggle('hidden', src.value === 'tmdb');
+      $('#ceGenreBox', ov).classList.toggle('hidden', !($('#ceFeed', ov).value === 'genre' && src.value === 'tmdb'));
+    };
+    src.addEventListener('change', sync); $('#ceFeed', ov).addEventListener('change', sync); sync();
+    if (e.source === 'tracker' && e.cat) $('#ceCatTop', ov).value = e.cat;
+    $('#ceBack', ov).addEventListener('click', () => { editing = null; paint(); });
+    $('#ceSave', ov).addEventListener('click', () => {
+      const def = { id: e.id, custom: true, on: e.on !== false, source: src.value };
+      def.title = $('#ceTitle', ov).value.trim();
+      if (def.source === 'tmdb') {
+        def.feed = $('#ceFeed', ov).value; def.kind = $('#ceKind', ov).value; def.origin = $('#ceOrigin', ov).value;
+        if (def.feed === 'genre') def.genre = $('#ceGenre', ov).value;
+        if (!def.title) def.title = DISC_FEEDS[def.feed][0];
+      } else if (def.source === 'tracker') {
+        def.cat = $('#ceCatTop', ov).value; def.hd = $('#ceHd', ov).checked;
+        if (!def.title) def.title = 'Свежее: ' + ((CATS.find(c => c.v === def.cat) || {}).label || 'трекер');
+      } else {
+        def.query = $('#ceQuery', ov).value.trim(); def.cat = $('#ceCatAll', ov).value; def.hd = $('#ceHd', ov).checked;
+        if (!def.query) { toast('Введите запрос', true); return; }
+        if (!def.title) def.title = def.query;
+      }
+      const i = list.findIndex(x => x.id === def.id);
+      if (i >= 0) list[i] = def; else list.push(def);
+      delete homeState.feeds[def.id];
+      commit(); editing = null; paint();
+    });
+  };
+  ov.addEventListener('click', ev => { if (ev.target === ov) close(); });
+  paint();
 }
 
 function onHomeClick(e) {
@@ -1285,6 +1601,7 @@ function onHomeClick(e) {
   const rs = e.target.closest('[data-rs]');
   if (rs) { const row = rs.parentElement.querySelector('.rail-row'); row.scrollBy({ left: Number(rs.dataset.rs) * row.clientWidth * 0.85, behavior: 'smooth' }); setTimeout(() => syncRailBtns(rs.closest('.rail')), 450); return; }
   if (e.target.closest('[data-home-add]')) { openAddModal(); return; }
+  if (e.target.closest('[data-home-cfg]')) { openHomeEditor(); return; }
   if (e.target.closest('[data-home="top2"]')) { homeGo('top'); return; }
   const cw = e.target.closest('[data-cont]');
   if (cw) {
@@ -1297,14 +1614,25 @@ function onHomeClick(e) {
   if (ns) {
     const s = (state.subs || []).find(x => x.id === ns.dataset.ns); if (!s) return;
     if (e.target.closest('[data-ns-seen]')) { subsSeen(s.id).then(paintHome); return; }
-    findBest(s.query || s.title, 0); return;
+    openMovie({ title: s.title || s.query, kind: 'tv', season: Number(s.season) || 0, query: s.query }); return;
   }
   const fv = e.target.closest('.disc-fav');
-  if (fv) { e.stopPropagation(); toggleDiscFav((homeState.trend || []).find(x => discFavKey(x) === fv.dataset.fk)); paintHome(); return; }
+  if (fv) {
+    e.stopPropagation();
+    const all = Object.values(homeState.feeds).flatMap(f => f.items || []);
+    toggleDiscFav(all.find(x => x.id && x.kind && discFavKey(x) === fv.dataset.fk));
+    paintHome(); return;
+  }
   const tr = e.target.closest('[data-trend]');
-  if (tr) { const it = (homeState.trend || [])[+tr.dataset.trend]; if (it) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0); return; }
+  if (tr) {
+    const [fid, ix] = tr.dataset.trend.split(':');
+    const it = ((homeState.feeds[fid] || {}).items || [])[+ix]; if (!it) return;
+    if (it.id && it.kind) openMovie({ title: it.title, year: it.year, kind: it.kind, tmdb: it.id, poster: it.poster, overview: it.overview, rating: it.rating });
+    else openMovie(fromRelease(it));
+    return;
+  }
   const fc = e.target.closest('[data-fav-ix]');
-  if (fc) { const f = favList()[+fc.dataset.favIx]; if (!f) return; if (isTitleFav(f)) findBest(f.title, f.year ? +String(f.year).slice(0, 4) : 0); else playSearchLink(f); return; }
+  if (fc) { const f = favList()[+fc.dataset.favIx]; if (!f) return; if (isTitleFav(f)) openMovie({ title: f.title, year: f.year, kind: f.kind, tmdb: f.tmdb, poster: f.poster }); else playSearchLink(f); return; }
   const lc = e.target.closest('[data-lib-hash]');
   if (lc) { const t = (state.lib || []).find(x => x.hash === lc.dataset.libHash); if (t) watchNow(t); }
 }
@@ -1723,6 +2051,7 @@ function tile(t) {
   const loaded = t.torrent_size ? (t.bytes_read || 0) / t.torrent_size : 0;
   const sp = seriesProgress(t);
   const q = qTag(t.title || t.name || '');
+  const lq = libQuality(t);
   const ser = isSeries(t.title || t.name || '');
   // Многосерийная раздача без пометок в названии (часто у аниме и мультиков)
   // — тоже сериал для подписки.
@@ -1759,8 +2088,9 @@ function tile(t) {
       ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
-        ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
+        ${raw(lq.q.res ? html`<span class="chip ${q}">${lq.q.res}</span>` : '')}
         ${raw(ser ? html`<span class="chip series">${seriesTag(t.title || t.name || '')}</span>` : '')}
+        ${raw(lq.q.res || lq.q.source ? html`<span class="chip rq rq-${lq.q.tier}" title="${lq.tip}">${lq.q.score}${lq.q.ru ? ' · RU' : ''}</span>` : '')}
         <span class="statusdot ${scls}" title="${st || 'статус'}"></span>
       </div>
       <div class="rate-stack">
@@ -1774,6 +2104,7 @@ function tile(t) {
     </div>
     <div class="body">
       <div class="title-row"><span class="title clamp2${ser ? ' clickable' : ''}" data-act="titled" title="${t.title || t.name || ''}">${title}</span></div>
+      ${raw(lq.line ? html`<div class="qline" title="${lq.tip}">${lq.line}</div>` : '')}
       ${raw(pg)}
       ${raw(pgNote)}
       <div class="metabar">
@@ -1782,6 +2113,7 @@ function tile(t) {
       <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
+      <button data-act="card">Карточка фильма</button>
       <button data-act="info">Инфо о раздаче</button>
       <button data-act="edit">Изменить</button>
       <button data-act="autoposter">Подгрузить постер (TMDB)</button>
@@ -1826,7 +2158,10 @@ function seriesTag(name) {
 // честно говорит «по названию» и не заменяет ffprobe в карточке раздачи.
 function rateRelease(r) {
   const t = String((r && (r.title || r.name)) || '');
-  const seeds = Math.max(0, Number(r && r.seed) || 0);
+  // seed не задан (раздача из библиотеки: число сидов там — снимок, а не оценка) —
+  // сиды не оцениваются: ни штрафа за «нет сидов», ни потолка.
+  const seedKnown = !!r && r.seed != null && r.seed !== '' && !isNaN(Number(r.seed));
+  const seeds = seedKnown ? Math.max(0, Number(r.seed)) : 0;
   const bytes = Number(r && r.size_bytes) || 0;
   const has = re => re.test(t);
   const out = { score: 0, res: '', source: '', codec: '', hdr: '', audio: '', ru: false, bad: false, notes: [] };
@@ -1867,8 +2202,8 @@ function rateRelease(r) {
   if (has(/\bsub\b|субтитр|\bsubs?\b/i) && !out.ru) { out.notes.push('только субтитры'); ruPts = 2; }
 
   // Сиды: логарифм, чтобы 1000 сидов не давили всё остальное
-  const seedPts = Math.min(15, Math.round(5 * Math.log10(seeds + 1)));
-  if (!seeds) out.notes.push('нет сидов');
+  const seedPts = seedKnown ? Math.min(15, Math.round(5 * Math.log10(seeds + 1))) : 8;
+  if (seedKnown && !seeds) out.notes.push('нет сидов');
 
   // Размер: у «1080p» на полтора гигабайта или 720p на пять терабайт что-то не так
   let sizePts = 3;
@@ -1883,7 +2218,7 @@ function rateRelease(r) {
 
   let score = resPts + srcPts + seedPts + ruPts + extra + sizePts;
   if (out.bad) score = Math.min(score, 15);
-  if (!seeds) score = Math.min(score, 30);
+  if (seedKnown && !seeds) score = Math.min(score, 30);
   out.score = Math.max(0, Math.min(100, Math.round(score)));
   out.tier = out.score >= 75 ? 'good' : out.score >= 50 ? 'ok' : 'low';
   return out;
@@ -1921,6 +2256,15 @@ function playVerdict(j) {
 }
 /* QUALITY-END */
 
+/* libQuality — оценка раздачи в библиотеке: качество по названию и размеру,
+   без сидов (в библиотеке это снимок, а не свойство раздачи). */
+function libQuality(t) {
+  const title = (t && (t.title || t.name)) || '';
+  const q = rateRelease({ title, size_bytes: t && t.torrent_size });
+  const bits = [q.source, q.codec, q.hdr, q.audio].filter(Boolean);
+  return { q, line: bits.join(' · '), tip: rateTip(q) };
+}
+
 function qTag(name) {
   if (/(2160|4k|uhd)/i.test(name)) return 'q2160';
   if (/(1080|fullhd|fhd|blu-ray|bdrip|web-dl.*1080|hd)\b/i.test(name)) return 'q1080';
@@ -1943,6 +2287,7 @@ function bindTiles(grid) {
     act('[data-act="edit"]', () => openEditModal(t));
     act('[data-act="m3u"]', () => downloadM3u(t));
     act('[data-act="copy"]', () => copyTorrentMagnet(t));
+    act('[data-act="card"]', () => openMovie(Object.assign(fromRelease(t), { poster: t.poster || '' })));
     act('[data-act="drop"]', () => dropTorrent(t));
     act('[data-del]', () => dropTorrent(t));
     act('[data-act="autoposter"]', () => autoPoster(t));
@@ -2019,12 +2364,15 @@ function openCollectionPicker(t) {
   ov.querySelectorAll('[data-cdel]').forEach(b => b.addEventListener('click', () => {
     const c = collById(b.dataset.cdel);
     if (!c) return;
-    if (typeof confirm === 'function' && !confirm('Удалить подборку «' + c.name + '»? Раздачи останутся в библиотеке.')) return;
+    const snap = localStorage.getItem(COLLS_KEY);
     collRemove(b.dataset.cdel);
     fillCollSelect($('#libColl'), state.coll);
     close();
     paintLibrary();
-    toast('Подборка удалена');
+    toastUndo('Подборка «' + c.name + '» удалена · раздачи остались в библиотеке', () => {
+      try { localStorage.setItem(COLLS_KEY, snap || '[]'); } catch {}
+      syncUserData(); fillCollSelect($('#libColl'), state.coll); if (state.view === 'library') paintLibrary();
+    });
   }));
   ov.querySelector('#collNewGo').addEventListener('click', () => {
     const name = (ov.querySelector('#collNewName').value || '').trim();
@@ -2128,10 +2476,29 @@ async function uploadFiles(files, ov) {
   if (ov) ov.remove();
 }
 
+/* dropTorrent убирает раздачу без окна подтверждения: плитка исчезает сразу,
+   а сервер получает команду только когда уведомление «Вернуть» истекло. Нажали
+   «Вернуть» — ничего с сервера не пропадало, плитка встаёт на место. */
+// Раздачи, ожидающие удаления: список с сервера их пока скрывает.
+const pendingDrop = new Set();
 async function dropTorrent(t) {
-  if (!confirm('Убрать торрент с сервера?')) return;
-  try { await torrentAction('rem', { hash: t.hash }); delete statCache[t.hash]; toast('Торрент удалён'); } catch (e) { toast('Ошибка: ' + e.message, true); }
-  refreshLibrary();
+  const at = state.lib.indexOf(t);
+  if (at < 0) return;
+  state.lib.splice(at, 1);
+  pendingDrop.add(t.hash);
+  if (state.view === 'library') paintLibrary();
+  const name = cleanSearchTitle(t.title || t.name || '').q || t.title || t.name || 'Торрент';
+  toastUndo('Удалено · ' + (name.length > 48 ? name.slice(0, 47) + '…' : name), () => {
+    pendingDrop.delete(t.hash);
+    if (!state.lib.includes(t)) state.lib.splice(Math.min(at, state.lib.length), 0, t);
+    if (state.view === 'library') paintLibrary(); else if (state.view === 'home') paintHome();
+  }, async () => {
+    try { await torrentAction('rem', { hash: t.hash }); delete statCache[t.hash]; }
+    catch (e) { toast('Не удалось удалить на сервере: ' + e.message, true); }
+    pendingDrop.delete(t.hash);
+    refreshLibrary();
+  });
+  if (state.view === 'home') paintHome();
 }
 function downloadM3u(t) {
   const url = ts(`/playlist?hash=${encodeURIComponent(t.hash)}&m3u`);
@@ -2477,7 +2844,12 @@ async function renderFavorites(root) {
     <span class="spacer"></span>
     <button id="favClear" class="danger">Очистить список</button></div>
     <div id="favBody"></div>`;
-  $('#favClear').addEventListener('click', () => { if (list.length && confirm('Очистить весь список избранного?')) { saveFavList([]); renderFavorites($('main')); } });
+  $('#favClear').addEventListener('click', () => {
+    if (!list.length) return;
+    const snap = favList();
+    saveFavList([]); renderFavorites($('main'));
+    toastUndo('Избранное очищено · ' + snap.length, () => { saveFavList(snap); if (state.view === 'favorites') renderFavorites($('main')); });
+  });
   const body = $('#favBody');
   if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «Ещё → В избранное» в результатах поиска.</div>'; return; }
   const sorted = [...list].sort((a, b) => (b.time || 0) - (a.time || 0));
@@ -2526,12 +2898,16 @@ function bindFavCard(card, it) {
   const menuBtn = card.querySelector('[data-menu]'); const menu = card.querySelector('.ctxmenu');
   if (menuBtn && menu) menuBtn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
   const act = (sel, fn) => card.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { if (menu) menu.classList.add('hidden'); fn(); }));
-  act('[data-fa="play"]', () => { if (isTitleFav(it)) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0); else playSearchLink(it); });
+  act('[data-fa="play"]', () => { if (isTitleFav(it)) openMovie({ title: it.title, year: it.year, kind: it.kind, tmdb: it.tmdb, poster: it.poster }); else playSearchLink(it); });
   act('[data-fa="magnet"]', () => copyToClip(it.magnet || magnetFromHash(it.hash, it.title), 'Магнит скопирован'));
   act('[data-fa="kp"]', () => openExternal(kpSearchUrl(it.title || '')));
   act('[data-fa="imdb"]', () => openExternal(imdbUrlFor(it)));
   act('[data-fa="trailer"]', () => openTrailer(it));
-  act('[data-fa="del"]', () => { saveFavList(favList().filter(x => !favSame(x, it))); toast('Удалено из избранного'); renderFavorites($('main')); });
+  act('[data-fa="del"]', () => {
+    const snap = favList();
+    saveFavList(snap.filter(x => !favSame(x, it))); renderFavorites($('main'));
+    toastUndo('Удалено из избранного', () => { saveFavList(snap); if (state.view === 'favorites') renderFavorites($('main')); });
+  });
 }
 async function favEnrich(list) {
   /* Та же схема дорожек, что и у библиотеки (ratingsOnce + RATING_WORKERS):
@@ -2579,7 +2955,12 @@ async function renderBookmarks(root) {
     <span class="spacer"></span>
     <button id="bmClear" class="danger">Очистить</button></div>
     <div id="bmBody"></div>`;
-  $('#bmClear').addEventListener('click', () => { if (list.length && confirm('Удалить все закладки?')) { saveBookmarks([]); renderBookmarks($('main')); } });
+  $('#bmClear').addEventListener('click', () => {
+    if (!list.length) return;
+    const snap = getBookmarks();
+    saveBookmarks([]); renderBookmarks($('main'));
+    toastUndo('Закладки удалены · ' + snap.length, () => { saveBookmarks(snap); if (state.view === 'bookmarks') renderBookmarks($('main')); });
+  });
   const body = $('#bmBody');
   if (!list.length) { body.innerHTML = '<div class="empty">Закладок пока нет.</div>'; return; }
   // Список читается только для этой страницы и НЕ подменяет общий: у TorrServer
@@ -2689,7 +3070,11 @@ function bindBookmarkCard(card, b) {
   act('[data-bm="from0"]', () => playBookmark(b, true));
   act('[data-bm="kp"]', () => openExternal(kpSearchUrl(b.title || '')));
   act('[data-bm="imdb"]', () => openExternal(imdbUrlFor(b)));
-  act('[data-bm="del"]', () => { delBookmark(b); toast('Закладка удалена'); renderBookmarks($('main')); });
+  act('[data-bm="del"]', () => {
+    const snap = getBookmarks();
+    delBookmark(b); renderBookmarks($('main'));
+    toastUndo('Закладка удалена', () => { saveBookmarks(snap); if (state.view === 'bookmarks') renderBookmarks($('main')); });
+  });
 }
 
 /* ================= SEARCH ================= */
@@ -3092,26 +3477,68 @@ async function doSearch() {
   const el = $('#searchResults');
   el.innerHTML = skeleton('Поиск…');
   state.searchState.tznabOff = null;
+  /* Поиск «по готовности»: каждый источник сам кладёт свои раздачи в выдачу и
+     перерисовывает её, не дожидаясь остальных. Источник, который завис, отрезается
+     по таймауту — выдача остаётся с тем, что успели ответить остальные. */
+  const run = ++searchRun;
+  const ss = state.searchState;
+  ss.run = run;
+  ss.pending = {};
+  const live = () => ss.run === run;
   const jobs = [];
   const errs = [];
-  const add = (p, promise) => jobs.push(promise.catch(e => {
-    /* Torznab разбирает источники построчно, и причина там длиннее одной
-       строки всплывающей подсказки, поэтому она уходит в разбор под списком,
-       а не в toast. Для остальных источников поведение прежнее. */
-    if (p === 'torznab') { state.searchState.tznabOff = 'Torznab: ' + e.message; return; }
-    errs.push(p + ': ' + e.message);
-    toast(p + ': ' + e.message, true);
-  }).then(r => {
-    if (r && r.length) { state.searchState.results = mergeResults(state.searchState.results, r); }
-    else if (p !== 'torznab') errs.push(p + ': 0 результатов');
-  }));
-  if (moreSources.rutor) add('rutor', searchRutor(q, 0, cat).then(r => { moreSources.rutor.count = r.length; return r; }));
-  if (prov === 'torznab' || prov === 'both') add('torznab', searchTorznabStream(q, el).then(n => { moreSources.torznab.count = n; return []; }));
-  if (moreSources.kinozal) add('kinozal', searchKinozal(q, 0).then(r => { moreSources.kinozal.count = r.length; return r; }));
+  const SRC_NAME = { rutor: 'rutor', torznab: 'Torznab', kinozal: 'Кинозал' };
+  const start = (p, make, ms) => {
+    ss.pending[p] = SRC_NAME[p] || p;
+    const ac = new AbortController();
+    jobs.push(withTimeout(make(ac.signal), ms, SRC_NAME[p] + ' не ответил за ' + Math.round(ms / 1000) + ' с', () => ac.abort())
+      .then(r => {
+        if (!live()) return;
+        if (r && r.length) ss.results = mergeResults(ss.results, r);
+        else if (p !== 'torznab') errs.push(SRC_NAME[p] + ': 0 результатов');
+      })
+      .catch(e => {
+        if (!live()) return;
+        /* Torznab разбирает источники построчно, и причина там длиннее одной
+           строки всплывающей подсказки, поэтому она уходит в разбор под списком,
+           а не в toast. Для остальных источников поведение прежнее. */
+        if (p === 'torznab') { ss.tznabOff = 'Torznab: ' + e.message; return; }
+        const why = e.message.indexOf(SRC_NAME[p]) === 0 ? e.message : SRC_NAME[p] + ': ' + e.message;
+        errs.push(why);
+        toast(why, true);
+      })
+      .then(() => {
+        if (!live()) return;
+        delete ss.pending[p];
+        ss.status = errs.slice();
+        schedulePaintResults();
+      }));
+  };
+  if (moreSources.rutor) start('rutor', sig => searchRutor(q, 0, cat, sig).then(r => { moreSources.rutor.count = r.length; return r; }), SEARCH_TIMEOUT);
+  if (prov === 'torznab' || prov === 'both') start('torznab', sig => searchTorznabStream(q, el, sig).then(n => { moreSources.torznab.count = n; return []; }), SEARCH_TIMEOUT + 8000);
+  if (moreSources.kinozal) start('kinozal', sig => searchKinozal(q, 0, sig).then(r => { moreSources.kinozal.count = r.length; return r; }), SEARCH_TIMEOUT);
   await Promise.all(jobs);
-  state.searchState.status = errs;
+  if (!live()) return;
+  ss.pending = {};
+  ss.status = errs;
   pushSearchHistory(q);
   paintResults(el);
+}
+let searchRun = 0;
+const SEARCH_TIMEOUT = 12000; // мс: дольше этого источник считается зависшим
+/* withTimeout — как Promise.race с таймером. При срабатывании вызывает onTimeout
+   (обрыв запроса), чтобы зависший ответ не копил соединения. */
+function withTimeout(promise, ms, msg, onTimeout) {
+  let timer;
+  const t = new Promise((_, rej) => { timer = setTimeout(() => { try { onTimeout && onTimeout(); } catch {} rej(new Error(msg)); }, ms); });
+  return Promise.race([promise, t]).finally(() => clearTimeout(timer));
+}
+/* schedulePaintResults склеивает частые перерисовки: ответы источников могут
+   прийти почти одновременно. */
+let paintTimer = 0;
+function schedulePaintResults() {
+  if (paintTimer) return;
+  paintTimer = setTimeout(() => { paintTimer = 0; if (state.view === 'search') paintResults($('#searchResults')); }, 120);
 }
 const sd = () => state.searchState;
 
@@ -3136,8 +3563,8 @@ function mergeResults(base, add) {
   return out;
 }
 
-async function searchKinozal(q, page) {
-  const arr = await apiGetJSON('/api/kinozal/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0));
+async function searchKinozal(q, page, signal) {
+  const arr = await apiGetJSON('/api/kinozal/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0), signal);
   if (!Array.isArray(arr)) throw new Error((arr && arr.error) || 'пустой ответ Кинозал');
   return (arr || []).map(it => ({
     _p: 'kinozal', title: it.title, name: it.title, size: it.size, size_bytes: parseSizeBytes(it.size) || it.size_bytes || null,
@@ -3149,16 +3576,16 @@ async function searchKinozal(q, page) {
 // Раньше на любой не-200 показывалось «HTTP 502», и настоящая причина
 // («трекер не ответил», «капча») терялась, а пустая выдача выглядела как
 // «ничего не найдено».
-async function apiGetJSON(url) {
-  const r = await fetch(url);
+async function apiGetJSON(url, signal) {
+  const r = await fetch(url, signal ? { signal } : undefined);
   let body = null;
   try { body = await r.json(); } catch { /* тело не JSON — покажем код */ }
   if (!r.ok) throw new Error((body && body.error) || ('HTTP ' + r.status));
   return body;
 }
 
-async function searchRutor(q, page, cat) {
-  const arr = await apiGetJSON('/api/rutor/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0) + '&cat=' + (cat | 0));
+async function searchRutor(q, page, cat, signal) {
+  const arr = await apiGetJSON('/api/rutor/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0) + '&cat=' + (cat | 0), signal);
   if (!Array.isArray(arr)) throw new Error((arr && arr.error) || 'пустой ответ rutor');
   return mapRutorItems(arr);
 }
@@ -3211,18 +3638,16 @@ async function loadMore() {
   paintResults($('#searchResults'));
 }
 
-// searchTorznabStream ищет по всем индексаторам сразу и рисует выдачу по мере
-// ответов: медленный индексатор больше не задерживает быстрые. Возвращает число
-// полученных раздач (нужно для «Показать ещё»). Поток читается вручную:
-// EventSource не умеет обрывать запрос при смене вкладки.
-async function searchTorznabStream(q, el) {
-  const ss = state.searchState;
-  const r = await fetch('/api/torznab/stream?query=' + encodeURIComponent(q));
+// readTorznabStream читает поток ответов индексаторов: onSource вызывается на
+// каждый ответивший источник (items — уже приведённые раздачи, bad — список тех,
+// кто не ответил). Читается вручную: EventSource не умеет обрывать запрос.
+// Возвращает {total, off}: сколько раздач получено и причину отказа всего потока.
+async function readTorznabStream(q, signal, onSource) {
+  const r = await fetch('/api/torznab/stream?query=' + encodeURIComponent(q), signal ? { signal } : undefined);
   if (!r.ok || !r.body) {
     let body = null;
     try { body = await r.json(); } catch { /* не JSON */ }
-    ss.tznabOff = 'Torznab: ' + ((body && body.error) || ('HTTP ' + r.status));
-    return 0;
+    return { total: 0, off: 'Torznab: ' + ((body && body.error) || ('HTTP ' + r.status)), bad: [] };
   }
   const bad = [];
   let total = 0;
@@ -3231,11 +3656,8 @@ async function searchTorznabStream(q, el) {
     const rep = data.source || {};
     if (!rep.ok && rep.error) bad.push((rep.name || '?') + ' — ' + rep.error);
     const items = (data.items || []).map(mapTorznab);
-    if (!items.length) return;
     total += items.length;
-    ss.results = mergeResults(ss.results, items);
-    ss.tznabOff = bad.length ? 'Индексатор не ответил: ' + bad.join('; ') : null;
-    paintResults(el);
+    if (items.length || bad.length) onSource(items, bad);
   };
   const reader = r.body.getReader();
   const dec = new TextDecoder();
@@ -3257,9 +3679,20 @@ async function searchTorznabStream(q, el) {
       try { onEvent(name, JSON.parse(dataLine)); } catch { /* битый кадр пропускаем */ }
     }
   }
-  if (bad.length) ss.tznabOff = 'Индексатор не ответил: ' + bad.join('; ');
-  else if (!total) ss.tznabOff = null;
-  return total;
+  return { total, off: bad.length ? 'Индексатор не ответил: ' + bad.join('; ') : null, bad };
+}
+// searchTorznabStream ищет по всем индексаторам сразу и рисует выдачу по мере
+// ответов: медленный индексатор больше не задерживает быстрые. Возвращает число
+// полученных раздач (нужно для «Показать ещё»).
+async function searchTorznabStream(q, el, signal) {
+  const ss = state.searchState;
+  const res = await readTorznabStream(q, signal, (items, bad) => {
+    if (items.length) ss.results = mergeResults(ss.results, items);
+    ss.tznabOff = bad.length ? 'Индексатор не ответил: ' + bad.join('; ') : null;
+    schedulePaintResults();
+  });
+  ss.tznabOff = res.off;
+  return res.total;
 }
 
 // ---- Подборки TMDB: «самое популярное за всё время» по виду, жанру и происхождению ----
@@ -3373,7 +3806,7 @@ function paintDiscover(el) {
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
     const it = discState.items[+c.dataset.di];
     if (!it) return;
-    findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0);
+    openMovie({ title: it.title, year: it.year, kind: it.kind, tmdb: it.id, poster: it.poster, overview: it.overview, rating: it.rating });
   }));
   const more = $('#discMore');
   if (more) more.addEventListener('click', () => { more.disabled = true; more.textContent = 'Загрузка...'; fetchDiscover(false); });
@@ -3444,6 +3877,11 @@ function paintResults(el) {
   const rows = state.searchState ? state.searchState.results : [];
   const qual = QUAL[qualOn()] || QUAL['fhd'];
   const status = state.searchState.status || [];
+  const pend = Object.values(state.searchState.pending || {});
+  if (!rows.length && pend.length) {
+    if (needProvider) needProvider.innerHTML = skeleton('Ищем: ' + pend.join(', ') + '…');
+    return;
+  }
   if (!rows.length) {
     if (needProvider) needProvider.innerHTML = '<div class="empty">Нет результатов.' + (status.length ? '' : ' Проверьте индексаторы: Настройки → Torznab.') + '</div>'
       + (status.length ? html`<div class="hint" style="text-align:center;margin-top:8px">${status.join(' · ')}</div>` : '');
@@ -3524,6 +3962,7 @@ function paintResults(el) {
     ${raw(hidden ? html`<span class="hint" style="margin:0">скрыто ${hidden} не-видео</span><button id="showAllBtn" style="width:auto" title="Вернуть игры, софт и книги в выдачу">показать всё</button>` : '')}
     ${raw(hiddenQual ? html`<span class="hint" style="margin:0">отсеяно ${hiddenQual} фильтром «${qual.label}»</span><button id="anyQualBtn" style="width:auto" title="Показать раздачи ниже выбранного качества — например, 720p и HDTVRip">показать без фильтра качества</button>` : '')}
     ${raw(hiddenEx ? html`<span class="hint" style="margin:0">скрыто ${hiddenEx} по «${excl.map(w => '-' + w).join(' ')}»</span>` : '')}
+    ${raw(pend.length ? html`<span class="hint src-wait" style="margin:0"><i class="spin"></i> ещё ищем: ${pend.join(', ')}</span>` : '')}
     ${raw(state.searchState.tznabOff ? html`<span class="hint" style="margin:0">${state.searchState.tznabOff}</span>` : '')}
     ${raw(status.length ? html`<span class="hint" style="margin:0">${status.join(' · ')}</span>` : '')}
   </h2>
@@ -3556,7 +3995,7 @@ function resultRow(r, ix) {
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (r.poster ? 'hidden' : '') + '"'))}
       ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
-      <button class="play-ov" data-sa="play" title="Смотреть"><span class="tri"></span></button>
+      <button class="play-ov" data-sa="play" title="${r.provider === 'top24' || r.provider === 'topcat' ? 'Смотреть' : 'Открыть карточку фильма'}"><span class="tri"></span></button>
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
@@ -3581,6 +4020,7 @@ function resultRow(r, ix) {
       <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
+      ${raw(r.provider === 'top24' || r.provider === 'topcat' ? '' : '<button data-sa="playnow">Смотреть сразу</button><div class="sep"></div>')}
       <button data-sa="kp">Кинопоиск</button>
       <button data-sa="imdb">IMDb</button>
       <div class="sep"></div>
@@ -3992,7 +4432,17 @@ async function bindResult(row) {
   const menu = row.querySelector('.ctxmenu');
   if (menuBtn && menu) menuBtn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
   const act = (sel, fn) => row.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { if (menu) menu.classList.add('hidden'); fn(); }));
-  act('[data-sa="play"]', () => playSearchLink(r));
+  // Клик по карточке раздачи открывает страницу фильма. Исключение — ТОП за
+  // 24 часа и ТОП раздела: раздача там уже выбрана, её запускают кнопкой.
+  const isTopRow = r.provider === 'top24' || r.provider === 'topcat';
+  if (!isTopRow) {
+    row.classList.add('has-card');
+    row.addEventListener('click', e => { if (e.target.closest('button, a, .ctxmenu, select, input')) return; openMovie(fromRelease(r)); });
+  }
+  // Крупная кнопка на постере: у обычной раздачи открывает карточку фильма,
+  // «Смотреть сразу» — в меню «Ещё». У раздач из ТОПа запускает сразу.
+  act('[data-sa="play"]', () => (isTopRow ? playSearchLink(r) : openMovie(fromRelease(r))));
+  act('[data-sa="playnow"]', () => playSearchLink(r));
   act('[data-sa="fav"]', () => addToUserlist(r));
   act('[data-sa="magnet"]', () => copyToClip(r.magnet || magnetFromHash(r.hash, r.title), 'Магнит скопирован'));
   act('[data-sa="userlist"]', () => addToUserlist(r));
@@ -4156,7 +4606,7 @@ function paintRecommendations(el) {
     if (x) { e.stopPropagation(); recHide(x.dataset.hide); paintRecommendations(el); return; }
     const c = e.target.closest('[data-rk]'); if (!c) return;
     const it = recState.items.find(i => i.kind + ':' + i.id === c.dataset.rk);
-    if (it) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0);
+    if (it) openMovie({ title: it.title, year: it.year, kind: it.kind, tmdb: it.id, poster: it.poster, overview: it.overview, rating: it.rating });
   });
 }
 /* ---------- лучшая раздача из всех источников ---------- */
@@ -5213,6 +5663,440 @@ async function handoffArrived(d) {
     if (d.pos > 5) await savePosition(d.hash, d.index, d.pos, 0, false);
     playSelected(t, f, {});
   };
+}
+/* ================= КАРТОЧКА ФИЛЬМА =================
+   Одна страница на название: постер, описание, сезоны и серии с отметками
+   просмотра, все найденные раздачи с качеством и числом раздающих и кнопки
+   «Смотреть» и «Следить». Открывается с любой карточки названия — из «Сейчас
+   смотрят», «Для вас», избранного, поиска. Исключение — ТОП за 24 часа: там
+   раздача уже выбрана, и она запускается сразу.
+   Раздачи ищутся по готовности: каждый источник ложится в список сам, а
+   зависший отрезается по таймауту. Список ранжируется по «пригодности для
+   просмотра сразу»: качество, русская дорожка, число раздающих и разумный
+   размер. Для сериала можно выбрать сезон — раздачи другого сезона уходят. */
+
+const MV_CACHE_TTL = 10 * 60000;
+const mvCache = new Map();
+const mv = { run: 0, key: '', spec: null, rows: [], pending: {}, errs: [], meta: null, eps: null, season: 0, qual: '', ru: false, sort: 'best', started: 0 };
+
+/* fromRelease — заготовка карточки по раздаче: чистое название и год из
+   названия раздачи, сезон — если он в нём указан. */
+function fromRelease(r) {
+  const c = cleanSearchTitle(r.title || r.name || '');
+  const ser = isSeries(r.title || r.name || '');
+  return { title: c.q || r.title || r.name || '', year: c.year || '', kind: ser ? 'tv' : '', poster: r.poster || '', season: ser ? seasonOf(r.title || r.name || '') : 0 };
+}
+function openMovie(spec) {
+  if (!spec || !String(spec.title || '').trim()) return;
+  const clean = { title: String(spec.title).trim() };
+  ['year', 'kind', 'tmdb', 'poster', 'overview', 'rating', 'season', 'query'].forEach(k => { if (spec[k]) clean[k] = spec[k]; });
+  if (clean.year) clean.year = String(clean.year).slice(0, 4);
+  setView('movie', { movie: clean });
+}
+const mvKey = m => bestNorm(m.title) + '|' + (m.year || '') + '|' + (m.query || '');
+
+/* Сезоны, которые покрывает раздача: одиночный, диапазон («1-5 сезон», S01-S05)
+   или «все сезоны». null — сезон по названию не определить. */
+function releaseSeasons(title) {
+  const t = String(title || '');
+  let m = t.match(/(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*сезон/i) || t.match(/сезон[ыа]?[ ._-]*(\d{1,2})\s*[-–—]\s*(\d{1,2})/i)
+    || t.match(/\bS(\d{1,2})\s*[-–—]\s*S?(\d{1,2})\b/i);
+  if (m && +m[2] >= +m[1]) return { from: +m[1], to: +m[2] };
+  if (/все\s+сезон|полная\s+серия|complete\s+series|все\s+серии/i.test(t)) return { from: 1, to: 99 };
+  const one = seasonOf(t);
+  return one ? { from: one, to: one } : null;
+}
+
+/* Оценка раздачи для просмотра сразу. Качество уже знает rateRelease; здесь —
+   баланс с раздающими и размером: огромный ремукс с горстью сидов стартует
+   медленно, а раздача с тысячей сидов в 720p стартует мгновенно. */
+function movieScore(r, q, season) {
+  const seeds = r.seed || 0;
+  let w = bestScore(r, q);
+  const gb = (r.size_bytes || 0) / 1e9;
+  if (gb > 40 && seeds < 30) w -= 10;
+  else if (gb > 15 && seeds < 8) w -= 8;
+  if (!seeds) w -= 30;
+  if (season) {
+    const cov = releaseSeasons(r.title || r.name);
+    if (cov) {
+      if (cov.from === season && cov.to === season) w += 25;
+      else if (cov.from <= season && cov.to >= season) w += 8; // сборник покрывает, но тащит лишнее
+      else w -= 60;
+    }
+  }
+  return w;
+}
+
+async function renderMovie(root) {
+  const m = state.params && state.params.movie;
+  if (!m || !m.title) { root.innerHTML = '<div class="empty">Карточка не открыта. <button data-go="home" class="link-btn">На главную</button></div>'; if (!root._mvBound) { root._mvBound = true; root.addEventListener('click', onMovieClick); } return; }
+  const key = mvKey(m);
+  const run = ++mv.run;
+  const fresh = mvCache.get(key);
+  const same = mv.key === key;
+  if (!same) {
+    Object.assign(mv, { key, spec: m, rows: [], pending: {}, errs: [], meta: null, eps: null, season: Number(m.season) || 0, qual: '', ru: false, sort: 'best', started: Date.now() });
+    if (fresh && Date.now() - fresh.at < MV_CACHE_TTL) { mv.rows = fresh.rows.slice(); mv.meta = fresh.meta; mv.eps = fresh.eps; mv.errs = fresh.errs; mv.cached = true; }
+    else mv.cached = false;
+  }
+  mv.spec = m;
+  root.innerHTML = '<div class="mv" id="mv"></div>';
+  paintMovie();
+  if (!root._mvBound) { root._mvBound = true; root.addEventListener('click', onMovieClick); }
+  if (!mv.cached) { loadMovieMeta(run); searchMovieReleases(run); }
+  else if (mv.meta) paintMovieEps();
+  if (isMovieSeries() && !mv.eps) loadMovieEps(run);
+}
+const mvLive = run => run === mv.run && state.view === 'movie';
+
+function isMovieSeries() {
+  const m = mv.spec || {};
+  if (m.kind) return m.kind === 'tv';
+  if (mv.meta && mv.meta.type) return mv.meta.type === 'tv';
+  const hits = mv.rows.filter(r => isSeries(r.title || r.name)).length;
+  return mv.rows.length >= 3 && hits > mv.rows.length / 2;
+}
+function mvTitleClean() { return String((mv.spec && mv.spec.title) || '').replace(/[:!?,.«»"“”]/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+async function loadMovieMeta(run) {
+  const m = mv.spec;
+  const q = mvTitleClean();
+  try {
+    const [rat, tm] = await Promise.all([
+      getRatings({ q, year: m.year || '' }).catch(() => null),
+      apiGetJSON('/api/tmdb?q=' + encodeURIComponent(q) + (m.year ? '&year=' + encodeURIComponent(m.year) : '')).catch(() => null),
+    ]);
+    if (!mvLive(run)) return;
+    const meta = {};
+    if (rat && rat.ok) Object.assign(meta, { poster: rat.poster, rating: rat.rating, imdb: rat.imdb, type: rat.type, id: rat.id });
+    if (tm && tm.ok) Object.assign(meta, { poster: meta.poster || tm.poster, overview: tm.overview, type: tm.type || meta.type, id: tm.id || meta.id, rating: meta.rating || tm.rating, year: tm.year });
+    if (tm && tm.error) noteMetaError(tm.error);
+    mv.meta = meta;
+    paintMovie();
+    if (isMovieSeries() && !mv.eps) loadMovieEps(run);
+  } catch { /* без метаданных страница остаётся рабочей */ }
+}
+async function loadMovieEps(run) {
+  if (mv.epsBusy) return; mv.epsBusy = true;
+  try {
+    const j = await apiGetJSON('/api/tv_eps?q=' + encodeURIComponent(mvTitleClean()));
+    if (!mvLive(run)) return;
+    if (j && j.ok) { mv.eps = j; if (!mv.season && mv.spec.season) mv.season = mv.spec.season; paintMovie(); }
+    else { mv.eps = { ok: false, seasons: [] }; paintMovie(); }
+  } catch { mv.eps = { ok: false, seasons: [] }; paintMovie(); }
+  finally { mv.epsBusy = false; }
+}
+
+/* Поиск раздач по всем источникам: каждый кладёт своё сразу, зависший — по таймауту. */
+function searchMovieReleases(run) {
+  const q = mv.spec.query || mvTitleClean();
+  const names = { rutor: 'rutor', kinozal: 'Кинозал', torznab: 'Torznab' };
+  const add = items => {
+    if (!mvLive(run) || !items || !items.length) return;
+    // Раздачи с разных трекеров с одним хешем — одна строка со списком источников.
+    const byKey = new Map(mv.rows.map(r => [bestKey(r), r]));
+    for (const it of items) {
+      const k = bestKey(it), src = it._p || '?', cur = byKey.get(k);
+      if (!cur) { const n = Object.assign({}, it, { _srcs: [src] }); byKey.set(k, n); mv.rows.push(n); continue; }
+      if (!cur._srcs.includes(src)) cur._srcs.push(src);
+      if ((it.seed || 0) > (cur.seed || 0)) cur.seed = it.seed;
+      if (!cur.magnet && it.magnet) cur.magnet = it.magnet;
+      if (!cur.hash && it.hash) cur.hash = it.hash;
+    }
+    schedulePaintMovie();
+  };
+  const start = (p, make, ms) => {
+    mv.pending[p] = names[p];
+    const ac = new AbortController();
+    withTimeout(make(ac.signal), ms, names[p] + ' не ответил за ' + Math.round(ms / 1000) + ' с', () => ac.abort())
+      .then(r => { if (r) add(r); })
+      .catch(e => { if (mvLive(run)) mv.errs.push(e.message.indexOf(names[p]) === 0 ? e.message : names[p] + ': ' + e.message); })
+      .then(() => {
+        if (run !== mv.run) return;
+        delete mv.pending[p];
+        if (!Object.keys(mv.pending).length) mvCache.set(mv.key, { at: Date.now(), rows: mv.rows.slice(), meta: mv.meta, eps: mv.eps, errs: mv.errs.slice() });
+        schedulePaintMovie();
+      });
+  };
+  if (!state.rutorOff) start('rutor', sig => searchRutor(q, 0, 0, sig), SEARCH_TIMEOUT);
+  start('kinozal', sig => searchKinozal(q, 0, sig), SEARCH_TIMEOUT);
+  start('torznab', async sig => {
+    const res = await readTorznabStream(q, sig, items => add(items));
+    if (res.off && !res.total) throw new Error(res.off.replace(/^Torznab: /, ''));
+    return [];
+  }, SEARCH_TIMEOUT + 8000);
+}
+let mvPaintTimer = 0;
+function schedulePaintMovie() {
+  if (mvPaintTimer) return;
+  mvPaintTimer = setTimeout(() => { mvPaintTimer = 0; if (state.view === 'movie') { paintMovieReleases(); paintMovieHeadBits(); } }, 150);
+}
+
+/* Раздачи, подходящие к названию. Для фильма — по году, для сериала год не
+   проверяется: он у раздач бывает любым. */
+function mvRelevant() {
+  const m = mv.spec;
+  const q = m.query || mvTitleClean();
+  const year = isMovieSeries() ? 0 : Number(m.year) || 0;
+  return mv.rows.filter(r => bestRelevant(r, q, year) && !nonVideoKind(r.title || r.name || ''));
+}
+function mvRanked() {
+  const rows = mvRelevant().map(r => ({ r, q: rateRelease(r) }));
+  return rows.map(x => Object.assign(x, { w: movieScore(x.r, x.q, isMovieSeries() ? mv.season : 0) }));
+}
+function mvFiltered(list) {
+  return list.filter(({ r, q }) => {
+    if (mv.qual === '4k' && q.res !== '4K') return false;
+    if (mv.qual === 'fhd' && !(q.res === '4K' || q.res === '1080p')) return false;
+    if (mv.qual === 'hd' && !(q.res === '720p' || q.res === 'SD' || !q.res)) return false;
+    if (mv.ru && !q.ru) return false;
+    if (isMovieSeries() && mv.season) {
+      const cov = releaseSeasons(r.title || r.name);
+      if (cov && !(cov.from <= mv.season && cov.to >= mv.season)) return false;
+    }
+    return true;
+  });
+}
+function mvSorted(list) {
+  const by = {
+    best: (a, b) => b.w - a.w || (b.r.seed || 0) - (a.r.seed || 0),
+    seed: (a, b) => (b.r.seed || 0) - (a.r.seed || 0),
+    quality: (a, b) => b.q.score - a.q.score || (b.r.seed || 0) - (a.r.seed || 0),
+    size: (a, b) => (b.r.size_bytes || 0) - (a.r.size_bytes || 0),
+  };
+  return list.slice().sort(by[mv.sort] || by.best);
+}
+function mvBestPick() {
+  const list = mvFiltered(mvRanked()).filter(x => (x.r.seed || 0) > 0 && !x.q.bad).sort((a, b) => b.w - a.w);
+  return list[0] || null;
+}
+/* Раздачи из библиотеки, подходящие к названию. */
+function mvLibMatches() {
+  const m = mv.spec;
+  const year = isMovieSeries() ? 0 : Number(m.year) || 0;
+  return (state.lib || []).filter(t => bestRelevant({ title: cleanSearchTitle(t.title || t.name || '').q || t.title }, mvTitleClean(), year) || bestRelevant({ title: t.title || t.name }, mvTitleClean(), year));
+}
+
+function mvPoster() { return (mv.meta && mv.meta.poster) || (mv.spec && mv.spec.poster) || ''; }
+function paintMovie() {
+  const el = $('#mv'); if (!el) return;
+  const m = mv.spec;
+  const meta = mv.meta || {};
+  const tv = isMovieSeries();
+  const poster = mvPoster();
+  const year = m.year || (meta.year ? String(meta.year) : '');
+  const over = meta.overview || m.overview || '';
+  const rating = meta.rating || m.rating;
+  const favIt = { kind: tv ? 'tv' : 'movie', id: meta.id || m.tmdb || 't_' + bestNorm(m.title), title: m.title, year, poster };
+  el.innerHTML = html`
+    <div class="mv-top"><button class="ghost" data-mv="back">${raw(ico('arrow', 15))}<span>Назад</span></button></div>
+    <section class="mv-hero">
+      ${raw(poster ? html`<img class="mv-bg" src="${pimg(poster)}" alt="">` : '')}
+      <div class="mv-hero-in">
+        <div class="mv-poster">${raw(poster ? html`<img src="${pimg(poster)}" alt="" onerror="this.remove()">` : ico('film', 44))}${raw(discFavHtml(favIt))}</div>
+        <div class="mv-info">
+          <h1 class="mv-title">${m.title}${raw(year ? html` <span class="mv-year">${year}</span>` : '')}</h1>
+          <div class="mv-chips" id="mvChips"></div>
+          <p class="mv-over" id="mvOver">${over || (mv.meta ? 'Описание не найдено.' : 'Загружаю описание…')}</p>
+          <div class="mv-act">
+            <button class="primary" id="mvWatch" data-mv="watch"></button>
+            ${raw(tv ? '<button data-mv="follow" title="Демон сам сообщит о новых сериях">' + ico('bell', 16) + 'Следить</button>' : '')}
+            <button data-mv="fav" class="${isFavTitle(favIt) ? 'on' : ''}">${raw(ico('heart', 16))}<span>${isFavTitle(favIt) ? 'В избранном' : 'В избранное'}</span></button>
+            <button data-mv="trailer" class="ghost">${raw(ico('play', 15))}Трейлер</button>
+            <button data-mv="kp" class="ghost">Кинопоиск</button>
+          </div>
+          <div class="mv-pick" id="mvPick"></div>
+        </div>
+      </div>
+    </section>
+    <section id="mvLib"></section>
+    <section id="mvEps"></section>
+    <section id="mvRel"></section>`;
+  const fav = favIt; el._fav = fav;
+  paintMovieHeadBits();
+  paintMovieEps();
+  paintMovieReleases();
+}
+function isFavTitle(it) { return favList().some(x => isTitleFav(x) && x.kind + ':' + x.tmdb === discFavKey(it)); }
+
+function paintMovieHeadBits() {
+  const meta = mv.meta || {};
+  const chips = $('#mvChips'); if (!chips) return;
+  const tv = isMovieSeries();
+  const rating = meta.rating || (mv.spec && mv.spec.rating);
+  chips.innerHTML = html`<span class="chip">${tv ? 'Сериал' : 'Фильм'}</span>
+    ${raw(rating > 0 ? html`<span class="chip rating">TMDB ${Number(rating).toFixed(1)}</span>` : '')}
+    ${raw(meta.imdb > 0 ? html`<span class="chip rt-imdb">IMDb ${Number(meta.imdb).toFixed(1)}</span>` : '')}
+    ${raw(tv && mv.eps && mv.eps.seasons && mv.eps.seasons.length ? html`<span class="chip">${mv.eps.seasons.length} ${plural(mv.eps.seasons.length, 'сезон', 'сезона', 'сезонов')}</span>` : '')}`;
+  const over = $('#mvOver');
+  if (over && meta.overview && over.textContent !== meta.overview) over.textContent = meta.overview;
+  const pick = mvBestPick();
+  const lib = mvLibMatches();
+  const w = $('#mvWatch');
+  if (w) {
+    const busy = Object.keys(mv.pending).length;
+    if (lib.length && !tv) { w.innerHTML = ico('play', 16) + 'Смотреть из библиотеки'; w.disabled = false; w.dataset.mode = 'lib'; }
+    else if (pick) { w.innerHTML = ico('play', 16) + 'Смотреть лучшую'; w.disabled = false; w.dataset.mode = 'best'; }
+    else if (busy) { w.innerHTML = '<i class="spin"></i> Ищу раздачи…'; w.disabled = true; w.dataset.mode = ''; }
+    else if (lib.length) { w.innerHTML = ico('play', 16) + 'Смотреть из библиотеки'; w.disabled = false; w.dataset.mode = 'lib'; }
+    else { w.innerHTML = 'Живых раздач нет'; w.disabled = true; w.dataset.mode = ''; }
+  }
+  const pk = $('#mvPick');
+  if (pk) {
+    if (pick) {
+      const rq = pick.q;
+      pk.innerHTML = html`<span class="mv-pick-k">Лучший выбор</span> ${[rq.res, rq.source, rq.audio].filter(Boolean).join(' · ') || 'без пометок'} · ⬆ ${pick.r.seed || 0} раздающих${pick.r.size_bytes ? ' · ' + fmtSize(pick.r.size_bytes) : ''}${tv && mv.season ? ' · сезон ' + mv.season : ''}`;
+    } else pk.textContent = '';
+  }
+}
+
+/* ---- сезоны и серии ---- */
+function mvEpisodeIndex() {
+  // «сезон×серия» → где лежит серия в библиотеке и что с ней по просмотру.
+  const idx = new Map();
+  mvLibMatches().forEach(t => {
+    const stat = (statCache[t.hash] && statCache[t.hash].data) || t;
+    const tseason = (seriesInfo(t.title || '') || {}).s || 0;
+    playableOf(stat).filter(f => isVideo(f.path)).forEach(f => {
+      const pe = parseSeriesEp(basename(f.path));
+      const s = (pe && pe.s) || tseason || 1;
+      const e = pe && pe.e;
+      if (!e) return;
+      const k = s + 'x' + e;
+      if (!idx.has(k)) idx.set(k, { t, f, mark: markOf(t, f.id) });
+    });
+  });
+  return idx;
+}
+function mvSeasonList() {
+  const out = new Map();
+  ((mv.eps && mv.eps.seasons) || []).forEach(s => { if (s.number > 0) out.set(s.number, { n: s.number, eps: s.episodes || [], air: s.air_date, name: s.name }); });
+  // Сезоны, которые видны только по раздачам и библиотеке.
+  mvRelevant().forEach(r => { const c = releaseSeasons(r.title || r.name); if (c && c.to < 40) for (let n = c.from; n <= c.to; n++) if (!out.has(n)) out.set(n, { n, eps: [] }); });
+  mvLibMatches().forEach(t => { const s = (seriesInfo(t.title || '') || {}).s; if (s && !out.has(s)) out.set(s, { n: s, eps: [] }); });
+  return [...out.values()].sort((a, b) => a.n - b.n);
+}
+function paintMovieEps() {
+  const el = $('#mvEps'); if (!el) return;
+  if (!isMovieSeries()) { el.innerHTML = ''; return; }
+  const seasons = mvSeasonList();
+  if (!seasons.length) { el.innerHTML = mv.eps ? '' : html`<div class="mv-sec"><h2>Сезоны</h2><div class="page-sub">Загружаю список сезонов…</div></div>`; return; }
+  const idx = mvEpisodeIndex();
+  const cur = mv.season ? seasons.find(s => s.n === mv.season) : null;
+  let seen = 0, have = 0, total = 0;
+  seasons.forEach(s => { total += s.eps.length; s.eps.forEach(ep => { const it = idx.get(s.n + 'x' + ep.number); if (it) { have++; if (it.mark && it.mark.done) seen++; } }); });
+  const chips = ['<button class="mv-ch' + (mv.season ? '' : ' on') + '" data-mv-season="0">Все</button>'].concat(seasons.map(s => {
+    let sn = 0, sh = 0;
+    s.eps.forEach(ep => { const it = idx.get(s.n + 'x' + ep.number); if (it) { sh++; if (it.mark && it.mark.done) sn++; } });
+    return html`<button class="mv-ch${mv.season === s.n ? ' on' : ''}" data-mv-season="${s.n}" title="${s.eps.length ? 'серий: ' + s.eps.length + ', в библиотеке ' + sh + ', просмотрено ' + sn : ''}">Сезон ${s.n}${sn && s.eps.length ? raw(html` <i class="mv-ck">${sn}/${s.eps.length}</i>`) : ''}</button>`;
+  })).join('');
+  let list = '';
+  if (cur && cur.eps.length) {
+    list = '<div class="mv-eps">' + cur.eps.map(ep => {
+      const it = idx.get(cur.n + 'x' + ep.number);
+      const done = it && it.mark && it.mark.done;
+      const tc = it && it.mark && !it.mark.done ? it.mark.timecode || 0 : 0;
+      const aired = ep.air_date && new Date(ep.air_date) > new Date();
+      const st = done ? '<span class="mv-ep-st ok">' + ico('check', 14) + 'просмотрено</span>' : tc > 0 ? '<span class="mv-ep-st cont">с ' + fmtPos(tc) + '</span>'
+        : it ? '<span class="mv-ep-st lib">в библиотеке</span>' : aired ? '<span class="mv-ep-st soon">выйдет ' + esc(ep.air_date) + '</span>' : '<span class="mv-ep-st none">нет раздачи</span>';
+      return html`<button class="mv-ep${done ? ' done' : ''}${it ? '' : ' off'}" data-mv-ep="${cur.n}x${ep.number}">
+        <span class="mv-ep-n">${ep.number}</span>
+        <span class="mv-ep-t"><b>${ep.name || 'Серия ' + ep.number}</b><small>${[ep.air_date, ep.runtime ? ep.runtime + ' мин' : ''].filter(Boolean).join(' · ')}</small></span>
+        ${raw(st)}</button>`;
+    }).join('') + '</div>';
+  } else if (cur) list = '<div class="page-sub" style="margin:10px 0">Список серий этого сезона недоступен — раздачи ниже отфильтрованы по сезону.</div>';
+  el.innerHTML = html`<div class="mv-sec"><div class="mv-sec-h"><h2>Сезоны и серии</h2>
+      ${raw(total ? html`<span class="chip">просмотрено ${seen} из ${total}${have ? ' · в библиотеке ' + have : ''}</span>` : '')}</div>
+    <div class="mv-chs">${raw(chips)}</div>${raw(list)}
+    ${raw(cur && cur.air ? '' : '')}</div>`;
+}
+
+/* ---- раздачи ---- */
+function paintMovieReleases() {
+  const el = $('#mvRel'); if (!el) return;
+  const libEl = $('#mvLib');
+  const tv = isMovieSeries();
+  const lib = mvLibMatches();
+  if (libEl) {
+    libEl.innerHTML = lib.length ? html`<div class="mv-sec"><div class="mv-sec-h"><h2>В вашей библиотеке</h2><span class="chip">${lib.length}</span></div>
+      <div class="mv-rels">${raw(lib.slice(0, 8).map(t => { const l = libQuality(t); return html`<div class="rel-row lib">
+        <span class="chip rq rq-${l.q.tier}" title="${l.tip}">${l.q.score}</span>
+        <div class="rel-main"><div class="rel-title">${t.title || t.name}</div><div class="rel-tags">${[l.line, t.torrent_size ? fmtSize(t.torrent_size) : ''].filter(Boolean).join(' · ')}</div></div>
+        <button class="primary" data-mv-lib="${t.hash}">${raw(ico('play', 15))}Смотреть</button></div>`; }).join(''))}</div></div>` : '';
+  }
+  const pend = Object.values(mv.pending);
+  const all = mvRanked();
+  const flt = mvSorted(mvFiltered(all));
+  const bestKeyNow = (mvBestPick() || {}).r;
+  const maxQ = all.length ? Math.max(...all.map(x => x.q.score)) : 0;
+  const q = k => `<button class="mv-ch${mv.qual === k ? ' on' : ''}" data-mv-q="${k}">`;
+  const rows = flt.slice(0, 60).map(x => {
+    const { r, q: rq } = x;
+    const cov = tv ? releaseSeasons(r.title || r.name) : null;
+    const tags = [];
+    if (r === bestKeyNow) tags.push('<span class="chip best">★ Лучший выбор</span>');
+    if ((r.seed || 0) >= 30 && !rq.bad) tags.push('<span class="chip fast">быстрый старт</span>');
+    if (rq.score === maxQ && r !== bestKeyNow && rq.score >= 60) tags.push('<span class="chip hq">лучшее качество</span>');
+    if (cov && tv) tags.push('<span class="chip series">' + (cov.from === cov.to ? 'сезон ' + cov.from : cov.to >= 99 ? 'все сезоны' : 'сезоны ' + cov.from + '–' + cov.to) + '</span>');
+    const meta = [rq.res, rq.source, rq.codec, rq.hdr, rq.audio].filter(Boolean).join(' · ');
+    return html`<div class="rel-row${r === bestKeyNow ? ' top' : ''}">
+      <span class="chip rq rq-${rq.tier}" title="${rateTip(rq)}">${rq.score}</span>
+      <div class="rel-main">
+        <div class="rel-title" title="${r.title || r.name}">${r.title || r.name}</div>
+        <div class="rel-tags">${raw(tags.join(''))}<span>${meta || 'без пометок о качестве'}</span></div>
+        <div class="rel-nums"><span>${r.size_bytes ? fmtSize(r.size_bytes) : (r.size || '')}</span><span class="${(r.seed || 0) >= 10 ? 'good' : (r.seed || 0) ? '' : 'bad'}">⬆ ${r.seed || 0}</span>${raw(r.peer != null ? '<span>⬇ ' + esc(r.peer) + '</span>' : '')}<span class="page-sub" style="margin:0">${(r._srcs || [r._p]).map(s => SRC_NAME[s] || s).join(' + ')}</span>${raw(rq.notes.length ? '<span class="rel-note">' + esc(rq.notes.join(', ')) + '</span>' : '')}</div>
+      </div>
+      <button class="${r === bestKeyNow ? 'primary' : ''}" data-mv-rel="${mv.rows.indexOf(r)}">${raw(ico('play', 15))}Смотреть</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = html`<div class="mv-sec"><div class="mv-sec-h"><h2>Раздачи</h2><span class="chip">${flt.length}${flt.length !== all.length ? ' из ' + all.length : ''}</span>
+      ${raw(pend.length ? html`<span class="hint src-wait" style="margin:0"><i class="spin"></i> ещё ищем: ${pend.join(', ')}</span>` : '')}<span class="spacer"></span>
+      <select id="mvSort" style="width:auto" title="Сортировка"><option value="best" ${mv.sort === 'best' ? 'selected' : ''}>лучшие для просмотра</option><option value="seed" ${mv.sort === 'seed' ? 'selected' : ''}>по раздающим</option><option value="quality" ${mv.sort === 'quality' ? 'selected' : ''}>по качеству</option><option value="size" ${mv.sort === 'size' ? 'selected' : ''}>по размеру</option></select></div>
+    <div class="mv-chs">${raw(q('') + 'Любое качество</button>' + q('4k') + '4K</button>' + q('fhd') + '1080p и выше</button>' + q('hd') + '720p и ниже</button>')}
+      <button class="mv-ch${mv.ru ? ' on' : ''}" data-mv-ru>Русская дорожка</button></div>
+    ${raw(tv && mv.season ? html`<div class="page-sub" style="margin:6px 0">Показаны раздачи сезона ${mv.season} и сборники, где он есть. <button class="link-btn" data-mv-season="0">Все сезоны</button></div>` : '')}
+    ${raw(rows ? '<div class="mv-rels">' + rows + '</div>' : (pend.length ? skeleton('Ищу раздачи…', 4) : '<div class="empty">' + (all.length ? 'Под выбранные фильтры раздач нет.' : 'Живых раздач не нашлось.') + (mv.errs.length ? '</div><div class="hint" style="text-align:center">' + esc(mv.errs.join(' · ')) + '</div>' : '</div>')))}
+    ${raw(rows && mv.errs.length ? html`<div class="hint">${mv.errs.join(' · ')}</div>` : '')}
+    ${raw(flt.length > 60 ? html`<div class="page-sub" style="text-align:center;margin-top:8px">Показаны первые 60 из ${flt.length}. Уточните фильтры.</div>` : '')}</div>`;
+  const so = $('#mvSort'); if (so) so.addEventListener('change', () => { mv.sort = so.value; paintMovieReleases(); });
+}
+
+function onMovieClick(e) {
+  if (state.view !== 'movie') return;
+  const t = e.target;
+  const go = t.closest('[data-go]'); if (go) { setView(go.dataset.go); return; }
+  const fv = t.closest('.disc-fav');
+  if (fv) { e.stopPropagation(); const it = $('#mv') && $('#mv')._fav; if (it) { toggleDiscFav(it); paintMovie(); } return; }
+  const act = t.closest('[data-mv]');
+  if (act) {
+    const m = mv.spec, k = act.dataset.mv;
+    if (k === 'back') { if (history.length > 1) history.back(); else setView('home'); }
+    else if (k === 'watch') {
+      if (act.dataset.mode === 'lib') { const l = mvLibMatches(); if (l.length) watchNow(l.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0]); }
+      else { const p = mvBestPick(); if (p) playSearchLink(p.r); }
+    }
+    else if (k === 'follow') subsAdd(subsName(m.title), m.query || '');
+    else if (k === 'fav') { const it = $('#mv')._fav; toggleDiscFav(it); paintMovie(); }
+    else if (k === 'trailer') openTrailer({ title: m.title + (m.year ? ' ' + m.year : '') });
+    else if (k === 'kp') openExternal(kpSearchUrl(m.title + (m.year ? ' ' + m.year : '')));
+    return;
+  }
+  const se = t.closest('[data-mv-season]');
+  if (se) { mv.season = Number(se.dataset.mvSeason) || 0; paintMovieEps(); paintMovieReleases(); paintMovieHeadBits(); return; }
+  const q = t.closest('[data-mv-q]'); if (q) { mv.qual = q.dataset.mvQ; paintMovieReleases(); return; }
+  if (t.closest('[data-mv-ru]')) { mv.ru = !mv.ru; paintMovieReleases(); return; }
+  const rel = t.closest('[data-mv-rel]'); if (rel) { const r = mv.rows[+rel.dataset.mvRel]; if (r) playSearchLink(r); return; }
+  const lb = t.closest('[data-mv-lib]'); if (lb) { const x = (state.lib || []).find(y => y.hash === lb.dataset.mvLib); if (x) watchNow(x); return; }
+  const ep = t.closest('[data-mv-ep]');
+  if (ep) {
+    const it = mvEpisodeIndex().get(ep.dataset.mvEp);
+    if (it) { playSelected(it.t, it.f); return; }
+    const sn = Number(ep.dataset.mvEp.split('x')[0]);
+    mv.season = sn; paintMovieReleases(); paintMovieHeadBits();
+    toast('Этой серии нет в библиотеке — выберите раздачу сезона ' + sn + ' ниже');
+    const rel = $('#mvRel'); if (rel) rel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 /* ================= PLAYERS PAGE ================= */
 function renderPlayers(root) {

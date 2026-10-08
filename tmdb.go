@@ -29,7 +29,9 @@ type TMDBRes struct {
 	Rating float64 `json:"rating,omitempty"`
 	IMDBID string  `json:"imdb_id,omitempty"`
 	IMDB   float64 `json:"imdb,omitempty"`
-	Error  string  `json:"error,omitempty"`
+	// Overview — описание из TMDB: нужно странице фильма.
+	Overview string `json:"overview,omitempty"`
+	Error    string `json:"error,omitempty"`
 	// exact — название совпало с запросом дословно: по нему выбирается,
 	// какой из поисков (фильмы или всё подряд) ответил вернее.
 	exact bool
@@ -338,7 +340,7 @@ func (c *Comp) apiTmdb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	year := strings.TrimSpace(r.URL.Query().Get("year"))
-	cacheK := "t2|" + strings.ToLower(q) + "|" + year
+	cacheK := "t3|" + strings.ToLower(q) + "|" + year
 	if it, ok := tmdbGet(cacheK); ok {
 		jj(w, it.res)
 		return
@@ -502,6 +504,7 @@ func (c *Comp) queryTmdbSearch(kind, q, year string) TMDBRes {
 			VoteAverage  float64 `json:"vote_average"`
 			OrigTitle    string  `json:"original_title"`
 			OrigName     string  `json:"original_name"`
+			Overview     string  `json:"overview"`
 		} `json:"results"`
 	}
 	if json.Unmarshal(body, &sr) != nil || len(sr.Results) == 0 {
@@ -562,7 +565,7 @@ func (c *Comp) queryTmdbSearch(kind, q, year string) TMDBRes {
 	if it.PosterPath != "" {
 		p = "https://image.tmdb.org/t/p/w342" + it.PosterPath
 	}
-	return TMDBRes{OK: true, ID: it.ID, Type: typ, Title: title, Year: y, Poster: p, Rating: it.VoteAverage, exact: exact}
+	return TMDBRes{OK: true, ID: it.ID, Type: typ, Title: title, Year: y, Poster: p, Rating: it.VoteAverage, Overview: it.Overview, exact: exact}
 }
 
 // ---------- ratings (TMDB + Cinemeta IMDb) ----------

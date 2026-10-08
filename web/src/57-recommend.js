@@ -83,6 +83,6 @@ function paintRecommendations(el) {
     if (x) { e.stopPropagation(); recHide(x.dataset.hide); paintRecommendations(el); return; }
     const c = e.target.closest('[data-rk]'); if (!c) return;
     const it = recState.items.find(i => i.kind + ':' + i.id === c.dataset.rk);
-    if (it) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0);
+    if (it) openMovie({ title: it.title, year: it.year, kind: it.kind, tmdb: it.id, poster: it.poster, overview: it.overview, rating: it.rating });
   });
 }

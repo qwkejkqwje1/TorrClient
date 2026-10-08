@@ -245,14 +245,56 @@ function imdbUrlFor(r) {
   return 'https://www.imdb.com/find/?q=' + encodeURIComponent(c.q || '');
 }
 
-function setView(v) {
+/* ---------- переходы и история ----------
+   Каждый переход — запись в истории браузера, поэтому «назад» и «вперёд» работают
+   и кнопками мыши (боковые), и Alt+←/→, и жестом на телефоне. Параметры страницы
+   (например, какой фильм открыт) лежат в записи истории — так они переживают и
+   возврат, и перезагрузку. */
+function sameParams(a, b) { return JSON.stringify(a || null) === JSON.stringify(b || null); }
+function setView(v, params, opts) {
+  const same = state.view === v && sameParams(state.params, params);
   state.view = v;
+  state.params = params || null;
   try { localStorage.setItem(LS.view, v); } catch {}
+  if (!(opts && opts.noPush)) {
+    try {
+      const rec = { v, p: state.params };
+      if (same) history.replaceState(rec, '', '#/' + v);
+      else history.pushState(rec, '', '#/' + v);
+    } catch {}
+  }
   markNav();
   closeSheet();
   route();
   // Новый раздел открывается с начала, а не с прокрутки прошлого.
   try { window.scrollTo(0, 0); } catch {}
+}
+window.addEventListener('popstate', e => {
+  const st = e.state;
+  if (!st || !st.v) return;
+  setView(st.v, st.p, { noPush: true });
+});
+/* Боковые кнопки мыши: в браузере они ходят по истории сами, но в окне
+   приложения (WebView) — не всегда, поэтому ход делаем сами и гасим
+   штатный, чтобы не получить двойной шаг. */
+['mousedown', 'auxclick'].forEach(ev => window.addEventListener(ev, e => { if (e.button === 3 || e.button === 4) e.preventDefault(); }, true));
+window.addEventListener('mouseup', e => {
+  if (e.button !== 3 && e.button !== 4) return;
+  e.preventDefault();
+  if (e.button === 3) history.back(); else history.forward();
+}, true);
+/* Стартовая страница: любой раздел или «последний открытый». */
+const START_KEY = 'tc_start';
+function startView() {
+  let s = ''; try { s = localStorage.getItem(START_KEY) || ''; } catch {}
+  if (s === 'last') { let l = ''; try { l = localStorage.getItem(LS.view) || ''; } catch {} if (l && l !== 'movie' && NAV_ITEMS.some(x => x[0] === l)) return l; return 'home'; }
+  return NAV_ITEMS.some(x => x[0] === s) ? s : 'home';
+}
+function setStartView(v) {
+  try { localStorage.setItem(START_KEY, v); } catch {}
+  const it = NAV_ITEMS.find(x => x[0] === v);
+  toast(v === 'last' ? 'Приложение будет открываться на последнем разделе' : 'Стартовая страница: «' + (it ? it[1] : v) + '»');
+  $$('[data-view]').forEach(b => { if (b.closest('#nav')) b.classList.toggle('is-start', b.dataset.view === v); });
 }
 function route() {
   const v = state.view;
@@ -260,7 +302,7 @@ function route() {
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
   $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
-  const pages = { home: renderHome, library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
+  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderHome;
   const main = $('main'); main.innerHTML = '';
   main.dataset.view = v;
@@ -274,6 +316,8 @@ function hookNav() {
   applySideCollapsed();
   markNav();
   $$('#nav [data-view], #tabbar [data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.ctxmenu').forEach(m => m.classList.add('hidden')); setView(b.dataset.view); }));
+  // Правый клик по разделу в панели — сделать его стартовым.
+  $$('#nav [data-view]').forEach(b => b.addEventListener('contextmenu', e => { e.preventDefault(); setStartView(b.dataset.view); }));
   const sc = $('#sideCollapse'); if (sc) sc.addEventListener('click', toggleSide);
   const om = $('#omni'); if (om) om.addEventListener('click', () => openPalette());
   const ad = $('#addBtn'); if (ad) ad.addEventListener('click', () => openAddModal());
@@ -362,7 +406,7 @@ async function listTorrents() {
   // TorrServer поднимается не сразу, и пустой список прежде оставался на
   // экране до ручного обновления.
   if (!Array.isArray(arr)) throw new Error('TorrServer не отвечает');
-  return arr;
+  return pendingDrop.size ? arr.filter(t => !pendingDrop.has(t.hash)) : arr;
 }
 async function statTorrent(hash) {
   const r = await fetch(ts('/stream?link=' + encodeURIComponent(hash) + '&stat'));

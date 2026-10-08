@@ -1,0 +1,38 @@
+/* ───────────── ПОИСК ───────────── */
+.search-hero{margin-bottom:18px}
+.search-hero .page-title{margin-bottom:14px}
+.search-box{display:flex; align-items:center; gap:8px; max-width:880px; padding:5px 5px 5px 14px; border-radius:14px; background:var(--bg2); border:1px solid var(--line2); transition:border-color .12s,box-shadow .12s}
+.search-box:focus-within{border-color:var(--acc); box-shadow:0 0 0 4px var(--acc-soft)}
+.sb-ico{display:flex; color:var(--faint)}
+.search-box input{flex:1; border:0; background:transparent; min-height:42px; font-size:16px; padding:0 4px; box-shadow:none!important}
+.search-box button{min-height:40px; padding:0 16px; border-radius:10px}
+.quick.collections{padding-bottom:14px; margin-bottom:16px; border-bottom:1px solid var(--line)}
+.quick.collections button:not(.cat){font-weight:600}
+.quick.collections #recBtn .ico,.quick.collections .pop .ico{color:var(--acc)}
+
+/* подборки TMDB и рекомендации */
+.disc-head{margin:6px 0 12px; font-weight:650; font-size:15px}
+.disc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:20px 14px}
+.disc-card{cursor:pointer; min-width:0}
+.disc-poster{position:relative; aspect-ratio:2/3; border-radius:12px; overflow:hidden; background:linear-gradient(160deg,var(--bg3),var(--bg2)); box-shadow:0 0 0 1px var(--line); transition:transform .18s,box-shadow .18s}
+.disc-card:hover .disc-poster{transform:translateY(-3px); box-shadow:0 0 0 1px var(--line2),0 14px 30px rgba(0,0,0,.4)}
+.disc-poster img{width:100%; height:100%; object-fit:cover; display:block}
+.disc-title{margin-top:8px; font-size:13.5px; font-weight:600; line-height:1.3}
+.disc-card:hover .disc-title{color:var(--acc)}
+.disc-meta{color:var(--faint); font-size:12px; margin-top:2px}
+.rec-x{position:absolute; top:6px; right:6px; z-index:4; display:none; min-height:0; width:28px; height:28px; padding:0; background:rgba(14,15,18,.7); color:#fff; border:0; border-radius:50%; font-size:12px}
+.disc-card:hover .rec-x{display:flex}
+.rec-why{color:var(--faint); font-size:12px; margin-top:2px; line-height:1.35}
+.disc-fav{position:absolute; top:6px; left:50%; margin-left:-15px; z-index:4; width:30px; height:30px; min-height:0; border-radius:50%; padding:0; font-size:14px; line-height:1;
+  background:rgba(14,15,18,.62); border:1px solid rgba(255,255,255,.18); color:#ffd0d6; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); opacity:0; transition:opacity .15s}
+.disc-card:hover .disc-fav,.pcard:hover .disc-fav,.disc-fav:focus-visible,.disc-fav.on{opacity:1}
+.disc-fav:hover{background:#d8434f; color:#fff; border-color:transparent}
+.disc-fav.on{background:#d8434f; color:#fff; border-color:transparent}
+@media (hover:none){.disc-fav,.menu-ico,.fav-ov{opacity:1}}
+
+/* «Лучшая раздача» */
+.best-row{padding:12px 14px; border:1px solid var(--line); border-radius:var(--r); margin-top:8px; background:var(--bg)}
+.best-row.best-top{border-color:color-mix(in srgb,var(--acc) 55%,transparent); background:color-mix(in srgb,var(--acc) 7%,var(--bg)); box-shadow:0 0 0 3px var(--acc-soft)}
+.best-title{font-weight:600; margin-bottom:6px; line-height:1.35}
+.best-meta{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:13px; color:var(--mut)}
+

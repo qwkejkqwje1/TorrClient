@@ -382,26 +382,68 @@ async function doSearch() {
   const el = $('#searchResults');
   el.innerHTML = skeleton('Поиск…');
   state.searchState.tznabOff = null;
+  /* Поиск «по готовности»: каждый источник сам кладёт свои раздачи в выдачу и
+     перерисовывает её, не дожидаясь остальных. Источник, который завис, отрезается
+     по таймауту — выдача остаётся с тем, что успели ответить остальные. */
+  const run = ++searchRun;
+  const ss = state.searchState;
+  ss.run = run;
+  ss.pending = {};
+  const live = () => ss.run === run;
   const jobs = [];
   const errs = [];
-  const add = (p, promise) => jobs.push(promise.catch(e => {
-    /* Torznab разбирает источники построчно, и причина там длиннее одной
-       строки всплывающей подсказки, поэтому она уходит в разбор под списком,
-       а не в toast. Для остальных источников поведение прежнее. */
-    if (p === 'torznab') { state.searchState.tznabOff = 'Torznab: ' + e.message; return; }
-    errs.push(p + ': ' + e.message);
-    toast(p + ': ' + e.message, true);
-  }).then(r => {
-    if (r && r.length) { state.searchState.results = mergeResults(state.searchState.results, r); }
-    else if (p !== 'torznab') errs.push(p + ': 0 результатов');
-  }));
-  if (moreSources.rutor) add('rutor', searchRutor(q, 0, cat).then(r => { moreSources.rutor.count = r.length; return r; }));
-  if (prov === 'torznab' || prov === 'both') add('torznab', searchTorznabStream(q, el).then(n => { moreSources.torznab.count = n; return []; }));
-  if (moreSources.kinozal) add('kinozal', searchKinozal(q, 0).then(r => { moreSources.kinozal.count = r.length; return r; }));
+  const SRC_NAME = { rutor: 'rutor', torznab: 'Torznab', kinozal: 'Кинозал' };
+  const start = (p, make, ms) => {
+    ss.pending[p] = SRC_NAME[p] || p;
+    const ac = new AbortController();
+    jobs.push(withTimeout(make(ac.signal), ms, SRC_NAME[p] + ' не ответил за ' + Math.round(ms / 1000) + ' с', () => ac.abort())
+      .then(r => {
+        if (!live()) return;
+        if (r && r.length) ss.results = mergeResults(ss.results, r);
+        else if (p !== 'torznab') errs.push(SRC_NAME[p] + ': 0 результатов');
+      })
+      .catch(e => {
+        if (!live()) return;
+        /* Torznab разбирает источники построчно, и причина там длиннее одной
+           строки всплывающей подсказки, поэтому она уходит в разбор под списком,
+           а не в toast. Для остальных источников поведение прежнее. */
+        if (p === 'torznab') { ss.tznabOff = 'Torznab: ' + e.message; return; }
+        const why = e.message.indexOf(SRC_NAME[p]) === 0 ? e.message : SRC_NAME[p] + ': ' + e.message;
+        errs.push(why);
+        toast(why, true);
+      })
+      .then(() => {
+        if (!live()) return;
+        delete ss.pending[p];
+        ss.status = errs.slice();
+        schedulePaintResults();
+      }));
+  };
+  if (moreSources.rutor) start('rutor', sig => searchRutor(q, 0, cat, sig).then(r => { moreSources.rutor.count = r.length; return r; }), SEARCH_TIMEOUT);
+  if (prov === 'torznab' || prov === 'both') start('torznab', sig => searchTorznabStream(q, el, sig).then(n => { moreSources.torznab.count = n; return []; }), SEARCH_TIMEOUT + 8000);
+  if (moreSources.kinozal) start('kinozal', sig => searchKinozal(q, 0, sig).then(r => { moreSources.kinozal.count = r.length; return r; }), SEARCH_TIMEOUT);
   await Promise.all(jobs);
-  state.searchState.status = errs;
+  if (!live()) return;
+  ss.pending = {};
+  ss.status = errs;
   pushSearchHistory(q);
   paintResults(el);
+}
+let searchRun = 0;
+const SEARCH_TIMEOUT = 12000; // мс: дольше этого источник считается зависшим
+/* withTimeout — как Promise.race с таймером. При срабатывании вызывает onTimeout
+   (обрыв запроса), чтобы зависший ответ не копил соединения. */
+function withTimeout(promise, ms, msg, onTimeout) {
+  let timer;
+  const t = new Promise((_, rej) => { timer = setTimeout(() => { try { onTimeout && onTimeout(); } catch {} rej(new Error(msg)); }, ms); });
+  return Promise.race([promise, t]).finally(() => clearTimeout(timer));
+}
+/* schedulePaintResults склеивает частые перерисовки: ответы источников могут
+   прийти почти одновременно. */
+let paintTimer = 0;
+function schedulePaintResults() {
+  if (paintTimer) return;
+  paintTimer = setTimeout(() => { paintTimer = 0; if (state.view === 'search') paintResults($('#searchResults')); }, 120);
 }
 const sd = () => state.searchState;
 
@@ -426,8 +468,8 @@ function mergeResults(base, add) {
   return out;
 }
 
-async function searchKinozal(q, page) {
-  const arr = await apiGetJSON('/api/kinozal/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0));
+async function searchKinozal(q, page, signal) {
+  const arr = await apiGetJSON('/api/kinozal/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0), signal);
   if (!Array.isArray(arr)) throw new Error((arr && arr.error) || 'пустой ответ Кинозал');
   return (arr || []).map(it => ({
     _p: 'kinozal', title: it.title, name: it.title, size: it.size, size_bytes: parseSizeBytes(it.size) || it.size_bytes || null,
@@ -439,16 +481,16 @@ async function searchKinozal(q, page) {
 // Раньше на любой не-200 показывалось «HTTP 502», и настоящая причина
 // («трекер не ответил», «капча») терялась, а пустая выдача выглядела как
 // «ничего не найдено».
-async function apiGetJSON(url) {
-  const r = await fetch(url);
+async function apiGetJSON(url, signal) {
+  const r = await fetch(url, signal ? { signal } : undefined);
   let body = null;
   try { body = await r.json(); } catch { /* тело не JSON — покажем код */ }
   if (!r.ok) throw new Error((body && body.error) || ('HTTP ' + r.status));
   return body;
 }
 
-async function searchRutor(q, page, cat) {
-  const arr = await apiGetJSON('/api/rutor/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0) + '&cat=' + (cat | 0));
+async function searchRutor(q, page, cat, signal) {
+  const arr = await apiGetJSON('/api/rutor/search?query=' + encodeURIComponent(q) + '&page=' + (page | 0) + '&cat=' + (cat | 0), signal);
   if (!Array.isArray(arr)) throw new Error((arr && arr.error) || 'пустой ответ rutor');
   return mapRutorItems(arr);
 }
@@ -501,18 +543,16 @@ async function loadMore() {
   paintResults($('#searchResults'));
 }
 
-// searchTorznabStream ищет по всем индексаторам сразу и рисует выдачу по мере
-// ответов: медленный индексатор больше не задерживает быстрые. Возвращает число
-// полученных раздач (нужно для «Показать ещё»). Поток читается вручную:
-// EventSource не умеет обрывать запрос при смене вкладки.
-async function searchTorznabStream(q, el) {
-  const ss = state.searchState;
-  const r = await fetch('/api/torznab/stream?query=' + encodeURIComponent(q));
+// readTorznabStream читает поток ответов индексаторов: onSource вызывается на
+// каждый ответивший источник (items — уже приведённые раздачи, bad — список тех,
+// кто не ответил). Читается вручную: EventSource не умеет обрывать запрос.
+// Возвращает {total, off}: сколько раздач получено и причину отказа всего потока.
+async function readTorznabStream(q, signal, onSource) {
+  const r = await fetch('/api/torznab/stream?query=' + encodeURIComponent(q), signal ? { signal } : undefined);
   if (!r.ok || !r.body) {
     let body = null;
     try { body = await r.json(); } catch { /* не JSON */ }
-    ss.tznabOff = 'Torznab: ' + ((body && body.error) || ('HTTP ' + r.status));
-    return 0;
+    return { total: 0, off: 'Torznab: ' + ((body && body.error) || ('HTTP ' + r.status)), bad: [] };
   }
   const bad = [];
   let total = 0;
@@ -521,11 +561,8 @@ async function searchTorznabStream(q, el) {
     const rep = data.source || {};
     if (!rep.ok && rep.error) bad.push((rep.name || '?') + ' — ' + rep.error);
     const items = (data.items || []).map(mapTorznab);
-    if (!items.length) return;
     total += items.length;
-    ss.results = mergeResults(ss.results, items);
-    ss.tznabOff = bad.length ? 'Индексатор не ответил: ' + bad.join('; ') : null;
-    paintResults(el);
+    if (items.length || bad.length) onSource(items, bad);
   };
   const reader = r.body.getReader();
   const dec = new TextDecoder();
@@ -547,9 +584,20 @@ async function searchTorznabStream(q, el) {
       try { onEvent(name, JSON.parse(dataLine)); } catch { /* битый кадр пропускаем */ }
     }
   }
-  if (bad.length) ss.tznabOff = 'Индексатор не ответил: ' + bad.join('; ');
-  else if (!total) ss.tznabOff = null;
-  return total;
+  return { total, off: bad.length ? 'Индексатор не ответил: ' + bad.join('; ') : null, bad };
+}
+// searchTorznabStream ищет по всем индексаторам сразу и рисует выдачу по мере
+// ответов: медленный индексатор больше не задерживает быстрые. Возвращает число
+// полученных раздач (нужно для «Показать ещё»).
+async function searchTorznabStream(q, el, signal) {
+  const ss = state.searchState;
+  const res = await readTorznabStream(q, signal, (items, bad) => {
+    if (items.length) ss.results = mergeResults(ss.results, items);
+    ss.tznabOff = bad.length ? 'Индексатор не ответил: ' + bad.join('; ') : null;
+    schedulePaintResults();
+  });
+  ss.tznabOff = res.off;
+  return res.total;
 }
 
 // ---- Подборки TMDB: «самое популярное за всё время» по виду, жанру и происхождению ----
@@ -663,7 +711,7 @@ function paintDiscover(el) {
   $$('.disc-card').forEach(c => c.addEventListener('click', () => {
     const it = discState.items[+c.dataset.di];
     if (!it) return;
-    findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0);
+    openMovie({ title: it.title, year: it.year, kind: it.kind, tmdb: it.id, poster: it.poster, overview: it.overview, rating: it.rating });
   }));
   const more = $('#discMore');
   if (more) more.addEventListener('click', () => { more.disabled = true; more.textContent = 'Загрузка...'; fetchDiscover(false); });
@@ -734,6 +782,11 @@ function paintResults(el) {
   const rows = state.searchState ? state.searchState.results : [];
   const qual = QUAL[qualOn()] || QUAL['fhd'];
   const status = state.searchState.status || [];
+  const pend = Object.values(state.searchState.pending || {});
+  if (!rows.length && pend.length) {
+    if (needProvider) needProvider.innerHTML = skeleton('Ищем: ' + pend.join(', ') + '…');
+    return;
+  }
   if (!rows.length) {
     if (needProvider) needProvider.innerHTML = '<div class="empty">Нет результатов.' + (status.length ? '' : ' Проверьте индексаторы: Настройки → Torznab.') + '</div>'
       + (status.length ? html`<div class="hint" style="text-align:center;margin-top:8px">${status.join(' · ')}</div>` : '');
@@ -814,6 +867,7 @@ function paintResults(el) {
     ${raw(hidden ? html`<span class="hint" style="margin:0">скрыто ${hidden} не-видео</span><button id="showAllBtn" style="width:auto" title="Вернуть игры, софт и книги в выдачу">показать всё</button>` : '')}
     ${raw(hiddenQual ? html`<span class="hint" style="margin:0">отсеяно ${hiddenQual} фильтром «${qual.label}»</span><button id="anyQualBtn" style="width:auto" title="Показать раздачи ниже выбранного качества — например, 720p и HDTVRip">показать без фильтра качества</button>` : '')}
     ${raw(hiddenEx ? html`<span class="hint" style="margin:0">скрыто ${hiddenEx} по «${excl.map(w => '-' + w).join(' ')}»</span>` : '')}
+    ${raw(pend.length ? html`<span class="hint src-wait" style="margin:0"><i class="spin"></i> ещё ищем: ${pend.join(', ')}</span>` : '')}
     ${raw(state.searchState.tznabOff ? html`<span class="hint" style="margin:0">${state.searchState.tznabOff}</span>` : '')}
     ${raw(status.length ? html`<span class="hint" style="margin:0">${status.join(' · ')}</span>` : '')}
   </h2>

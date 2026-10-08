@@ -1,0 +1,20 @@
+/* ───────────── БИБЛИОТЕКА: «Продолжить» в старом виде ───────────── */
+.cont-strip{margin:0 0 18px}
+.cont-head{display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; margin-bottom:10px}
+.cont-n{background:var(--bg3); color:var(--mut); border-radius:10px; padding:1px 8px; font-size:12px}
+.cont-row{display:flex; gap:12px; overflow-x:auto; padding-bottom:8px}
+.cont-card{flex:0 0 260px; background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px}
+.cont-card:hover{border-color:var(--line2)}
+.cont-card.is-next{border-style:dashed}
+.cont-top{display:flex; gap:10px; align-items:center; min-width:0}
+.cont-txt{min-width:0; flex:1; display:flex; flex-direction:column; gap:2px}
+.cont-poster{width:36px; height:54px; object-fit:cover; border-radius:6px; flex:none}
+.cont-title{font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cont-sub,.cont-pos{font-size:12.5px; color:var(--mut); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cont-bar{height:4px; border-radius:3px; background:var(--bg4); overflow:hidden}
+.cont-bar i{display:block; height:100%; background:var(--acc)}
+.cont-foot{display:flex; align-items:center; gap:6px}
+.cont-pos{flex:1}
+
+.tile .qline{font-size:12px; color:var(--mut); line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.src-wait{display:inline-flex; align-items:center; gap:6px}

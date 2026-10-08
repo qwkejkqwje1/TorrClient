@@ -39,6 +39,8 @@ const ICONS = {
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  edit: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M13.5 8.5l3 3"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
   film: '<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8.5h4.5M3 15.5h4.5M16.5 8.5H21M16.5 15.5H21"/>',
 };
 function ico(name, size) {
@@ -184,7 +186,7 @@ function palItems(q) {
     const lib = (state.lib || []).map(t => ({ t, sc: palScore(t.title || t.name || '', words) })).filter(x => x.sc).sort((a, b) => b.sc - a.sc).slice(0, 6);
     lib.forEach(({ t, sc }) => out.push({ group: 'Библиотека', label: t.title || t.name || t.hash, icon: 'play', run: () => watchNow(t), sc: sc + 0.5, poster: t.poster }));
     const fav = favList().map(f => ({ f, sc: palScore(f.title || '', words) })).filter(x => x.sc).slice(0, 4);
-    fav.forEach(({ f, sc }) => out.push({ group: 'Избранное', label: f.title || 'магнит', icon: 'heart', run: () => (isTitleFav(f) ? findBest(f.title, f.year ? +String(f.year).slice(0, 4) : 0) : playSearchLink(f)), sc, poster: f.poster }));
+    fav.forEach(({ f, sc }) => out.push({ group: 'Избранное', label: f.title || 'магнит', icon: 'heart', run: () => (isTitleFav(f) ? openMovie({ title: f.title, year: f.year, kind: f.kind, tmdb: f.tmdb, poster: f.poster }) : playSearchLink(f)), sc, poster: f.poster }));
   }
   const order = ['Поиск', 'Библиотека', 'Избранное', 'Разделы', 'Действия', 'Темы'];
   if (!words.length) return out.filter(x => x.group !== 'Поиск');

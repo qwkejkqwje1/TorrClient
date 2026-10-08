@@ -1,0 +1,35 @@
+/* ───────────── показ: подготовка и панель хода ───────────── */
+.prep{max-width:540px}
+.prep-stage{display:flex; align-items:center; gap:10px; margin:6px 0 12px; font-size:14px}
+.prep-bar{height:6px; background:var(--bg4); border-radius:4px; overflow:hidden}
+.prep-bar i{display:block; height:100%; width:0; background:var(--acc); border-radius:4px; transition:width .3s}
+.prep-stats{display:flex; flex-wrap:wrap; gap:6px 16px; margin:12px 0; font-size:13px; color:var(--mut); font-variant-numeric:tabular-nums}
+.prep-hint{font-size:12.5px; color:var(--mut); margin-bottom:12px; min-height:16px}
+.dlpanel{position:fixed; right:20px; bottom:20px; z-index:90; width:340px; padding:14px 16px; background:var(--bg2); border:1px solid var(--line2); border-radius:16px; box-shadow:var(--sh-2)}
+.dlpanel.done{border-color:color-mix(in srgb,var(--acc2) 50%,transparent)}
+.dlpanel-h{display:flex; align-items:center; gap:8px; font-size:13.5px}
+.dlpanel-h b{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dlpanel-h button{min-height:0; width:28px; height:28px; padding:0; background:transparent; color:var(--mut); border-radius:50%}
+.dlpanel-h button:hover{background:var(--hover); color:var(--fg)}
+.dlpanel-sub{font-size:12.5px; color:var(--mut); margin:4px 0 10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dlpanel .prep-bar{margin-bottom:8px}
+.dlpanel .prep-stats{margin:0 0 6px; font-size:12.5px}
+.dlpanel .prep-hint{min-height:0; margin:0}
+.dlpanel .prep-next{margin-top:10px; display:flex}
+.dlpanel .prep-next.hidden{display:none}
+.dlpanel .prep-next button{width:100%}
+.dlpanel.done .spin{animation:none; border-color:var(--acc2)}
+
+/* выбор «где смотреть» на телефоне, устройства, адреса */
+.phone-play{display:flex; flex-direction:column; gap:8px}
+.phone-play button{flex-direction:column; align-items:flex-start; text-align:left; padding:12px 14px; font-size:15px}
+.phone-play button small{display:block; color:var(--mut); font-size:12.5px; font-weight:400}
+.phone-play button.primary small{color:inherit; opacity:.85}
+.dev-list{display:flex; flex-direction:column; gap:6px; max-height:50vh; overflow:auto}
+.dev-item{flex-direction:column; align-items:flex-start; text-align:left; padding:10px 12px}
+.dev-item small{color:var(--mut); font-size:12.5px; font-weight:400}
+.dlpanel-h [data-send]{font-size:15px}
+.addr-pick{display:flex!important; flex-direction:row!important; flex-wrap:wrap; gap:4px 8px; align-items:center; margin:4px 0!important; cursor:pointer}
+.addr-pick input{width:auto!important; margin:0; flex:none}
+.addr-pick .page-sub{margin:0}
+

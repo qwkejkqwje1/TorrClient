@@ -5,7 +5,10 @@
 // честно говорит «по названию» и не заменяет ffprobe в карточке раздачи.
 function rateRelease(r) {
   const t = String((r && (r.title || r.name)) || '');
-  const seeds = Math.max(0, Number(r && r.seed) || 0);
+  // seed не задан (раздача из библиотеки: число сидов там — снимок, а не оценка) —
+  // сиды не оцениваются: ни штрафа за «нет сидов», ни потолка.
+  const seedKnown = !!r && r.seed != null && r.seed !== '' && !isNaN(Number(r.seed));
+  const seeds = seedKnown ? Math.max(0, Number(r.seed)) : 0;
   const bytes = Number(r && r.size_bytes) || 0;
   const has = re => re.test(t);
   const out = { score: 0, res: '', source: '', codec: '', hdr: '', audio: '', ru: false, bad: false, notes: [] };
@@ -46,8 +49,8 @@ function rateRelease(r) {
   if (has(/\bsub\b|субтитр|\bsubs?\b/i) && !out.ru) { out.notes.push('только субтитры'); ruPts = 2; }
 
   // Сиды: логарифм, чтобы 1000 сидов не давили всё остальное
-  const seedPts = Math.min(15, Math.round(5 * Math.log10(seeds + 1)));
-  if (!seeds) out.notes.push('нет сидов');
+  const seedPts = seedKnown ? Math.min(15, Math.round(5 * Math.log10(seeds + 1))) : 8;
+  if (seedKnown && !seeds) out.notes.push('нет сидов');
 
   // Размер: у «1080p» на полтора гигабайта или 720p на пять терабайт что-то не так
   let sizePts = 3;
@@ -62,7 +65,7 @@ function rateRelease(r) {
 
   let score = resPts + srcPts + seedPts + ruPts + extra + sizePts;
   if (out.bad) score = Math.min(score, 15);
-  if (!seeds) score = Math.min(score, 30);
+  if (seedKnown && !seeds) score = Math.min(score, 30);
   out.score = Math.max(0, Math.min(100, Math.round(score)));
   out.tier = out.score >= 75 ? 'good' : out.score >= 50 ? 'ok' : 'low';
   return out;
@@ -100,6 +103,15 @@ function playVerdict(j) {
 }
 /* QUALITY-END */
 
+/* libQuality — оценка раздачи в библиотеке: качество по названию и размеру,
+   без сидов (в библиотеке это снимок, а не свойство раздачи). */
+function libQuality(t) {
+  const title = (t && (t.title || t.name)) || '';
+  const q = rateRelease({ title, size_bytes: t && t.torrent_size });
+  const bits = [q.source, q.codec, q.hdr, q.audio].filter(Boolean);
+  return { q, line: bits.join(' · '), tip: rateTip(q) };
+}
+
 function qTag(name) {
   if (/(2160|4k|uhd)/i.test(name)) return 'q2160';
   if (/(1080|fullhd|fhd|blu-ray|bdrip|web-dl.*1080|hd)\b/i.test(name)) return 'q1080';
@@ -122,6 +134,7 @@ function bindTiles(grid) {
     act('[data-act="edit"]', () => openEditModal(t));
     act('[data-act="m3u"]', () => downloadM3u(t));
     act('[data-act="copy"]', () => copyTorrentMagnet(t));
+    act('[data-act="card"]', () => openMovie(Object.assign(fromRelease(t), { poster: t.poster || '' })));
     act('[data-act="drop"]', () => dropTorrent(t));
     act('[data-del]', () => dropTorrent(t));
     act('[data-act="autoposter"]', () => autoPoster(t));
@@ -198,12 +211,15 @@ function openCollectionPicker(t) {
   ov.querySelectorAll('[data-cdel]').forEach(b => b.addEventListener('click', () => {
     const c = collById(b.dataset.cdel);
     if (!c) return;
-    if (typeof confirm === 'function' && !confirm('Удалить подборку «' + c.name + '»? Раздачи останутся в библиотеке.')) return;
+    const snap = localStorage.getItem(COLLS_KEY);
     collRemove(b.dataset.cdel);
     fillCollSelect($('#libColl'), state.coll);
     close();
     paintLibrary();
-    toast('Подборка удалена');
+    toastUndo('Подборка «' + c.name + '» удалена · раздачи остались в библиотеке', () => {
+      try { localStorage.setItem(COLLS_KEY, snap || '[]'); } catch {}
+      syncUserData(); fillCollSelect($('#libColl'), state.coll); if (state.view === 'library') paintLibrary();
+    });
   }));
   ov.querySelector('#collNewGo').addEventListener('click', () => {
     const name = (ov.querySelector('#collNewName').value || '').trim();
@@ -307,10 +323,29 @@ async function uploadFiles(files, ov) {
   if (ov) ov.remove();
 }
 
+/* dropTorrent убирает раздачу без окна подтверждения: плитка исчезает сразу,
+   а сервер получает команду только когда уведомление «Вернуть» истекло. Нажали
+   «Вернуть» — ничего с сервера не пропадало, плитка встаёт на место. */
+// Раздачи, ожидающие удаления: список с сервера их пока скрывает.
+const pendingDrop = new Set();
 async function dropTorrent(t) {
-  if (!confirm('Убрать торрент с сервера?')) return;
-  try { await torrentAction('rem', { hash: t.hash }); delete statCache[t.hash]; toast('Торрент удалён'); } catch (e) { toast('Ошибка: ' + e.message, true); }
-  refreshLibrary();
+  const at = state.lib.indexOf(t);
+  if (at < 0) return;
+  state.lib.splice(at, 1);
+  pendingDrop.add(t.hash);
+  if (state.view === 'library') paintLibrary();
+  const name = cleanSearchTitle(t.title || t.name || '').q || t.title || t.name || 'Торрент';
+  toastUndo('Удалено · ' + (name.length > 48 ? name.slice(0, 47) + '…' : name), () => {
+    pendingDrop.delete(t.hash);
+    if (!state.lib.includes(t)) state.lib.splice(Math.min(at, state.lib.length), 0, t);
+    if (state.view === 'library') paintLibrary(); else if (state.view === 'home') paintHome();
+  }, async () => {
+    try { await torrentAction('rem', { hash: t.hash }); delete statCache[t.hash]; }
+    catch (e) { toast('Не удалось удалить на сервере: ' + e.message, true); }
+    pendingDrop.delete(t.hash);
+    refreshLibrary();
+  });
+  if (state.view === 'home') paintHome();
 }
 function downloadM3u(t) {
   const url = ts(`/playlist?hash=${encodeURIComponent(t.hash)}&m3u`);
