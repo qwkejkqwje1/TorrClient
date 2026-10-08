@@ -2,36 +2,38 @@ async function renderSearch(root) {
   const sd = state.searchState;
   const hist = searchHistory();
   root.innerHTML = html`
-    <div class="toolbar">
-      <h1 class="page-title">Поиск</h1>
-      <input class="search-input" id="searchInput" list="searchHistList" autocomplete="off" placeholder="Название фильма или сериала..." title="/ или Ctrl+K — сюда, ? — все клавиши" value="${sd.q}">
-      <datalist id="searchHistList">${raw(searchHistoryAll().map(h => html`<option value="${h}">`).join(''))}</datalist>
-      <button id="searchBtn" class="primary">Найти</button>
-      <select id="searchCat" title="Категория" style="width:auto">
-        ${raw(CATS.map(c => html`<option value="${c.v}">${c.label}</option>`).join(''))}
-      </select>
-      <select id="searchQual" title="Качество раздачи" style="width:auto">
-        ${raw(Object.entries(QUAL).map(([v, q]) => html`<option value="${v}">${q.label}</option>`).join(''))}
-      </select>
-      <label style="margin:0;display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:12px" title="Прятать из выдачи игры, софт и книги"><input type="checkbox" id="searchVid"> только видео</label>
-      <select id="searchProv" title="Источник" style="width:auto">
-        <option value="rutor">rutor</option>
-        <option value="torznab">Torznab</option>
-        <option value="kinozal">Кинозал.ТВ</option>
-        <option value="both">Все источники</option>
-      </select>
-      <button id="top24Btn" class="top24btn">ТОП-24</button>
-      <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
-      <button id="popBtn" class="top24btn" title="Раздачи выбранной категории за всё время, по числу сидов (rutor или индексаторы)">Популярное</button>
-      <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">✨ Для вас</button>
-      <span class="spacer"></span>
-      <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
+    <div class="search-hero">
+      <h1 class="page-title">Поиск раздач</h1>
+      <div class="search-box">
+        <span class="sb-ico">${raw(ico('search', 20))}</span>
+        <input id="searchInput" list="searchHistList" autocomplete="off" placeholder="Название фильма или сериала — можно с годом, «-слово» исключает" title="/ — сюда, Ctrl+K — палитра, ? — все клавиши" value="${sd.q}">
+        <datalist id="searchHistList">${raw(searchHistoryAll().map(h => html`<option value="${h}">`).join(''))}</datalist>
+        <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">${raw(ico('star', 16))}<span>Лучшая</span></button>
+        <button id="searchBtn" class="primary">Найти</button>
+      </div>
+      <div class="filterbar compact">
+        <select id="searchProv" title="Источник">
+          <option value="rutor">rutor</option>
+          <option value="torznab">Torznab</option>
+          <option value="kinozal">Кинозал.ТВ</option>
+          <option value="both">Все источники</option>
+        </select>
+        <select id="searchCat" title="Категория">
+          ${raw(CATS.map(c => html`<option value="${c.v}">${c.label}</option>`).join(''))}
+        </select>
+        <select id="searchQual" title="Качество раздачи">
+          ${raw(Object.entries(QUAL).map(([v, q]) => html`<option value="${v}">${q.label}</option>`).join(''))}
+        </select>
+        <label class="check" title="Прятать из выдачи игры, софт и книги"><input type="checkbox" id="searchVid"> только видео</label>
+        <label class="check" title="Новая выдача добавится к текущей, а не заменит её"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
+      </div>
     </div>
-    <div class="quick">
-      <span class="qlabel">Быстро:</span>
-      ${raw(CATS.filter(c => c.v).slice(0, 5).map(c => html`<button data-cat="${c.v}">${c.label}</button>`).join(''))}
-      <span class="spacer"></span>
-      <label style="margin:0;display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:12px"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
+    <div class="quick collections">
+      <button id="top24Btn" class="top24btn">ТОП-24</button>
+      <button id="popBtn" class="top24btn pop" title="Раздачи выбранной категории за всё время, по числу сидов (rutor или индексаторы)">${raw(ico('film', 16))}Популярное</button>
+      <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">${raw(ico('sparkles', 16))}Для вас</button>
+      <span class="q-sep"></span>
+      ${raw(CATS.filter(c => c.v).slice(0, 5).map(c => html`<button class="cat" data-cat="${c.v}">${c.label}</button>`).join(''))}
     </div>
     ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<span class="hq-chip"><button data-hq="${h}">${h}</button><button class="hq-x" data-hqx="${h}" title="Удалить из истории">×</button></span>`).join(''))}<button id="hqClear" class="hq-x" title="Очистить историю">очистить</button></div>` : '')}
     <div class="quick" id="discBar">
@@ -78,7 +80,6 @@ async function renderSearch(root) {
   { const c = $('#hqClear'); if (c) c.addEventListener('click', () => { saveSearchHistory([]); const q = c.closest('.quick'); if (q) q.remove(); }); }
   $('#top24Btn').addEventListener('click', onTopClick);
   $('#popBtn').addEventListener('click', () => fetchPopular());
-  $('[data-open="add"]').addEventListener('click', openAddModal);
   updateTopBtnLabel();
   paintResults($('#searchResults'));
   // Раздел открыт ради рекомендаций — ТОП-24 не загружается поверх них.

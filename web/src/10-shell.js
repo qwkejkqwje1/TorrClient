@@ -157,7 +157,7 @@ function hookEvents() {
   });
   // Подписка проверена (например, только что заведённая) — перечитать список.
   eventsSrc.addEventListener('subs_changed', () => {
-    loadSubs().then(() => { if (state.view === 'subs') paintSubsBody(); }).catch(() => {});
+    loadSubs().then(() => { if (state.view === 'subs') paintSubsBody(); else if (state.view === 'home') paintHome(); }).catch(() => {});
   });
   eventsSrc.addEventListener('torrents', e => {
     let list = [];
@@ -166,7 +166,7 @@ function hookEvents() {
     if ($('#dlTorrents')) { paintTorrentRows(list); paintCacheCard(list); }
   });
   eventsSrc.addEventListener('state', () => {
-    loadUserData().then(() => { if (state.view === 'library') paintLibrary(); }).catch(() => {});
+    loadUserData().then(() => { if (state.view === 'library') paintLibrary(); else if (state.view === 'home') paintHome(); }).catch(() => {});
   });
   return true;
 }
@@ -194,6 +194,7 @@ function applyPosition(d) {
   // нельзя: пользователь как раз выбирает серию или правит настройки.
   if (first || $('.overlay')) return;
   if (state.view === 'library') paintLibrary();
+  else if (state.view === 'home') paintHome();
 }
 
 function hookGlobal() {
@@ -247,8 +248,11 @@ function imdbUrlFor(r) {
 function setView(v) {
   state.view = v;
   try { localStorage.setItem(LS.view, v); } catch {}
-  $$('#nav [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  markNav();
+  closeSheet();
   route();
+  // Новый раздел открывается с начала, а не с прокрутки прошлого.
+  try { window.scrollTo(0, 0); } catch {}
 }
 function route() {
   const v = state.view;
@@ -256,19 +260,23 @@ function route() {
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
   $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
-  const pages = { library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
-  const fn = pages[v] || renderLibrary;
+  const pages = { home: renderHome, library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
+  const fn = pages[v] || renderHome;
   const main = $('main'); main.innerHTML = '';
+  main.dataset.view = v;
   // Крестики в полях ставятся и сразу, и после асинхронной отрисовки.
   Promise.resolve(fn(main)).finally(() => addClears(main));
   addClears(main);
 }
 function hookNav() {
-  $('#nav').innerHTML = [
-    ['library', 'Библиотека'], ['search', 'Поиск'], ['favorites', 'Избранное'], ['bookmarks', 'Закладки'], ['players', 'Плееры'],
-    ['series', 'Сериалы'], ['subs', 'Подписки'], ['downloads', 'Загрузки'], ['settings', 'Настройки'], ['server', 'Сервер'],
-  ].map(([k, n]) => `<button data-view="${k}" class="${state.view === k ? 'on' : ''}">${n}</button>`).join('');
-  $$('#nav [data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.ctxmenu').forEach(m => m.classList.add('hidden')); setView(b.dataset.view); }));
+  renderSidebarNav();
+  paintShellIcons();
+  applySideCollapsed();
+  markNav();
+  $$('#nav [data-view], #tabbar [data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.ctxmenu').forEach(m => m.classList.add('hidden')); setView(b.dataset.view); }));
+  const sc = $('#sideCollapse'); if (sc) sc.addEventListener('click', toggleSide);
+  const om = $('#omni'); if (om) om.addEventListener('click', () => openPalette());
+  const ad = $('#addBtn'); if (ad) ad.addEventListener('click', () => openAddModal());
   // Число новых серий на вкладке: подписки проверяет демон и без открытой
   // страницы, а узнать об этом было бы неоткуда.
   loadSubs().catch(() => {});
@@ -303,7 +311,9 @@ function renderServerStatus() {
   const el = $('#serverStatus');
   if (!el) return;
   const prof = state.profiles.find(p => p.id === state.active) || {};
-  el.innerHTML = html`<span class="dot ${state.active ? 'ok' : 'err'}"></span><span title="${prof.name || '—'}">Локальный сервер</span>`;
+  el.innerHTML = html`<span class="dot ${state.active ? 'ok' : 'err'}"></span><span class="st-txt" title="${prof.name || '—'}"><b>${state.active ? 'Сервер на связи' : 'Нет сервера'}</b><small>${prof.name || 'TorrServer'}</small></span>`;
+  el.title = 'Профиль TorrServer: ' + (prof.name || '—') + ' — открыть раздел «Сервер»';
+  el.onclick = () => setView('server');
 }
 
 /* ---------- почему нет постеров ---------- */
@@ -312,6 +322,8 @@ function renderServerStatus() {
    пропавшие постеры выглядели как «сервис ничего не знает об этом фильме»:
    настройки при этом выглядели заполненными, и искать причину было негде.
    Теперь причина приходит кодом и висит в верхней строке, пока не исправлена. */
+// Короткая надпись для шапки; полная причина — во всплывающей подсказке.
+const META_ERR_SHORT = { 'tmdb key not configured': 'Нет ключа TMDB', 'tmdb key rejected': 'Ключ TMDB отклонён' };
 const META_ERR_TEXT = {
   'tmdb key not configured': 'Постеры и оценки не загружаются: не задан ключ TMDB',
   'tmdb key rejected': 'Постеры и оценки не загружаются: ключ TMDB отклонён сервисом',
@@ -328,8 +340,8 @@ function renderMetaWarn() {
   if (!el) return;
   const text = metaErrText(state.metaError);
   el.classList.toggle('hidden', !text);
-  el.textContent = text ? text + ' · Настроить' : '';
-  el.title = text ? 'Открыть Настройки → TMDB' : '';
+  el.innerHTML = text ? ico('info', 15) + '<span class="tbw-l">' + esc(META_ERR_SHORT[state.metaError] || text) + '</span>' : '';
+  el.title = text ? text + ' — открыть Настройки → TMDB' : '';
 }
 /* Смена ключа отменяет прежние отказы: и заданные впустую вопросы, и
    запомненные «названий серий нет». Без этого свежий ключ не дал бы ничего до

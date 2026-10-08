@@ -268,7 +268,7 @@ function renderDownloads(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Загрузки</h1>
     <div class="page-sub" id="dlFolder"></div></div>
-      <button data-act="dlrefresh" class="iconbtn" title="Обновить">⟳</button></div>
+      <button data-act="dlrefresh" class="iconbtn" title="Обновить">${raw(ico('refresh'))}</button></div>
     <div class="card" id="dlSummary"><div class="empty">Сведения о сервере...</div></div>
     <div class="card" id="dlTorrents"><div class="empty">Сведения о раздачах...</div></div>
     <div class="card"><div class="row wrap"><b>Папка для сохранения:</b> <code id="dlPath"></code>
@@ -340,11 +340,7 @@ function subsNewTotal() { return (state.subs || []).reduce((n, s) => n + (Number
 /* paintSubsBadge — число непрочитанных находок на самой вкладке: без него о
    новой серии узнают, только заглянув в раздел. */
 function paintSubsBadge() {
-  const btn = $('#nav [data-view="subs"]');
-  if (!btn) return;
-  const n = subsNewTotal();
-  btn.textContent = n ? 'Подписки (' + n + ')' : 'Подписки';
-  btn.classList.toggle('hasnew', n > 0);
+  setNavBadge('subs', subsNewTotal());
 }
 async function subsAction(action, body) {
   return api('/api/subs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action }, body || {})) });

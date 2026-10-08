@@ -910,7 +910,7 @@ async function sendToDevice(t, f) {
     <div class="page-sub" style="margin-bottom:8px">${title}${raw(currentTc(t, f.id) > 5 ? ' · с ' + esc(fmtPos(currentTc(t, f.id))) : '')}</div>
     <div class="dev-list" data-list><div class="empty">Ищу устройства в сети…</div></div>
     <label class="row" style="gap:6px;margin:8px 0"><input type="checkbox" data-stop${isRemoteUI() ? '' : ' checked'}> Остановить плеер на компьютере</label>
-    <div class="row wrap"><button data-scan>⟳ Искать снова</button>
+    <div class="row wrap"><button data-scan>Искать снова</button>
       <span class="page-sub" style="flex:1;margin:0">Устройство — это открытый TorrClient на телефоне или планшете (по адресу удалённого доступа) либо телевизор с DLNA в той же сети.</span></div>
     <div class="row" style="margin-top:6px;gap:6px"><span class="page-sub" style="margin:0">Имя этого устройства:</span><input data-myname value="${devName()}" style="flex:1"></div></div>`;
   document.body.appendChild(ov);

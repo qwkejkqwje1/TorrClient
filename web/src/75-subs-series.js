@@ -3,8 +3,8 @@ function renderSubs(root) {
     <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
       <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах (источники — в Настройках) — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
-      <button id="subAdd" class="primary">＋ Следить</button>
-      <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>
+      <button id="subAdd" class="primary">${raw(ico('plus',16))} Следить</button>
+      <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">${raw(ico('refresh'))}</button>
     </div>
     <div id="subBody"><div class="empty">Загрузка подписок...</div></div>`;
   const add = () => { const inp = $('#subNew'); subsAdd(inp.value).then(() => { inp.value = ''; }); };
@@ -241,7 +241,7 @@ function seriesCard(g) {
   return html`<div class="card ser-card" data-sername="${cleanSeriesName(head.title)}" data-serhash="${head.hash}">
     <div class="ser-poster">
       ${raw(PH_SVG.replace('class="ph"', head.poster ? 'class="ph hidden"' : 'class="ph"'))}
-      ${raw(head.poster ? html`<img src="${head.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(head.poster ? html`<img src="${head.poster}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <span class="chip rating" data-tmdb hidden></span>
     </div>
     <div class="ser-main">
