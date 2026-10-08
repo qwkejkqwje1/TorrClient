@@ -32,7 +32,12 @@ async function renderFavorites(root) {
     <span class="spacer"></span>
     <button id="favClear" class="danger">Очистить список</button></div>
     <div id="favBody"></div>`;
-  $('#favClear').addEventListener('click', () => { if (list.length && confirm('Очистить весь список избранного?')) { saveFavList([]); renderFavorites($('main')); } });
+  $('#favClear').addEventListener('click', () => {
+    if (!list.length) return;
+    const snap = favList();
+    saveFavList([]); renderFavorites($('main'));
+    toastUndo('Избранное очищено · ' + snap.length, () => { saveFavList(snap); if (state.view === 'favorites') renderFavorites($('main')); });
+  });
   const body = $('#favBody');
   if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «Ещё → В избранное» в результатах поиска.</div>'; return; }
   const sorted = [...list].sort((a, b) => (b.time || 0) - (a.time || 0));
@@ -81,12 +86,16 @@ function bindFavCard(card, it) {
   const menuBtn = card.querySelector('[data-menu]'); const menu = card.querySelector('.ctxmenu');
   if (menuBtn && menu) menuBtn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
   const act = (sel, fn) => card.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { if (menu) menu.classList.add('hidden'); fn(); }));
-  act('[data-fa="play"]', () => { if (isTitleFav(it)) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0); else playSearchLink(it); });
+  act('[data-fa="play"]', () => { if (isTitleFav(it)) openMovie({ title: it.title, year: it.year, kind: it.kind, tmdb: it.tmdb, poster: it.poster }); else playSearchLink(it); });
   act('[data-fa="magnet"]', () => copyToClip(it.magnet || magnetFromHash(it.hash, it.title), 'Магнит скопирован'));
   act('[data-fa="kp"]', () => openExternal(kpSearchUrl(it.title || '')));
   act('[data-fa="imdb"]', () => openExternal(imdbUrlFor(it)));
   act('[data-fa="trailer"]', () => openTrailer(it));
-  act('[data-fa="del"]', () => { saveFavList(favList().filter(x => !favSame(x, it))); toast('Удалено из избранного'); renderFavorites($('main')); });
+  act('[data-fa="del"]', () => {
+    const snap = favList();
+    saveFavList(snap.filter(x => !favSame(x, it))); renderFavorites($('main'));
+    toastUndo('Удалено из избранного', () => { saveFavList(snap); if (state.view === 'favorites') renderFavorites($('main')); });
+  });
 }
 async function favEnrich(list) {
   /* Та же схема дорожек, что и у библиотеки (ratingsOnce + RATING_WORKERS):
@@ -134,7 +143,12 @@ async function renderBookmarks(root) {
     <span class="spacer"></span>
     <button id="bmClear" class="danger">Очистить</button></div>
     <div id="bmBody"></div>`;
-  $('#bmClear').addEventListener('click', () => { if (list.length && confirm('Удалить все закладки?')) { saveBookmarks([]); renderBookmarks($('main')); } });
+  $('#bmClear').addEventListener('click', () => {
+    if (!list.length) return;
+    const snap = getBookmarks();
+    saveBookmarks([]); renderBookmarks($('main'));
+    toastUndo('Закладки удалены · ' + snap.length, () => { saveBookmarks(snap); if (state.view === 'bookmarks') renderBookmarks($('main')); });
+  });
   const body = $('#bmBody');
   if (!list.length) { body.innerHTML = '<div class="empty">Закладок пока нет.</div>'; return; }
   // Список читается только для этой страницы и НЕ подменяет общий: у TorrServer
@@ -244,7 +258,11 @@ function bindBookmarkCard(card, b) {
   act('[data-bm="from0"]', () => playBookmark(b, true));
   act('[data-bm="kp"]', () => openExternal(kpSearchUrl(b.title || '')));
   act('[data-bm="imdb"]', () => openExternal(imdbUrlFor(b)));
-  act('[data-bm="del"]', () => { delBookmark(b); toast('Закладка удалена'); renderBookmarks($('main')); });
+  act('[data-bm="del"]', () => {
+    const snap = getBookmarks();
+    delBookmark(b); renderBookmarks($('main'));
+    toastUndo('Закладка удалена', () => { saveBookmarks(snap); if (state.view === 'bookmarks') renderBookmarks($('main')); });
+  });
 }
 
 /* ================= SEARCH ================= */

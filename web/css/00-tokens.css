@@ -1,0 +1,30 @@
+/* TorrClient 2.0 — дизайн-система.
+   Порядок: токены → основа → каркас (панель, шапка) → элементы управления →
+   карточки и сетки → окна → разделы → темы. Цвета задаются только токенами:
+   тема — это набор переменных, а не отдельные правила для каждого элемента.
+   Старые имена (--bg, --bg2, --fg, --mut, --acc, --acc2 …) сохранены: на них
+   опирается разметка в коде интерфейса. */
+
+/* ───────────── токены ───────────── */
+:root{
+  --bg:#0f1012; --bg2:#17181b; --bg3:#1f2024; --bg4:#2a2b30; --side:#131416;
+  --line:#25262b; --line2:#33343a;
+  --fg:#f2f2f3; --mut:#a1a2a9; --faint:#6e6f77;
+  --acc:#7cb0ff; --acc-bg:#2f6fe0; --acc-fg:#fff;
+  --acc2:#5fcf8c; --gold:#f0c04f; --red:#f06a5f; --blue:#7cb0ff; --pink:#f285c4;
+  --chip:#25262b;
+  --acc-soft:color-mix(in srgb,var(--acc) 14%,transparent);
+  --ok-soft:color-mix(in srgb,var(--acc2) 14%,transparent);
+  --warn-soft:color-mix(in srgb,var(--gold) 13%,transparent);
+  --err-soft:color-mix(in srgb,var(--red) 13%,transparent);
+  --hover:color-mix(in srgb,var(--fg) 6%,transparent);
+  --scrim:rgba(0,0,0,.62);
+  --sh-1:0 1px 2px rgba(0,0,0,.28),0 6px 18px rgba(0,0,0,.22);
+  --sh-2:0 18px 56px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.3);
+  --r-sm:8px; --r:10px; --r-lg:14px;
+  --side-w:236px; --top-h:58px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",system-ui,Roboto,"Helvetica Neue",sans-serif;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+

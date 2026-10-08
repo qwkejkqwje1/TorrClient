@@ -1,0 +1,21 @@
+/* ───────────── основа ───────────── */
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 var(--font); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility}
+a{color:var(--acc); text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4{letter-spacing:-.01em}
+.hidden,[hidden]{display:none!important}
+.spacer{flex:1}
+.grow{flex:1}
+.row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.wrap{flex-wrap:wrap}
+.mt8{margin-top:8px}
+.ico{flex:none; display:block}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+::selection{background:color-mix(in srgb,var(--acc) 35%,transparent)}
+::-webkit-scrollbar{width:11px; height:11px}
+::-webkit-scrollbar-thumb{background:var(--bg4); border-radius:8px; border:3px solid transparent; background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background-color:var(--line2)}
+::-webkit-scrollbar-track{background:transparent}
+

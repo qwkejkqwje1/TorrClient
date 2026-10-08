@@ -15,7 +15,7 @@ function resultRow(r, ix) {
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (r.poster ? 'hidden' : '') + '"'))}
       ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
-      <button class="play-ov" data-sa="play" title="Смотреть"><span class="tri"></span></button>
+      <button class="play-ov" data-sa="play" title="${r.provider === 'top24' || r.provider === 'topcat' ? 'Смотреть' : 'Открыть карточку фильма'}"><span class="tri"></span></button>
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
@@ -40,6 +40,7 @@ function resultRow(r, ix) {
       <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
+      ${raw(r.provider === 'top24' || r.provider === 'topcat' ? '' : '<button data-sa="playnow">Смотреть сразу</button><div class="sep"></div>')}
       <button data-sa="kp">Кинопоиск</button>
       <button data-sa="imdb">IMDb</button>
       <div class="sep"></div>
@@ -451,7 +452,17 @@ async function bindResult(row) {
   const menu = row.querySelector('.ctxmenu');
   if (menuBtn && menu) menuBtn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
   const act = (sel, fn) => row.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { if (menu) menu.classList.add('hidden'); fn(); }));
-  act('[data-sa="play"]', () => playSearchLink(r));
+  // Клик по карточке раздачи открывает страницу фильма. Исключение — ТОП за
+  // 24 часа и ТОП раздела: раздача там уже выбрана, её запускают кнопкой.
+  const isTopRow = r.provider === 'top24' || r.provider === 'topcat';
+  if (!isTopRow) {
+    row.classList.add('has-card');
+    row.addEventListener('click', e => { if (e.target.closest('button, a, .ctxmenu, select, input')) return; openMovie(fromRelease(r)); });
+  }
+  // Крупная кнопка на постере: у обычной раздачи открывает карточку фильма,
+  // «Смотреть сразу» — в меню «Ещё». У раздач из ТОПа запускает сразу.
+  act('[data-sa="play"]', () => (isTopRow ? playSearchLink(r) : openMovie(fromRelease(r))));
+  act('[data-sa="playnow"]', () => playSearchLink(r));
   act('[data-sa="fav"]', () => addToUserlist(r));
   act('[data-sa="magnet"]', () => copyToClip(r.magnet || magnetFromHash(r.hash, r.title), 'Магнит скопирован'));
   act('[data-sa="userlist"]', () => addToUserlist(r));

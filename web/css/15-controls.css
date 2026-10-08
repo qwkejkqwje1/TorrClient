@@ -1,0 +1,79 @@
+/* ───────────── элементы управления ───────────── */
+button{font:inherit; font-size:13.5px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:34px;
+  padding:6px 14px; border-radius:var(--r-sm); border:1px solid transparent; background:var(--bg3); color:var(--fg); line-height:1.25;
+  transition:background .12s,color .12s,border-color .12s,box-shadow .12s,opacity .12s,transform .06s}
+button:hover{background:var(--bg4)}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.55; cursor:default; transform:none}
+button.primary{background:var(--acc-bg); color:var(--acc-fg); box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+button.primary:hover{background:color-mix(in srgb,var(--acc-bg) 86%,#fff)}
+button.danger{background:transparent; color:var(--red); border-color:color-mix(in srgb,var(--red) 40%,transparent)}
+button.danger:hover{background:var(--err-soft)}
+button.ghost{background:transparent; border-color:var(--line2)}
+button.ghost:hover{background:var(--hover)}
+.link-btn{min-height:30px; padding:4px 8px; background:none; color:var(--mut); font-size:13px}
+.link-btn:hover{background:var(--hover); color:var(--fg)}
+.iconbtn{min-width:36px; padding:6px 9px; background:var(--bg2); border:1px solid var(--line2); color:var(--mut)}
+.iconbtn:hover{background:var(--bg3); color:var(--fg)}
+
+input,select,textarea{font:inherit; font-size:13.5px; width:100%; min-height:36px; padding:7px 11px; border-radius:var(--r-sm);
+  background:var(--bg2); color:var(--fg); border:1px solid var(--line2); transition:border-color .12s,box-shadow .12s}
+textarea{line-height:1.45}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+input:hover,select:hover,textarea:hover{border-color:color-mix(in srgb,var(--fg) 20%,transparent)}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--acc); box-shadow:0 0 0 3px var(--acc-soft)}
+select{appearance:none; -webkit-appearance:none; padding-right:32px; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8c94' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 11px center}
+select:disabled{opacity:.5}
+input[type=checkbox],input[type=radio]{width:16px; height:16px; min-height:0; padding:0; accent-color:var(--acc-bg); cursor:pointer}
+input[type=range]{padding:0; accent-color:var(--acc-bg)}
+label{display:block; margin:12px 0 5px; font-size:12.5px; font-weight:500; color:var(--mut)}
+label:not([class]):has(> input[type=checkbox]){display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--fg)}
+label > input[type=checkbox]{width:16px; flex:none; margin:0}
+label.check,label.fhd{display:inline-flex; align-items:center; gap:7px; margin:0; font-size:13px; color:var(--mut); white-space:nowrap; cursor:pointer; min-height:36px}
+label.check:hover,label.fhd:hover{color:var(--fg)}
+
+.search-input{max-width:340px}
+.clear-wrap{position:relative; display:inline-flex; align-items:center; max-width:340px; width:100%; flex:1 1 240px}
+.clear-wrap > .search-input{max-width:none; padding-right:32px}
+.clear-x{position:absolute; right:4px; top:50%; transform:translateY(-50%); display:none; min-height:0; width:26px; height:26px; padding:0; background:transparent; border:0; color:var(--faint); font-size:18px; line-height:1; border-radius:6px}
+.clear-x:hover{color:var(--fg); background:var(--hover)}
+.clear-wrap.has > .clear-x{display:flex}
+
+.seg{display:inline-flex; gap:2px; padding:3px; background:var(--bg2); border:1px solid var(--line2); border-radius:var(--r)}
+.seg button{min-height:28px; padding:4px 10px; background:transparent; color:var(--mut); border-radius:7px}
+.seg button:hover{background:var(--hover); color:var(--fg)}
+.seg button.on{background:var(--bg4); color:var(--fg)}
+
+.tabs{display:flex; gap:4px; margin-bottom:14px; flex-wrap:wrap; padding:3px; background:var(--bg2); border:1px solid var(--line); border-radius:var(--r); width:fit-content; max-width:100%}
+.tabs button{min-height:30px; padding:4px 12px; font-size:13px; background:transparent; color:var(--mut); border-radius:7px}
+.tabs button:hover{background:var(--hover); color:var(--fg)}
+.tabs button.on{background:var(--bg4); color:var(--fg)}
+
+.chip{display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:600; line-height:1.5; white-space:nowrap; background:var(--chip); color:var(--mut)}
+.chip.q1080{background:color-mix(in srgb,var(--blue) 16%,transparent); color:var(--blue)}
+.chip.q2160,.chip.rating{background:var(--warn-soft); color:var(--gold)}
+.chip.series,.chip.hasnew{background:color-mix(in srgb,var(--pink) 15%,transparent); color:var(--pink)}
+.chip.grey{background:var(--chip); color:var(--mut)}
+.chip.rt-imdb{background:color-mix(in srgb,var(--gold) 9%,var(--chip)); color:var(--fg)}
+.chip.rq{font-variant-numeric:tabular-nums}
+.chip.rq-good{background:var(--ok-soft); color:var(--acc2)}
+.chip.rq-ok{background:var(--warn-soft); color:var(--gold)}
+.chip.rq-low{background:var(--err-soft); color:var(--red)}
+.chip-btn{min-height:30px; padding:4px 12px; border-radius:16px; font-size:12.5px; background:var(--bg2); color:var(--mut); border:1px solid var(--line2)}
+.chip-btn:hover{color:var(--fg); background:var(--bg3)}
+.chip-btn.on{background:var(--acc-bg); color:var(--acc-fg); border-color:transparent}
+.chip-btn.watched{color:var(--acc2); border-color:color-mix(in srgb,var(--acc2) 45%,transparent)}
+.kbd{display:inline-flex; align-items:center; padding:0 6px; min-height:20px; border-radius:5px; font:600 11px/1 var(--font); color:var(--mut); background:var(--bg3); border:1px solid var(--line2); border-bottom-width:2px; white-space:nowrap}
+code.inline{font-family:var(--mono); font-size:12.5px; padding:1px 6px; border-radius:5px; background:var(--bg3)}
+.mono{font-family:var(--mono); font-size:12px; color:var(--mut); word-break:break-all}
+.muted{color:var(--mut); font-size:13px; line-height:1.5}
+.err-text{color:var(--red)}
+.clamp1{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.clamp2{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere}
+.divider{height:1px; background:var(--line); margin:16px 0}
+.spin{width:13px; height:13px; border:2px solid var(--line2); border-top-color:var(--acc); border-radius:50%; display:inline-block; animation:spin .8s linear infinite; flex:none}
+.spin.stop{animation:none; border-top-color:var(--faint)}
+@keyframes spin{to{transform:rotate(360deg)}}
+

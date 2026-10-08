@@ -1,0 +1,46 @@
+/* ───────────── окна ───────────── */
+.overlay{position:fixed; inset:0; z-index:100; display:flex; align-items:flex-start; justify-content:center; padding:56px 16px 32px; overflow:auto;
+  background:var(--scrim); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); animation:fade .14s ease}
+.modal{position:relative; width:100%; max-width:700px; padding:22px 24px; background:var(--bg2); border:1px solid var(--line2); border-radius:18px; box-shadow:var(--sh-2); animation:pop .16s ease}
+.modal.wide{max-width:980px}
+.modal.diag{max-width:880px}
+.modal h2,.modal h3{margin:0 0 14px; font-size:18px; font-weight:650; padding-right:36px}
+.modal > .row:last-child{margin-top:18px; justify-content:flex-end}
+.modal-close{position:absolute; top:14px; right:14px; float:none; width:34px; height:34px; min-height:0; padding:0; background:transparent; color:var(--mut); font-size:16px; border-radius:50%}
+.modal-close:hover{background:var(--hover); color:var(--fg)}
+.diag-text{max-height:52vh; overflow:auto; white-space:pre-wrap; word-break:break-word; background:var(--bg); border:1px solid var(--line); border-radius:var(--r); padding:12px; margin:8px 0 12px; user-select:text; font-family:var(--mono); font-size:12px}
+.whatsnew{margin:4px 0 8px; padding-left:20px}
+.whatsnew li{margin:4px 0; line-height:1.5}
+.keys-table td{padding:6px 12px 6px 0; border:0}
+@keyframes fade{from{opacity:0}}
+@keyframes pop{from{opacity:0; transform:translateY(8px) scale(.985)}}
+
+#toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:300; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none}
+#toast div{pointer-events:auto; max-width:min(560px,92vw); padding:11px 16px; border-radius:var(--r); background:var(--bg3); color:var(--fg); border:1px solid var(--line2); box-shadow:var(--sh-2); font-size:13.5px; animation:toastin .2s ease}
+#toast div.err{border-color:color-mix(in srgb,var(--red) 55%,transparent); background:color-mix(in srgb,var(--red) 12%,var(--bg3))}
+@keyframes toastin{from{opacity:0; transform:translateY(8px)}}
+
+/* палитра команд */
+.pal-ov{align-items:flex-start; padding-top:12vh; background:color-mix(in srgb,#000 50%,transparent)}
+.pal{width:100%; max-width:640px; background:var(--bg2); border:1px solid var(--line2); border-radius:16px; box-shadow:var(--sh-2); overflow:hidden; animation:pop .14s ease}
+.pal-head{display:flex; align-items:center; gap:10px; padding:0 14px; border-bottom:1px solid var(--line); color:var(--faint)}
+.pal-input{flex:1; border:0; background:transparent; min-height:56px; font-size:16px; padding:0; box-shadow:none!important}
+.pal-input:hover{border:0}
+.pal-list{max-height:min(56vh,480px); overflow:auto; padding:6px}
+.pal-g{padding:10px 10px 4px; font-size:11.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--faint)}
+.pal-item{display:flex; width:100%; justify-content:flex-start; gap:12px; min-height:42px; padding:6px 10px; background:transparent; border:0; border-radius:var(--r-sm); text-align:left; font-weight:400; color:var(--fg)}
+.pal-item:hover{background:transparent}
+.pal-item.on{background:var(--bg3)}
+.pal-item.on .pal-ico{color:var(--acc)}
+.pal-ico{display:flex; width:28px; height:28px; align-items:center; justify-content:center; border-radius:7px; background:var(--bg3); color:var(--mut); flex:none}
+.pal-item.on .pal-ico{background:var(--bg4)}
+.pal-poster{width:28px; height:40px; object-fit:cover; border-radius:5px; flex:none; background:var(--bg3)}
+.pal-txt{flex:1; min-width:0; display:flex; flex-direction:column}
+.pal-l{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px}
+.pal-sub{font-size:12px; color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pal-empty{padding:28px; text-align:center; color:var(--mut)}
+.pal-foot{display:flex; gap:16px; padding:9px 14px; border-top:1px solid var(--line); font-size:12px; color:var(--faint)}
+.pal-foot > span{display:inline-flex; gap:4px; align-items:center}
+
+#toast div.undo{display:flex; align-items:center; gap:14px; padding:8px 8px 8px 16px}
+#toast .undo-btn{min-height:30px; padding:0 12px; font-weight:700; color:var(--acc); background:var(--acc-soft,transparent); border:1px solid color-mix(in srgb,var(--acc) 40%,transparent)}
