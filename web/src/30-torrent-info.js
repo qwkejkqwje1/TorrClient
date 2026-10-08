@@ -240,6 +240,21 @@ function fmtPos(s) {
 /* tracking реальной позиции: сервер /viewed не ведёт время, считаем от момента запуска */
 function trackPlay(hash, fi, base) {
   state.play = { hash, fi, base: base || 0, at: Date.now() };
+  notePlayed(hash, fi);
+}
+/* Когда раздачу запускали в последний раз. Отметка демона обновляется, только
+   пока плеер сообщает позицию; раздача, запущенная в плеере без канала, с
+   телефона или из списка TorrServer, шла с нулевым временем в самый конец
+   «Продолжить просмотр» — хотя её открыли только что. */
+const LASTPLAY_KEY = 'tc_lastplay';
+function lastPlayed() { try { const o = JSON.parse(localStorage.getItem(LASTPLAY_KEY) || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } }
+function notePlayed(hash, fi) {
+  if (!hash) return;
+  const o = lastPlayed();
+  o[hash] = { at: Date.now(), fi: fi | 0 };
+  // Хранится только свежее: сотня записей с запасом покрывает полосу.
+  const keep = Object.entries(o).sort((a, b) => b[1].at - a[1].at).slice(0, 100);
+  try { localStorage.setItem(LASTPLAY_KEY, JSON.stringify(Object.fromEntries(keep))); } catch {}
 }
 function estimatePos(hash, fi) {
   const p = state.play;

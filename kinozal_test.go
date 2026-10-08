@@ -105,3 +105,14 @@ func TestKinozalHostsAreUsable(t *testing.T) {
 		t.Errorf("перебор начинается с %q, а не с официального kinozal.tv", bases[0])
 	}
 }
+
+// Размер берётся из ячейки таблицы, а не из названия: у музыки и сборников
+// в названии бывают свои единицы, и первое совпадение по строке было чужим.
+func TestKinozalSizeFromCell(t *testing.T) {
+	row := `<td class='nam'><a href="/details.php?id=1" class="r1">Альбом / 2024 / MP3, 320 kbps / 1.2 GB в архиве</a></td>` +
+		`<td class='s'>3</td><td class='s'>812,5 МБ</td><td class='s'>05.08.2026 в 21:08</td>`
+	it := parseKinozalRow(row, "https://kinozal.tv")
+	if it.Size != "812.5 МБ" {
+		t.Fatalf("размер = %q, ждали «812.5 МБ» из ячейки", it.Size)
+	}
+}

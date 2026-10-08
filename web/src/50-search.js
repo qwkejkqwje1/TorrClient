@@ -7,6 +7,7 @@ async function renderSearch(root) {
       <div class="search-box">
         <span class="sb-ico">${raw(ico('search', 20))}</span>
         <input id="searchInput" list="searchHistList" autocomplete="off" placeholder="Название фильма или сериала — можно с годом, «-слово» исключает" title="/ — сюда, Ctrl+K — палитра, ? — все клавиши" value="${sd.q}">
+        <button id="searchClear" class="sb-clear${sd.q ? '' : ' hidden'}" type="button" title="Очистить запрос (Esc)" aria-label="Очистить запрос">${raw(ico('x', 16))}</button>
         <datalist id="searchHistList">${raw(searchHistoryAll().map(h => html`<option value="${h}">`).join(''))}</datalist>
         <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">${raw(ico('star', 16))}<span>Лучшая</span></button>
         <button id="searchBtn" class="primary">Найти</button>
@@ -26,6 +27,7 @@ async function renderSearch(root) {
         </select>
         <label class="check" title="Прятать из выдачи игры, софт и книги"><input type="checkbox" id="searchVid"> только видео</label>
         <label class="check" title="Новая выдача добавится к текущей, а не заменит её"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
+        <label class="check" title="Нашёлся фильм или сериал с таким названием — сразу открыть его карточку с раздачами"><input type="checkbox" id="searchCard"> сразу карточка</label>
       </div>
     </div>
     <div class="quick collections">
@@ -43,6 +45,7 @@ async function renderSearch(root) {
       <select id="dGenre" style="width:auto"></select>
       <button id="dGo" title="Самое популярное по числу голосов TMDB. Нужен ключ TMDB">Показать</button>
     </div>
+    <div id="searchTitle"></div>
     <div id="searchResults"></div>`;
 
   initDiscoverBar();
@@ -53,7 +56,17 @@ async function renderSearch(root) {
   $('#searchBtn').addEventListener('click', () => doSearch());
   $('#recBtn').addEventListener('click', () => showRecommendations());
   $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
-  $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  $('#searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+    else if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.stopPropagation(); clearSearchQuery(); }
+  });
+  /* Крестик в поле: общий addClears ставится только полям-фильтрам
+     (.search-input), а у главного поиска своя рамка — крестика не было. */
+  $('#searchInput').addEventListener('input', e => { const c = $('#searchClear'); if (c) c.classList.toggle('hidden', !e.target.value); });
+  $('#searchClear').addEventListener('mousedown', e => e.preventDefault());
+  $('#searchClear').addEventListener('click', clearSearchQuery);
+  { const sc = $('#searchCard'); sc.checked = searchCardPref(); sc.addEventListener('change', () => savePref('tc_scard', sc.checked ? '1' : '0')); }
+  paintSearchTitle();
   // Источник и категория запоминаются: после перезапуска поиск шёл снова по
   // rutor, и выбор «Все источники» приходилось делать каждый раз.
   $('#searchProv').addEventListener('change', () => { sd.provider = $('#searchProv').value; savePref('tc_prov', sd.provider); });
@@ -231,6 +244,49 @@ async function onTopClick() {
 
 // История поиска: хранится 30 запросов (для автодополнения), кнопками
 // показываются последние 8. Запись можно удалить крестиком.
+function clearSearchQuery() {
+  const i = $('#searchInput'); if (!i) return;
+  i.value = ''; state.searchState.q = ''; state.searchState.title = null;
+  const c = $('#searchClear'); if (c) c.classList.add('hidden');
+  paintSearchTitle();
+  i.focus();
+}
+function searchCardPref() { return localStorage.getItem('tc_scard') !== '0'; }
+
+/* Карточка названия над выдачей. Поиск «Дюна» искал только раздачи, и
+   страницу фильма (описание, сезоны, ранжированные раздачи, избранное)
+   приходилось открывать отдельным кликом по строке. Теперь параллельно с
+   трекерами спрашивается TMDB: нашлось название — оно стоит первым, а при
+   дословном совпадении и включённой «сразу карточка» открывается само. */
+const tmdbNormJS = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^0-9a-zа-я]+/gi, '');
+async function lookupSearchTitle(q, run) {
+  const c = cleanSearchTitle(q);
+  const qq = c.q || q;
+  try {
+    const j = await withTimeout(apiGetJSON('/api/tmdb?q=' + encodeURIComponent(qq) + (c.year ? '&year=' + c.year : '')), 5000, 'TMDB не ответил');
+    if (searchRun !== run || !j || !j.ok || !j.title) return null;
+    const it = { title: j.title, year: j.year ? String(j.year) : '', kind: j.type === 'tv' ? 'tv' : 'movie', tmdb: j.id, poster: j.poster || '', overview: j.overview || '', rating: j.rating || 0, imdb: j.imdb || 0 };
+    it.exact = tmdbNormJS(it.title) === tmdbNormJS(qq);
+    return it;
+  } catch { return null; }
+}
+function paintSearchTitle() {
+  const el = $('#searchTitle'); if (!el) return;
+  const it = state.searchState.title;
+  if (!it) { el.innerHTML = ''; return; }
+  el.innerHTML = html`<div class="st-card" data-st-open tabindex="0" title="Открыть карточку: описание, сезоны, лучшие раздачи">
+    <div class="st-poster">${raw(it.poster ? html`<img src="${pimg(it.poster)}" alt="" onerror="this.remove()">` : ico('film', 30))}</div>
+    <div class="st-info">
+      <div class="st-k">${it.kind === 'tv' ? 'Сериал' : 'Фильм'}${it.rating > 0 ? ' · TMDB ' + Number(it.rating).toFixed(1) : ''}</div>
+      <div class="st-t">${it.title}${raw(it.year ? html` <span class="mv-year">${it.year}</span>` : '')}</div>
+      <div class="st-o">${(it.overview || '').slice(0, 220)}${(it.overview || '').length > 220 ? '…' : ''}</div>
+    </div>
+    <button class="primary" data-st-open>${raw(ico('arrow', 15))}Открыть карточку</button>
+  </div>`;
+  const open = () => openMovie(it);
+  el.querySelectorAll('[data-st-open]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); open(); }));
+  el.firstElementChild.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
+}
 function searchHistoryAll() {
   try { const h = JSON.parse(localStorage.getItem('tc_sq') || '[]'); return Array.isArray(h) ? h.filter(x => typeof x === 'string').slice(0, 30) : []; } catch { return []; }
 }
@@ -304,20 +360,25 @@ async function fetchTopCat(sec, label) {
   button.disabled = false; updateTopBtnLabel();
   paintResults(el);
 }
+/* parseSizeBytes понимает и «1.46 GB», и «37,85 ГБ». Кинозал пишет единицы
+   по-русски, а прежний разбор знал только латиницу: «37.85 ГБ» превращалось
+   в 38 байт, и у раздач Кинозала стоял размер «38 Б», а сортировка по
+   размеру ставила их в конец. */
+const SIZE_MULT = { '': 1, B: 1, Б: 1, K: 1e3, КБ: 1e3, KB: 1e3, KIB: 1024, M: 1e6, MB: 1e6, МБ: 1e6, MIB: 1048576, G: 1e9, GB: 1e9, ГБ: 1e9, GIB: 1073741824, T: 1e12, TB: 1e12, ТБ: 1e12, TIB: 1099511627776 };
 function parseSizeBytes(s) {
   if (s == null) return null;
   if (typeof s === 'number' && isFinite(s)) return s;
-  const m = String(s).match(/([\d.]+)\s*([KMGT]?B?)/i);
+  const m = String(s).replace(/\u00a0/g, ' ').match(/(\d+(?:[.,]\d+)?)\s*([KMGT]i?B?|[КМГТ]Б|Б|B)?(?![a-zа-я])/i);
   if (!m) return null;
-  const n = parseFloat(m[1]);
+  const n = parseFloat(m[1].replace(',', '.'));
   if (!isFinite(n)) return null;
-  const mult = { '': 1, B: 1, K: 1e3, KB: 1e3, M: 1e6, MB: 1e6, G: 1e9, GB: 1e9, T: 1e12, TB: 1e12 }[(m[2] || '').toUpperCase()];
+  const mult = SIZE_MULT[(m[2] || '').toUpperCase()];
+  if (!m[2] && n < 1e4) return null; // голое «1» — не размер
   return mult ? Math.round(n * mult) : null;
 }
 function row2res(r, provider) {
   if (!r || !r.title) return null;
-  const sz = r.size ? r.size.match(/([\d.]+)\s*([KMGT]?B)/i) : null;
-  const sizeBytes = sz ? parseFloat(sz[1]) * ({ K: 1e3, M: 1e6, G: 1e9, T: 1e12 })[(sz[2] || '').charAt(0).toUpperCase()] || 0 : 0;
+  const sizeBytes = parseSizeBytes(r.size) || 0;
   return {
     title: r.title, size_bytes: sizeBytes, size: r.size || '',
     seed: r.seed, peer: r.peer, link: r.link, hash: r.hash, magnet: r.magnet,
@@ -388,6 +449,16 @@ async function doSearch() {
   const run = ++searchRun;
   const ss = state.searchState;
   ss.run = run;
+  ss.title = null; paintSearchTitle();
+  // Категория «Музыка», «Софт», «Игры» — названия фильма там не ищем.
+  const videoCat = !cat || [1, 4, 5, 7, 10, 16].includes(cat);
+  if (videoCat) lookupSearchTitle(q, run).then(it => {
+    if (!it || ss.run !== run) return;
+    ss.title = it;
+    if (state.view !== 'search') return;
+    paintSearchTitle();
+    if (it.exact && !parts.drop.length && searchCardPref()) { pushSearchHistory(q); openMovie(it); }
+  });
   ss.pending = {};
   const live = () => ss.run === run;
   const jobs = [];

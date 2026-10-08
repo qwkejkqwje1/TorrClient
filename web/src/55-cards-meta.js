@@ -479,7 +479,11 @@ async function addToUserlist(r) {
   const key = (r.hash || '') + '|' + (r.title || r.name || '');
   const idx = ul.findIndex(x => (x.hash || '') + '|' + (x.title || '') === key);
   if (idx >= 0) { ul.splice(idx, 1); saveFavList(ul); toast('Удалено из избранного'); updateFavMarks(); return; }
-  ul.push({ title: r.title || r.name || '', magnet: r.magnet || magnetFromHash(r.hash, r.title), hash: r.hash, time: Date.now() });
+  // Раздача Кинозала приходит без магнита: без адреса get.php избранное
+  // было нечем запустить. Постер и название фильма — для карточки избранного.
+  const it = { title: r.title || r.name || '', magnet: r.magnet || magnetFromHash(r.hash, r.title), hash: r.hash, time: Date.now() };
+  ['link', 'get', '_p', 'size', 'size_bytes', 'poster', 'film', 'year'].forEach(k => { if (r[k]) it[k] = r[k]; });
+  ul.push(it);
   saveFavList(ul);
   toast('Добавлено в избранное');
   updateFavMarks();
@@ -525,7 +529,7 @@ async function playSearchLink(r) {
 async function playHashLoop(hash) {
   for (let i = 0; i < 12; i++) {
     await new Promise(res => setTimeout(res, 1000));
-    try { state.lib = await listTorrents(); } catch {}
+    try { const ms = musicHashes(); state.lib = (await listTorrents()).filter(t => !isMusicTorrent(t, ms)); } catch {}
     const t = state.lib.find(x => x.hash === hash);
     if (t) { watchNow(t); return; }
   }

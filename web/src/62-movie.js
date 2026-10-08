@@ -381,6 +381,7 @@ function paintMovieReleases() {
         <div class="rel-tags">${raw(tags.join(''))}<span>${meta || 'без пометок о качестве'}</span></div>
         <div class="rel-nums"><span>${r.size_bytes ? fmtSize(r.size_bytes) : (r.size || '')}</span><span class="${(r.seed || 0) >= 10 ? 'good' : (r.seed || 0) ? '' : 'bad'}">⬆ ${r.seed || 0}</span>${raw(r.peer != null ? '<span>⬇ ' + esc(r.peer) + '</span>' : '')}<span class="page-sub" style="margin:0">${(r._srcs || [r._p]).map(s => SRC_NAME[s] || s).join(' + ')}</span>${raw(rq.notes.length ? '<span class="rel-note">' + esc(rq.notes.join(', ')) + '</span>' : '')}</div>
       </div>
+      <button class="iconbtn mv-relfav${relFav(r) ? ' on' : ''}" data-mv-relfav="${mv.rows.indexOf(r)}" title="${relFav(r) ? 'Убрать раздачу из избранного' : 'Эту раздачу — в избранное'}">${raw(ico('heart', 16))}</button>
       <button class="${r === bestKeyNow ? 'primary' : ''}" data-mv-rel="${mv.rows.indexOf(r)}">${raw(ico('play', 15))}Смотреть</button>
     </div>`;
   }).join('');
@@ -396,6 +397,15 @@ function paintMovieReleases() {
   const so = $('#mvSort'); if (so) so.addEventListener('change', () => { mv.sort = so.value; paintMovieReleases(); });
 }
 
+/* Раздача из карточки — в избранное. В избранном она лежит как обычная
+   раздача (запускается сразу), но с постером и названием фильма. */
+const relFavKey = r => (r.hash || '') + '|' + (r.title || r.name || '');
+function relFav(r) { const k = relFavKey(r); return favList().some(x => !isTitleFav(x) && (x.hash || '') + '|' + (x.title || '') === k); }
+function toggleRelFav(r) {
+  const m = mv.spec || {};
+  addToUserlist(Object.assign({}, r, { poster: r.poster || mvPoster(), film: m.title, year: m.year || (mv.meta && mv.meta.year) || '' }));
+  paintMovieReleases();
+}
 function onMovieClick(e) {
   if (state.view !== 'movie') return;
   const t = e.target;
@@ -420,6 +430,7 @@ function onMovieClick(e) {
   if (se) { mv.season = Number(se.dataset.mvSeason) || 0; paintMovieEps(); paintMovieReleases(); paintMovieHeadBits(); return; }
   const q = t.closest('[data-mv-q]'); if (q) { mv.qual = q.dataset.mvQ; paintMovieReleases(); return; }
   if (t.closest('[data-mv-ru]')) { mv.ru = !mv.ru; paintMovieReleases(); return; }
+  const rf = t.closest('[data-mv-relfav]'); if (rf) { const r = mv.rows[+rf.dataset.mvRelfav]; if (r) toggleRelFav(r); return; }
   const rel = t.closest('[data-mv-rel]'); if (rel) { const r = mv.rows[+rel.dataset.mvRel]; if (r) playSearchLink(r); return; }
   const lb = t.closest('[data-mv-lib]'); if (lb) { const x = (state.lib || []).find(y => y.hash === lb.dataset.mvLib); if (x) watchNow(x); return; }
   const ep = t.closest('[data-mv-ep]');

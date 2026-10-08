@@ -682,6 +682,46 @@ h2.section{font-size:17px; font-weight:650; margin:28px 0 12px; display:flex; al
 .addr-pick input{width:auto!important; margin:0; flex:none}
 .addr-pick .page-sub{margin:0}
 
+/* ───────────── музыка: маленький раздел, плеер внизу раздела ───────────── */
+.mu{max-width:860px}
+.mu-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:14px}
+.mu-head .page-title{margin:0}
+.mu-search{display:flex; align-items:center; gap:6px; padding:4px 4px 4px 12px; border-radius:12px; background:var(--bg2); border:1px solid var(--line2); margin-bottom:16px}
+.mu-search:focus-within{border-color:var(--acc); box-shadow:0 0 0 3px var(--acc-soft)}
+.mu-search input{flex:1; border:0; background:transparent; min-height:36px; font-size:15px; box-shadow:none!important; padding:0 4px}
+.mu-search button.primary{min-height:34px; padding:0 14px; border-radius:9px}
+.mu-h{font-size:12px; color:var(--faint); text-transform:uppercase; letter-spacing:.06em; margin:14px 0 8px}
+.mu-chips{display:flex; flex-wrap:wrap; gap:6px}
+.mu-chip{display:inline-flex; align-items:center; border:1px solid var(--line2); border-radius:999px; background:var(--bg2); max-width:100%}
+.mu-chip.on{border-color:var(--acc); background:var(--acc-soft)}
+.mu-chip button{border:0; background:none; min-height:30px; padding:0 4px 0 10px; display:inline-flex; gap:6px; align-items:center; font-size:13px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mu-chip .mu-chip-x{padding:0 10px 0 4px; color:var(--faint)}
+.mu-list{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.mu-row{display:flex; align-items:center; gap:10px; padding:7px 10px; border-bottom:1px solid var(--line); background:var(--bg2)}
+.mu-row:last-child{border-bottom:0}
+.mu-row:hover{background:var(--bg3)}
+.mu-play{width:30px; height:30px; min-height:0; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none; color:var(--acc)}
+.mu-main{flex:1; min-width:0}
+.mu-t{font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-s{font-size:12px; color:var(--faint)}
+.mu-row .iconbtn.on{color:var(--acc2)}
+#muPlayer{position:sticky; bottom:12px; margin-top:18px; z-index:5}
+.mu-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px; border-radius:14px; background:color-mix(in srgb,var(--bg3) 92%,transparent); border:1px solid var(--line2); box-shadow:var(--sh-2); backdrop-filter:blur(10px)}
+.mu-bar-t{flex:1 1 180px; min-width:0; display:flex; flex-direction:column}
+.mu-bar-t b{font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-bar-t small{font-size:11.5px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-ctl{display:flex; gap:2px}
+.mu-ctl .iconbtn{width:32px; height:32px; min-height:0; padding:0; font-size:14px}
+.mu-ctl .mu-pp{color:var(--acc); font-size:16px}
+.mu-seek{flex:2 1 160px; accent-color:var(--acc)}
+.mu-vol{width:70px; accent-color:var(--acc)}
+.mu-time{font-size:11.5px; color:var(--mut); font-variant-numeric:tabular-nums; min-width:76px}
+.mu-q{position:relative}
+.mu-q summary{list-style:none; cursor:pointer; padding:4px 8px; color:var(--mut); font-size:16px}
+.mu-q summary::-webkit-details-marker{display:none}
+.mu-q > div{position:absolute; right:0; bottom:36px; width:min(360px,80vw); max-height:300px; overflow:auto; background:var(--bg2); border:1px solid var(--line2); border-radius:var(--r); box-shadow:var(--sh-2); padding:4px}
+.mu-q > div button{display:block; width:100%; text-align:left; border:0; background:none; min-height:28px; font-size:12.5px; padding:2px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-q > div button.on{color:var(--acc); background:var(--acc-soft)}
 /* ───────────── ПЛЕЕРЫ ───────────── */
 .switch{display:flex; gap:8px; flex-wrap:wrap}
 .player{flex:1; min-width:120px; text-align:center; border:1px solid var(--line); background:var(--bg2); border-radius:12px; padding:12px 8px; cursor:pointer; transition:border-color .12s,background .12s}
@@ -712,6 +752,60 @@ tr:hover td{background:var(--hover)}
 .tname .tstat{flex:none; font-size:11.5px}
 .tcell{color:var(--mut); white-space:nowrap; font-variant-numeric:tabular-nums}
 
+/* ───────────── шапка: «Сейчас играет», уведомления; поиск: крестик, карточка ───────────── */
+.tb-notif{position:relative}
+.tb-badge{position:absolute; top:3px; right:2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--red); color:#fff; font-size:10px; font-weight:700; line-height:16px}
+.tb-notif.ring .ico{animation:bellring .9s ease}
+@keyframes bellring{0%,100%{transform:rotate(0)}15%{transform:rotate(16deg)}30%{transform:rotate(-14deg)}45%{transform:rotate(10deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(3deg)}}
+.notif-pop{position:fixed; z-index:150; width:min(380px,92vw); max-height:min(70vh,520px); overflow:auto; background:var(--bg2); border:1px solid var(--line2); border-radius:var(--r-lg); box-shadow:var(--sh-2); padding:6px; animation:pop .14s ease}
+.notif-h{display:flex; align-items:center; gap:8px; padding:6px 8px 8px; border-bottom:1px solid var(--line); margin-bottom:4px}
+.notif-it{display:flex; gap:10px; width:100%; text-align:left; border:0; background:none; padding:8px; border-radius:var(--r-sm); font-weight:400; min-height:0}
+.notif-it:hover{background:var(--hover)}
+.notif-it.new{background:var(--acc-soft)}
+.notif-ico{color:var(--acc); flex:none; padding-top:2px}
+.notif-tx{display:flex; flex-direction:column; gap:2px; font-size:13px; min-width:0}
+.notif-tx small{color:var(--faint); font-size:11.5px}
+.notif-empty{padding:18px 10px; color:var(--mut); font-size:13px; text-align:center}
+.tb-now{display:inline-flex; align-items:center; gap:10px; max-width:300px; height:38px; padding:0 12px 0 10px; border:1px solid var(--line2); border-radius:999px; background:var(--bg2); min-height:0; text-align:left}
+.tb-now:hover{border-color:var(--acc)}
+.np-tx{display:flex; flex-direction:column; min-width:0; line-height:1.15}
+.np-tx b{font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px}
+.np-tx small{font-size:10.5px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px}
+.np-eq{display:flex; align-items:flex-end; gap:2px; height:14px; flex:none}
+.np-eq i{width:3px; background:var(--acc2); border-radius:1px; animation:npeq 1s ease-in-out infinite}
+.np-eq i:nth-child(2){animation-delay:-.35s}
+.np-eq i:nth-child(3){animation-delay:-.7s}
+.np-eq.paused i{animation:none; height:4px}
+@keyframes npeq{0%,100%{height:4px}50%{height:14px}}
+@media (max-width:900px){.tb-now .np-tx{display:none} .tb-now{padding:0 10px}}
+.sb-clear{min-height:30px!important; width:30px; padding:0!important; display:flex; align-items:center; justify-content:center; background:none; border:0; color:var(--faint); border-radius:8px}
+.sb-clear:hover{color:var(--fg); background:var(--hover)}
+.sb-clear.hidden{display:none}
+.st-card{display:flex; align-items:center; gap:14px; max-width:880px; margin:14px 0 6px; padding:10px 14px 10px 10px; border:1px solid var(--line2); border-radius:var(--r-lg); background:linear-gradient(110deg,var(--acc-soft),var(--bg2) 55%); cursor:pointer; animation:pop .18s ease}
+.st-card:hover{border-color:var(--acc)}
+.st-poster{width:54px; height:80px; flex:none; border-radius:8px; overflow:hidden; background:var(--bg3); display:flex; align-items:center; justify-content:center; color:var(--faint)}
+.st-poster img{width:100%; height:100%; object-fit:cover}
+.st-info{flex:1; min-width:0}
+.st-k{font-size:11.5px; color:var(--acc); text-transform:uppercase; letter-spacing:.05em}
+.st-t{font-size:17px; font-weight:650}
+.st-o{font-size:12.5px; color:var(--mut); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+@media (max-width:640px){.st-o{display:none}}
+.mv-relfav{flex:none; color:var(--faint)}
+.mv-relfav.on{color:var(--pink)}
+#searchInput::-webkit-calendar-picker-indicator{display:none!important}
+.mu-ctl .iconbtn .ico{display:block}
+/* ───────────── эффекты: звёздное небо, варп-прыжок ───────────── */
+#fxSky{position:fixed; inset:0; width:100vw; height:100vh; z-index:0; pointer-events:none}
+.shell{position:relative; z-index:1}
+.fx-warp{position:fixed; inset:0; width:100vw; height:100vh; z-index:400; pointer-events:none; background:#02040c; animation:warpin .25s ease}
+.fx-warp.cruise{z-index:99}
+.fx-warp.out{opacity:0; transition:opacity .35s ease}
+.overlay.warp-host{background:transparent!important; backdrop-filter:none!important}
+.overlay.warp-host .modal{background:color-mix(in srgb,var(--bg2) 82%,transparent); backdrop-filter:blur(8px)}
+.fx-flash{position:fixed; inset:0; z-index:401; pointer-events:none; background:radial-gradient(circle,#fff 0,rgba(190,215,255,.85) 30%,rgba(124,176,255,0) 75%); animation:warpflash .65s ease-out forwards}
+.fx-flash.retro{background:#fcfcfc; animation:warpflash .45s steps(3) forwards}
+@keyframes warpin{from{opacity:0}}
+@keyframes warpflash{0%{opacity:0}18%{opacity:1}100%{opacity:0}}
 /* ───────────── НАСТРОЙКИ ───────────── */
 .theme-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px}
 .theme-sw{flex-direction:column; align-items:stretch; gap:8px; padding:8px 8px 10px; background:var(--bg); border:1px solid var(--line2); text-align:left; border-radius:12px; font-weight:500}
@@ -824,3 +918,78 @@ tr:hover td{background:var(--hover)}
 :root[data-tone=light] .tile:hover .poster,:root[data-tone=light] .tile:hover .result-poster,:root[data-tone=light] .pcard:hover .pc-poster,:root[data-tone=light] .disc-card:hover .disc-poster{box-shadow:0 0 0 1px var(--line2),0 14px 30px rgba(40,30,20,.18)}
 :root[data-tone=light] .cw-bg{opacity:.35}
 :root[data-tone=light] .cw-poster{box-shadow:0 6px 16px rgba(0,0,0,.16)}
+/* ───────────── глобальная тема «Денди 90-х» ─────────────
+   Не только цвета: моноширинный шрифт, пиксельные рамки без скруглений,
+   жёсткие тени, развёртка ЭЛТ, мигающий курсор-стрелка в меню, «прыжок»
+   карточек и включение кинескопа при выборе темы. Палитра — из 8-битной
+   приставки. */
+:root[data-theme=retro]{
+  --bg:#000; --bg2:#0e0e26; --bg3:#1c1c3c; --bg4:#2c2c5c; --side:#06061a;
+  --line:#34346c; --line2:#5454a4; --fg:#fcfcfc; --mut:#bcbcd8; --faint:#8080a8;
+  --acc:#f8b800; --acc-bg:#d82800; --acc-fg:#fcfcfc; --acc2:#58d854; --gold:#f8b800; --red:#f83800; --blue:#3cbcfc; --pink:#fc74b4; --chip:#1c1c3c;
+  --acc-soft:rgba(248,184,0,.14);
+  --r-sm:0; --r:0; --r-lg:0;
+  --sh-1:4px 4px 0 #000; --sh-2:6px 6px 0 #000,0 0 0 2px var(--line2);
+  --font:"Lucida Console","Courier New",Consolas,monospace; --mono:"Lucida Console","Courier New",monospace;
+  color-scheme:dark}
+:root[data-theme=retro] body{font-size:13px; letter-spacing:.01em}
+:root[data-theme=retro] *{border-radius:0!important}
+:root[data-theme=retro] .np-eq i,:root[data-theme=retro] .tb-badge{border-radius:0!important}
+/* развёртка и виньетка кинескопа — поверх всего, но мимо мыши */
+:root[data-theme=retro] body::after{content:''; position:fixed; inset:0; z-index:9998; pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.22) 0 1px,transparent 1px 3px); animation:crtflicker 6s steps(60) infinite}
+:root[data-theme=retro] body::before{content:''; position:fixed; inset:0; z-index:9997; pointer-events:none; background:radial-gradient(ellipse at center,transparent 62%,rgba(0,0,0,.55) 100%)}
+@keyframes crtflicker{0%,100%{opacity:.9}50%{opacity:1}97%{opacity:.75}}
+/* заголовки — как в заставке картриджа */
+:root[data-theme=retro] .page-title,:root[data-theme=retro] h1,:root[data-theme=retro] .mv-title{text-transform:uppercase; letter-spacing:.08em; text-shadow:3px 3px 0 var(--acc-bg); font-weight:700}
+:root[data-theme=retro] .page-title::after{content:''; display:inline-block; width:.55em; height:.9em; margin-left:.3em; vertical-align:-.08em; background:var(--acc); box-shadow:3px 3px 0 var(--acc-bg); animation:rblink 1s steps(1) infinite}
+:root[data-theme=retro] h2,:root[data-theme=retro] h3,:root[data-theme=retro] .section,:root[data-theme=retro] .mu-h,:root[data-theme=retro] .nav-h{text-transform:uppercase; letter-spacing:.06em; color:var(--gold)}
+@keyframes rblink{50%{opacity:0}}
+/* бренд */
+:root[data-theme=retro] .brand-name{color:var(--fg); text-transform:uppercase; text-shadow:2px 2px 0 var(--acc-bg)}
+:root[data-theme=retro] .brand-name b{color:var(--gold)}
+/* кнопки — нажимаются, как на джойстике */
+:root[data-theme=retro] button{border:2px solid var(--line2); box-shadow:3px 3px 0 #000; transition:none!important; font-family:var(--font)}
+:root[data-theme=retro] button:hover{border-color:var(--gold); color:var(--fg)}
+:root[data-theme=retro] button:active{transform:translate(3px,3px); box-shadow:none}
+:root[data-theme=retro] button.primary{background:var(--acc-bg); border-color:#fcfcfc; color:#fcfcfc; text-transform:uppercase}
+:root[data-theme=retro] button.primary:hover{background:#f83800}
+:root[data-theme=retro] .tb-btn,:root[data-theme=retro] .iconbtn,:root[data-theme=retro] .clear-x,:root[data-theme=retro] .sb-clear,:root[data-theme=retro] .hq-x,:root[data-theme=retro] .link-btn,:root[data-theme=retro] .disc-fav,:root[data-theme=retro] .mu-chip button,:root[data-theme=retro] .notif-it{box-shadow:none; border-color:transparent}
+:root[data-theme=retro] input,:root[data-theme=retro] select,:root[data-theme=retro] textarea{border:2px solid var(--line2)!important; background:#000!important; font-family:var(--font); caret-color:var(--gold)}
+:root[data-theme=retro] input:focus,:root[data-theme=retro] select:focus{border-color:var(--gold)!important}
+:root[data-theme=retro] .search-box,:root[data-theme=retro] .mu-search,:root[data-theme=retro] .omni{border:3px solid var(--line2); background:#000; box-shadow:4px 4px 0 var(--acc-bg)}
+:root[data-theme=retro] .search-box input,:root[data-theme=retro] .mu-search input{border:0!important}
+/* меню: мигающая стрелка выбора, как на экране выбора игры */
+:root[data-theme=retro] #nav button{border:0; box-shadow:none; text-transform:uppercase; font-size:12px; letter-spacing:.04em}
+:root[data-theme=retro] #nav button.on{background:transparent; box-shadow:none; color:var(--gold)}
+:root[data-theme=retro] #nav button.on::before{content:'▶'; left:-6px; top:50%; bottom:auto; width:auto; transform:translateY(-50%); background:none; color:var(--gold); font-size:11px; animation:rblink .8s steps(1) infinite}
+:root[data-theme=retro] .sidebar{border-right:3px solid var(--line2)}
+:root[data-theme=retro] .topbar{border-bottom:3px solid var(--line2); background:rgba(0,0,0,.86); backdrop-filter:none}
+/* карточки и окна — рамки диалогов из RPG */
+:root[data-theme=retro] .card,:root[data-theme=retro] .tile,:root[data-theme=retro] .mv-sec,:root[data-theme=retro] .rel-row,:root[data-theme=retro] .cw-card,:root[data-theme=retro] .st-card,:root[data-theme=retro] .mu-list,:root[data-theme=retro] .notif-pop{border:3px solid var(--line2); box-shadow:5px 5px 0 #000}
+:root[data-theme=retro] .modal,:root[data-theme=retro] .mu-bar{border:4px double #fcfcfc; background:#000; box-shadow:0 0 0 4px #000,8px 8px 0 var(--acc-bg); animation:rpop .24s steps(4)}
+@keyframes rpop{from{transform:scale(.6); opacity:0}}
+:root[data-theme=retro] .poster,:root[data-theme=retro] .result-poster,:root[data-theme=retro] .disc-poster,:root[data-theme=retro] .pc-poster,:root[data-theme=retro] .mv-poster,:root[data-theme=retro] .st-poster{box-shadow:0 0 0 3px #fcfcfc,5px 5px 0 3px #000!important; image-rendering:pixelated}
+:root[data-theme=retro] .poster img,:root[data-theme=retro] .result-poster img,:root[data-theme=retro] .disc-poster img{filter:saturate(1.35) contrast(1.12)}
+/* прыжок карточки при наведении — как персонаж на платформе */
+:root[data-theme=retro] .tile:hover .poster,:root[data-theme=retro] .disc-card:hover .disc-poster,:root[data-theme=retro] .pcard:hover .pc-poster,:root[data-theme=retro] .result:hover .result-poster{animation:rjump .36s steps(4); transform:none}
+@keyframes rjump{0%{transform:translateY(0)}50%{transform:translateY(-8px)}100%{transform:translateY(0)}}
+/* чипы и значки — пиксельные плашки */
+:root[data-theme=retro] .chip{border:2px solid currentColor; background:#000; text-transform:uppercase; font-size:10.5px}
+:root[data-theme=retro] .chip.rq-good{color:var(--acc2)} :root[data-theme=retro] .chip.rq-ok{color:var(--gold)} :root[data-theme=retro] .chip.rq-low{color:var(--red)}
+/* полосы прогресса — кирпичиками */
+:root[data-theme=retro] .progress i,:root[data-theme=retro] .prep-bar i,:root[data-theme=retro] .cw-prog i{background:repeating-linear-gradient(90deg,var(--acc2) 0 6px,transparent 6px 8px)!important; transition:width .3s steps(6)}
+:root[data-theme=retro] .spin{border-radius:0!important; animation:spin .8s steps(8) infinite}
+/* тост — реплика в диалоговом окне */
+:root[data-theme=retro] #toast div{border:3px solid #fcfcfc; background:#000; box-shadow:4px 4px 0 var(--acc-bg); animation:rtype .3s steps(6)}
+@keyframes rtype{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+:root[data-theme=retro] ::selection{background:var(--acc-bg); color:#fff}
+:root[data-theme=retro] ::-webkit-scrollbar{width:12px; height:12px; background:#000}
+:root[data-theme=retro] ::-webkit-scrollbar-thumb{background:var(--line2); border:2px solid #000}
+/* включение кинескопа при выборе темы */
+:root.crt-on .shell{animation:crton .8s ease-out}
+@keyframes crton{0%{transform:scale(1,.004); filter:brightness(4); opacity:.2}35%{transform:scale(1,.004); filter:brightness(4); opacity:1}60%{transform:scale(1,1); filter:brightness(1.8)}100%{transform:none; filter:none}}
+/* смена раздела — короткая «перемотка кадра» */
+:root[data-theme=retro] main.rt-enter{animation:rtenter .22s steps(3)}
+@keyframes rtenter{from{opacity:0; transform:translateX(-12px)}}
+@media (prefers-reduced-motion:reduce){:root[data-theme=retro] body::after,:root[data-theme=retro] .page-title::after,:root[data-theme=retro] #nav button.on::before{animation:none}}

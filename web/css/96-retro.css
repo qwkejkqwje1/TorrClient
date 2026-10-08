@@ -1,0 +1,75 @@
+/* ───────────── глобальная тема «Денди 90-х» ─────────────
+   Не только цвета: моноширинный шрифт, пиксельные рамки без скруглений,
+   жёсткие тени, развёртка ЭЛТ, мигающий курсор-стрелка в меню, «прыжок»
+   карточек и включение кинескопа при выборе темы. Палитра — из 8-битной
+   приставки. */
+:root[data-theme=retro]{
+  --bg:#000; --bg2:#0e0e26; --bg3:#1c1c3c; --bg4:#2c2c5c; --side:#06061a;
+  --line:#34346c; --line2:#5454a4; --fg:#fcfcfc; --mut:#bcbcd8; --faint:#8080a8;
+  --acc:#f8b800; --acc-bg:#d82800; --acc-fg:#fcfcfc; --acc2:#58d854; --gold:#f8b800; --red:#f83800; --blue:#3cbcfc; --pink:#fc74b4; --chip:#1c1c3c;
+  --acc-soft:rgba(248,184,0,.14);
+  --r-sm:0; --r:0; --r-lg:0;
+  --sh-1:4px 4px 0 #000; --sh-2:6px 6px 0 #000,0 0 0 2px var(--line2);
+  --font:"Lucida Console","Courier New",Consolas,monospace; --mono:"Lucida Console","Courier New",monospace;
+  color-scheme:dark}
+:root[data-theme=retro] body{font-size:13px; letter-spacing:.01em}
+:root[data-theme=retro] *{border-radius:0!important}
+:root[data-theme=retro] .np-eq i,:root[data-theme=retro] .tb-badge{border-radius:0!important}
+/* развёртка и виньетка кинескопа — поверх всего, но мимо мыши */
+:root[data-theme=retro] body::after{content:''; position:fixed; inset:0; z-index:9998; pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.22) 0 1px,transparent 1px 3px); animation:crtflicker 6s steps(60) infinite}
+:root[data-theme=retro] body::before{content:''; position:fixed; inset:0; z-index:9997; pointer-events:none; background:radial-gradient(ellipse at center,transparent 62%,rgba(0,0,0,.55) 100%)}
+@keyframes crtflicker{0%,100%{opacity:.9}50%{opacity:1}97%{opacity:.75}}
+/* заголовки — как в заставке картриджа */
+:root[data-theme=retro] .page-title,:root[data-theme=retro] h1,:root[data-theme=retro] .mv-title{text-transform:uppercase; letter-spacing:.08em; text-shadow:3px 3px 0 var(--acc-bg); font-weight:700}
+:root[data-theme=retro] .page-title::after{content:''; display:inline-block; width:.55em; height:.9em; margin-left:.3em; vertical-align:-.08em; background:var(--acc); box-shadow:3px 3px 0 var(--acc-bg); animation:rblink 1s steps(1) infinite}
+:root[data-theme=retro] h2,:root[data-theme=retro] h3,:root[data-theme=retro] .section,:root[data-theme=retro] .mu-h,:root[data-theme=retro] .nav-h{text-transform:uppercase; letter-spacing:.06em; color:var(--gold)}
+@keyframes rblink{50%{opacity:0}}
+/* бренд */
+:root[data-theme=retro] .brand-name{color:var(--fg); text-transform:uppercase; text-shadow:2px 2px 0 var(--acc-bg)}
+:root[data-theme=retro] .brand-name b{color:var(--gold)}
+/* кнопки — нажимаются, как на джойстике */
+:root[data-theme=retro] button{border:2px solid var(--line2); box-shadow:3px 3px 0 #000; transition:none!important; font-family:var(--font)}
+:root[data-theme=retro] button:hover{border-color:var(--gold); color:var(--fg)}
+:root[data-theme=retro] button:active{transform:translate(3px,3px); box-shadow:none}
+:root[data-theme=retro] button.primary{background:var(--acc-bg); border-color:#fcfcfc; color:#fcfcfc; text-transform:uppercase}
+:root[data-theme=retro] button.primary:hover{background:#f83800}
+:root[data-theme=retro] .tb-btn,:root[data-theme=retro] .iconbtn,:root[data-theme=retro] .clear-x,:root[data-theme=retro] .sb-clear,:root[data-theme=retro] .hq-x,:root[data-theme=retro] .link-btn,:root[data-theme=retro] .disc-fav,:root[data-theme=retro] .mu-chip button,:root[data-theme=retro] .notif-it{box-shadow:none; border-color:transparent}
+:root[data-theme=retro] input,:root[data-theme=retro] select,:root[data-theme=retro] textarea{border:2px solid var(--line2)!important; background:#000!important; font-family:var(--font); caret-color:var(--gold)}
+:root[data-theme=retro] input:focus,:root[data-theme=retro] select:focus{border-color:var(--gold)!important}
+:root[data-theme=retro] .search-box,:root[data-theme=retro] .mu-search,:root[data-theme=retro] .omni{border:3px solid var(--line2); background:#000; box-shadow:4px 4px 0 var(--acc-bg)}
+:root[data-theme=retro] .search-box input,:root[data-theme=retro] .mu-search input{border:0!important}
+/* меню: мигающая стрелка выбора, как на экране выбора игры */
+:root[data-theme=retro] #nav button{border:0; box-shadow:none; text-transform:uppercase; font-size:12px; letter-spacing:.04em}
+:root[data-theme=retro] #nav button.on{background:transparent; box-shadow:none; color:var(--gold)}
+:root[data-theme=retro] #nav button.on::before{content:'▶'; left:-6px; top:50%; bottom:auto; width:auto; transform:translateY(-50%); background:none; color:var(--gold); font-size:11px; animation:rblink .8s steps(1) infinite}
+:root[data-theme=retro] .sidebar{border-right:3px solid var(--line2)}
+:root[data-theme=retro] .topbar{border-bottom:3px solid var(--line2); background:rgba(0,0,0,.86); backdrop-filter:none}
+/* карточки и окна — рамки диалогов из RPG */
+:root[data-theme=retro] .card,:root[data-theme=retro] .tile,:root[data-theme=retro] .mv-sec,:root[data-theme=retro] .rel-row,:root[data-theme=retro] .cw-card,:root[data-theme=retro] .st-card,:root[data-theme=retro] .mu-list,:root[data-theme=retro] .notif-pop{border:3px solid var(--line2); box-shadow:5px 5px 0 #000}
+:root[data-theme=retro] .modal,:root[data-theme=retro] .mu-bar{border:4px double #fcfcfc; background:#000; box-shadow:0 0 0 4px #000,8px 8px 0 var(--acc-bg); animation:rpop .24s steps(4)}
+@keyframes rpop{from{transform:scale(.6); opacity:0}}
+:root[data-theme=retro] .poster,:root[data-theme=retro] .result-poster,:root[data-theme=retro] .disc-poster,:root[data-theme=retro] .pc-poster,:root[data-theme=retro] .mv-poster,:root[data-theme=retro] .st-poster{box-shadow:0 0 0 3px #fcfcfc,5px 5px 0 3px #000!important; image-rendering:pixelated}
+:root[data-theme=retro] .poster img,:root[data-theme=retro] .result-poster img,:root[data-theme=retro] .disc-poster img{filter:saturate(1.35) contrast(1.12)}
+/* прыжок карточки при наведении — как персонаж на платформе */
+:root[data-theme=retro] .tile:hover .poster,:root[data-theme=retro] .disc-card:hover .disc-poster,:root[data-theme=retro] .pcard:hover .pc-poster,:root[data-theme=retro] .result:hover .result-poster{animation:rjump .36s steps(4); transform:none}
+@keyframes rjump{0%{transform:translateY(0)}50%{transform:translateY(-8px)}100%{transform:translateY(0)}}
+/* чипы и значки — пиксельные плашки */
+:root[data-theme=retro] .chip{border:2px solid currentColor; background:#000; text-transform:uppercase; font-size:10.5px}
+:root[data-theme=retro] .chip.rq-good{color:var(--acc2)} :root[data-theme=retro] .chip.rq-ok{color:var(--gold)} :root[data-theme=retro] .chip.rq-low{color:var(--red)}
+/* полосы прогресса — кирпичиками */
+:root[data-theme=retro] .progress i,:root[data-theme=retro] .prep-bar i,:root[data-theme=retro] .cw-prog i{background:repeating-linear-gradient(90deg,var(--acc2) 0 6px,transparent 6px 8px)!important; transition:width .3s steps(6)}
+:root[data-theme=retro] .spin{border-radius:0!important; animation:spin .8s steps(8) infinite}
+/* тост — реплика в диалоговом окне */
+:root[data-theme=retro] #toast div{border:3px solid #fcfcfc; background:#000; box-shadow:4px 4px 0 var(--acc-bg); animation:rtype .3s steps(6)}
+@keyframes rtype{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+:root[data-theme=retro] ::selection{background:var(--acc-bg); color:#fff}
+:root[data-theme=retro] ::-webkit-scrollbar{width:12px; height:12px; background:#000}
+:root[data-theme=retro] ::-webkit-scrollbar-thumb{background:var(--line2); border:2px solid #000}
+/* включение кинескопа при выборе темы */
+:root.crt-on .shell{animation:crton .8s ease-out}
+@keyframes crton{0%{transform:scale(1,.004); filter:brightness(4); opacity:.2}35%{transform:scale(1,.004); filter:brightness(4); opacity:1}60%{transform:scale(1,1); filter:brightness(1.8)}100%{transform:none; filter:none}}
+/* смена раздела — короткая «перемотка кадра» */
+:root[data-theme=retro] main.rt-enter{animation:rtenter .22s steps(3)}
+@keyframes rtenter{from{opacity:0; transform:translateX(-12px)}}
+@media (prefers-reduced-motion:reduce){:root[data-theme=retro] body::after,:root[data-theme=retro] .page-title::after,:root[data-theme=retro] #nav button.on::before{animation:none}}

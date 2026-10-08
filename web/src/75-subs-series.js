@@ -5,12 +5,14 @@ function renderSubs(root) {
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
       <button id="subAdd" class="primary">${raw(ico('plus',16))} Следить</button>
       <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">${raw(ico('refresh'))}</button>
+      <label class="check" title="Каждый сериал, аниме и многосерийный мультфильм из Библиотеки получает подписку сам. Снятая руками подписка сама не вернётся"><input type="checkbox" id="subAuto"> следить за сериалами из Библиотеки</label>
     </div>
     <div id="subBody"><div class="empty">Загрузка подписок...</div></div>`;
   const add = () => { const inp = $('#subNew'); subsAdd(inp.value).then(() => { inp.value = ''; }); };
   $('#subAdd').addEventListener('click', add);
   $('#subNew').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
   $('#subCheck').addEventListener('click', subsCheck);
+  { const a = $('#subAuto'); a.checked = autoFollowOn(); a.addEventListener('change', () => { savePref(AF_KEY, a.checked ? '1' : '0'); if (a.checked) autoFollowSeries(true); }); }
   paintSubsBody();
   // Список спрашивается у демона, а не берётся из памяти: подписки живут с ним
   // и меняются в том числе пока страница была закрыта.
@@ -49,9 +51,10 @@ function subsArrived(d) {
     ? 'Вышла серия: ' + (d.title || '') + where + '. Раздачи пока нет — сообщу, когда появится'
     : 'Новые серии: ' + (d.title || '') + where;
   toast(msg);
+  notifPush({ kind: 'ep', title: d.title || s.title || '', text: msg, sub: d.id });
   // Системное уведомление — когда окно свёрнуто, тост не увидеть.
   try {
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: msg });
+    if ((document.hidden || !document.hasFocus()) && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: msg });
   } catch (_) { /* уведомления недоступны */ }
   if (state.view === 'subs') paintSubsBody();
 }
@@ -65,7 +68,7 @@ function renderSeries(root) {
     </div>
     <div id="serBody"><div class="empty">Загрузка библиотеки...</div></div>`;
   $('#serQuery').addEventListener('input', () => { localStorage.setItem('tc_serq', $('#serQuery').value); paintSeriesBody(); });
-  loadLibrary().catch(() => {}).then(paintSeriesBody);
+  loadLibrary().catch(() => {}).then(() => { paintSeriesBody(); autoFollowSeries(); });
 }
 function plural(n, one, few, many) {
   const m10 = n % 10, m100 = n % 100;

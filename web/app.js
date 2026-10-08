@@ -96,6 +96,9 @@ const THEME_LIST = [
   { id: 'dracula', name: 'Дракула', tone: 'dark', sw: ['#1e1f29', '#2e303f', '#bd93f9', '#50fa7b'] },
   { id: 'forest', name: 'Лес', tone: 'dark', sw: ['#0f1512', '#1c2620', '#6fcf98', '#b5e06a'] },
   { id: 'sepia', name: 'Сепия', tone: 'light', sw: ['#f4ecdc', '#efe5d0', '#9a5a22', '#527a30'] },
+  // Глобальная тема: не только цвета, но и шрифт, пиксельные рамки, ЭЛТ-развёртка
+  // и свои анимации (95-retro.css, 78-fx.js).
+  { id: 'retro', name: 'Денди 90-х', tone: 'dark', sw: ['#000000', '#1c1c3a', '#f83800', '#f8b800'] },
 ];
 const THEMES = THEME_LIST.map(t => t.id);
 const THEME_NAMES = Object.fromEntries(THEME_LIST.map(t => [t.id, t.name.toLowerCase()]));
@@ -114,6 +117,7 @@ function applyTheme() {
 function setTheme(id) {
   try { localStorage.setItem('tc_theme', id); } catch {}
   applyTheme(); toast('Тема: ' + THEME_NAMES[id]);
+  if (id === 'retro' && typeof fxCrtOn === 'function') fxCrtOn();
 }
 function cycleTheme() { setTheme(THEMES[(THEMES.indexOf(themeMode()) + 1) % THEMES.length]); }
 function themePickerHtml() {
@@ -275,6 +279,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['2.2.0', ['Поиск сразу открывает карточку фильма, если название нашлось в TMDB (галочка «сразу карточка»); над раздачами — карточка названия', 'Крестик и Esc в поле поиска очищают запрос', 'В карточке фильма у каждой раздачи «♥» — именно эта раздача уходит в избранное', 'Исправлен размер раздач Кинозала: «37.85 ГБ» показывалось как 38 байт', '«Продолжить просмотр» — от последнего открытого и не больше 6 карточек', 'Оценка качества у аниме и мультсериалов в Библиотеке — по именам файлов', 'Новое «Сейчас играет» в шапке: что открыто в плеере или какой трек звучит', 'Колокольчик уведомлений: новые серии больше не теряются', 'Сериалы из Библиотеки отслеживаются сами — о новых сериях приходит уведомление', 'Раздел «Музыка»: только аудиораздачи и плеер прямо в окне; музыка не попадает в Библиотеку', 'Новая тема «Денди 90-х», звёздное небо у «Графита» и варп-прыжок при запуске просмотра (выключается в Настройках → Оформление)']],
   ['2.1.0', ['Карточка фильма: постер, описание, сезоны и серии с отметками просмотра, все раздачи с оценкой качества и числом раздающих, «Смотреть» и «Следить». Открывается с любой карточки названия и с раздач поиска, кроме ТОПа за 24 часа', 'Лучшая раздача считается по качеству, русской дорожке, раздающим и размеру; для сериала выберите сезон — лишние раздачи уйдут', 'Поиск показывает раздачи по мере ответа каждого источника, а зависший отрезается через 12 секунд', 'Главная настраивается: включить, выключить и переставить ряды, свои ряды (подборка TMDB, ТОП раздела, поиск — например «Новинки аниме»), ряд «Детское»; приветствие убрано', 'Любой раздел можно сделать стартовым: правый клик по нему в панели или «Настроить» на Главной', 'Кнопки мыши «назад» и «вперёд» ходят по разделам и карточкам', 'Удаление без окна подтверждения: «Удалено · Вернуть»', 'В библиотеке у раздач — оценка качества и источник/кодек/звук', 'Исправлена кнопка «Смотреть» на постере (вместо значка был синий круг); сердечки — по центру сверху']],
   ['2.0.0', ['Новый облик: спокойная графитовая тема по умолчанию, крупные постеры, единые карточки, кнопки и окна во всех разделах; все восемь тем перерисованы', 'Разделы теперь в боковой панели тремя группами — основное, «Моё» и «Система»; панель сворачивается до значков (клавиша [ ). На телефоне — полоса вкладок внизу и лист «Ещё»', '«Главная» — новый стартовый раздел: продолжить просмотр крупными карточками, новые серии по подпискам, избранное, «Сейчас смотрят» и недавно добавленное — всё на одном экране', 'Палитра команд Ctrl+K: любой раздел, действие, тема, раздача из библиотеки или избранного — по нескольким буквам; Enter ищет набранное на трекерах, вторая строка — лучшая раздача', 'Поиск: большое поле, фильтры одной строкой, подборки (ТОП-24, Популярное, Для вас, Сейчас смотрят) отдельными кнопками', 'Кнопка «Добавить» всегда в шапке, а не только в Библиотеке и Поиске']],
   ['1.20.0', ['♥ «Сейчас смотрят» и «Для вас»: сердечко на карточке добавляет название в избранное — оттуда одним нажатием подбирается лучшая раздача', 'Больше нет привязки к одному источнику: ТОП за 24 часа собирается из rutor и индексаторов (JacRed, Jackett, Prowlarr) разом, а без ключа TMDB — из ленты свежих раздач индексатора', '«Популярное» при недоступном rutor строится через индексаторы', 'Настройки → «Источники поиска»: rutor можно выключить совсем; по умолчанию поиск идёт по всем источникам', 'Удаление из «Избранного» снова работает']],
@@ -388,6 +393,7 @@ function streamBase(fname) { return fname ? `/stream/${encodeURIComponent(fname)
     // отметок спрашивается постоянно, а не только при открытии страницы.
     setInterval(refreshViewed, 10000);
   }
+  extrasBoot();
 })();
 
 
@@ -433,6 +439,11 @@ const ICONS = {
   list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   edit: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M13.5 8.5l3 3"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+  music: '<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  prev: '<path d="M6 5v14"/><path d="M19 5.5v13L9 12Z" fill="currentColor"/>',
+  next: '<path d="M18 5v14"/><path d="M5 5.5v13L15 12Z" fill="currentColor"/>',
+  pause: '<path d="M8 5v14M16 5v14" stroke-width="3"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor" stroke="none"/>',
   film: '<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8.5h4.5M3 15.5h4.5M16.5 8.5H21M16.5 15.5H21"/>',
 };
 function ico(name, size) {
@@ -442,7 +453,7 @@ function ico(name, size) {
 
 /* Разделы по группам. Порядок задаёт и Alt+1…Alt+0 (первые десять). */
 const NAV_GROUPS = [
-  { label: '', items: [['home', 'Главная', 'home'], ['library', 'Библиотека', 'grid'], ['search', 'Поиск', 'search']] },
+  { label: '', items: [['home', 'Главная', 'home'], ['library', 'Библиотека', 'grid'], ['search', 'Поиск', 'search'], ['music', 'Музыка', 'music']] },
   { label: 'Моё', items: [['favorites', 'Избранное', 'heart'], ['bookmarks', 'Закладки', 'bookmark'], ['series', 'Сериалы', 'tv'], ['subs', 'Подписки', 'bell']] },
   { label: 'Система', items: [['downloads', 'Загрузки', 'download'], ['players', 'Плееры', 'player'], ['settings', 'Настройки', 'sliders'], ['server', 'Сервер', 'server']] },
 ];
@@ -932,10 +943,11 @@ function route() {
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
   $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
-  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
+  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, music: renderMusic, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderHome;
   const main = $('main'); main.innerHTML = '';
   main.dataset.view = v;
+  main.classList.remove('rt-enter'); void main.offsetWidth; main.classList.add('rt-enter');
   // Крестики в полях ставятся и сразу, и после асинхронной отрисовки.
   Promise.resolve(fn(main)).finally(() => addClears(main));
   addClears(main);
@@ -1255,7 +1267,7 @@ function paintHome() {
   if (nn) sum.push(nn + ' ' + plural(nn, 'новая серия', 'новые серии', 'новых серий'));
   const s = $('#homeSum'); if (s) s.textContent = state.libError && !n ? 'TorrServer ещё не ответил — библиотека появится, как только он поднимется' : sum.join(' · ');
 
-  if (on('cont')) paintRail(railDomId('cont'), 'Продолжить просмотр', cont.length, cont.slice(0, 16).map(contBig).join(''), 'library', 'Библиотека', 'cw');
+  if (on('cont')) paintRail(railDomId('cont'), 'Продолжить просмотр', Math.min(cont.length, CONT_MAX), cont.slice(0, CONT_MAX).map(contBig).join(''), 'library', 'Библиотека', 'cw');
   if (on('new')) paintRail(railDomId('new'), 'Новые серии по подпискам', newSubs.length, newSubs.map(newSubCard).join(''), 'subs', 'Все подписки', 'ns');
   if (on('fav')) paintRail(railDomId('fav'), 'Избранное', favs.length, favs.slice(0, 18).map((f, i) => favMini(f, favs.length - 1 - i)).join(''), 'favorites', 'Всё избранное', 'pc');
   if (on('recent')) paintRail(railDomId('recent'), 'Недавно добавлено', recent.length, recent.map(recentMini).join(''), 'library', 'Вся библиотека', 'pc');
@@ -1742,7 +1754,8 @@ function refreshLibrary() {
    library never blocks on N /stream?stat round-trips. */
 const libRetry = { timer: 0, n: 0 };
 async function loadLibrary(paint) {
-  try { state.lib = await listTorrents(); state.libError = ''; libRetry.n = 0; }
+  // Музыка живёт в своём разделе: в Библиотеку, «Продолжить» и Сериалы она не идёт.
+  try { const ms = musicHashes(); state.lib = (await listTorrents()).filter(t => !isMusicTorrent(t, ms)); state.libError = ''; libRetry.n = 0; }
   catch (e) {
     // Сервер ещё поднимается (так бывает сразу после запуска) — список
     // запрашивается снова сам, всё реже: 1,5 с, 3 с, 6 с… до 30 с.
@@ -1988,8 +2001,17 @@ function continueItems() {
     }
     if (f) out.push({ t, f, kind: 'resume', pos: 0, duration: 0, share: 0, updated: 0 });
   });
-  return out.sort((a, b) => b.updated - a.updated);
+  /* Порядок — от последнего открытого. Демон пишет время в секундах, запуск
+     из окна помнится в миллисекундах; берётся более свежее из двух. Прежде
+     раздачи без отметки демона (updated = 0) уходили в конец, даже если их
+     запустили минуту назад. */
+  const lp = lastPlayed();
+  out.forEach(it => { const l = lp[it.t.hash]; it.recent = Math.max((it.updated || 0) * 1000, l ? l.at : 0); });
+  return out.sort((a, b) => b.recent - a.recent);
 }
+// Сколько карточек «Продолжить просмотр» показывать: больше шести — уже не
+// «продолжить», а список всего начатого (он — в Библиотеке и Закладках).
+const CONT_MAX = 6;
 function continueCard(it) {
   const title = it.t.title || it.t.name || it.t.hash;
   const next = it.kind === 'next';
@@ -2018,8 +2040,8 @@ function paintContinue() {
   const items = continueItems();
   if (!items.length) { box.innerHTML = ''; box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  box.innerHTML = html`<div class="cont-head">Продолжить просмотр <span class="cont-n">${items.length}</span></div>`
-    + html`<div class="cont-row">${raw(items.slice(0, 20).map(continueCard).join(''))}</div>`;
+  box.innerHTML = html`<div class="cont-head">Продолжить просмотр <span class="cont-n">${Math.min(items.length, CONT_MAX)}</span></div>`
+    + html`<div class="cont-row">${raw(items.slice(0, CONT_MAX).map(continueCard).join(''))}</div>`;
 }
 function bindContinue() {
   const box = $('#libContinue');
@@ -2090,7 +2112,7 @@ function tile(t) {
       <div class="badges">
         ${raw(lq.q.res ? html`<span class="chip ${q}">${lq.q.res}</span>` : '')}
         ${raw(ser ? html`<span class="chip series">${seriesTag(t.title || t.name || '')}</span>` : '')}
-        ${raw(lq.q.res || lq.q.source ? html`<span class="chip rq rq-${lq.q.tier}" title="${lq.tip}">${lq.q.score}${lq.q.ru ? ' · RU' : ''}</span>` : '')}
+        ${raw(lq.q.res || lq.q.source || lq.q.audio ? html`<span class="chip rq rq-${lq.q.tier}" title="${lq.tip}">${lq.q.score}${lq.q.ru ? ' · RU' : ''}</span>` : '')}
         <span class="statusdot ${scls}" title="${st || 'статус'}"></span>
       </div>
       <div class="rate-stack">
@@ -2260,9 +2282,23 @@ function playVerdict(j) {
    без сидов (в библиотеке это снимок, а не свойство раздачи). */
 function libQuality(t) {
   const title = (t && (t.title || t.name)) || '';
-  const q = rateRelease({ title, size_bytes: t && t.torrent_size });
+  /* У аниме и многосерийных мультфильмов название раздачи часто без
+     пометок: «Наруто [1-220 из 220]». Разрешение и источник там стоят в
+     именах файлов — «[SubsPlease] Frieren - 01 (1080p).mkv». Без них оценка
+     не показывалась вовсе. Имя торрента (name) и первый видеофайл дописываются
+     к названию, а размер берётся на серию: 80 ГБ на сезон в 1080p — норма,
+     а не «очень большой». */
+  const files = ((t && t.file_stats) || []).filter(f => isVideo(f.path));
+  const extra = [];
+  if (t && t.name && t.name !== title) extra.push(t.name);
+  if (files.length) extra.push(basename(files[0].path).replace(/[._]+/g, ' '));
+  const probe = rateRelease({ title });
+  const full = probe.res && probe.source ? title : [title].concat(extra).join(' ');
+  const per = files.length > 1 && t.torrent_size ? t.torrent_size / files.length : t && t.torrent_size;
+  const q = rateRelease({ title: full, size_bytes: per });
   const bits = [q.source, q.codec, q.hdr, q.audio].filter(Boolean);
-  return { q, line: bits.join(' · '), tip: rateTip(q) };
+  if (files.length > 1) bits.push(files.length + ' ' + plural(files.length, 'файл', 'файла', 'файлов'));
+  return { q, line: bits.join(' · '), tip: rateTip(q) + (full !== title ? ' · учтены имена файлов' : '') };
 }
 
 function qTag(name) {
@@ -2788,6 +2824,21 @@ function fmtPos(s) {
 /* tracking реальной позиции: сервер /viewed не ведёт время, считаем от момента запуска */
 function trackPlay(hash, fi, base) {
   state.play = { hash, fi, base: base || 0, at: Date.now() };
+  notePlayed(hash, fi);
+}
+/* Когда раздачу запускали в последний раз. Отметка демона обновляется, только
+   пока плеер сообщает позицию; раздача, запущенная в плеере без канала, с
+   телефона или из списка TorrServer, шла с нулевым временем в самый конец
+   «Продолжить просмотр» — хотя её открыли только что. */
+const LASTPLAY_KEY = 'tc_lastplay';
+function lastPlayed() { try { const o = JSON.parse(localStorage.getItem(LASTPLAY_KEY) || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } }
+function notePlayed(hash, fi) {
+  if (!hash) return;
+  const o = lastPlayed();
+  o[hash] = { at: Date.now(), fi: fi | 0 };
+  // Хранится только свежее: сотня записей с запасом покрывает полосу.
+  const keep = Object.entries(o).sort((a, b) => b[1].at - a[1].at).slice(0, 100);
+  try { localStorage.setItem(LASTPLAY_KEY, JSON.stringify(Object.fromEntries(keep))); } catch {}
 }
 function estimatePos(hash, fi) {
   const p = state.play;
@@ -3102,6 +3153,7 @@ async function renderSearch(root) {
       <div class="search-box">
         <span class="sb-ico">${raw(ico('search', 20))}</span>
         <input id="searchInput" list="searchHistList" autocomplete="off" placeholder="Название фильма или сериала — можно с годом, «-слово» исключает" title="/ — сюда, Ctrl+K — палитра, ? — все клавиши" value="${sd.q}">
+        <button id="searchClear" class="sb-clear${sd.q ? '' : ' hidden'}" type="button" title="Очистить запрос (Esc)" aria-label="Очистить запрос">${raw(ico('x', 16))}</button>
         <datalist id="searchHistList">${raw(searchHistoryAll().map(h => html`<option value="${h}">`).join(''))}</datalist>
         <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">${raw(ico('star', 16))}<span>Лучшая</span></button>
         <button id="searchBtn" class="primary">Найти</button>
@@ -3121,6 +3173,7 @@ async function renderSearch(root) {
         </select>
         <label class="check" title="Прятать из выдачи игры, софт и книги"><input type="checkbox" id="searchVid"> только видео</label>
         <label class="check" title="Новая выдача добавится к текущей, а не заменит её"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
+        <label class="check" title="Нашёлся фильм или сериал с таким названием — сразу открыть его карточку с раздачами"><input type="checkbox" id="searchCard"> сразу карточка</label>
       </div>
     </div>
     <div class="quick collections">
@@ -3138,6 +3191,7 @@ async function renderSearch(root) {
       <select id="dGenre" style="width:auto"></select>
       <button id="dGo" title="Самое популярное по числу голосов TMDB. Нужен ключ TMDB">Показать</button>
     </div>
+    <div id="searchTitle"></div>
     <div id="searchResults"></div>`;
 
   initDiscoverBar();
@@ -3148,7 +3202,17 @@ async function renderSearch(root) {
   $('#searchBtn').addEventListener('click', () => doSearch());
   $('#recBtn').addEventListener('click', () => showRecommendations());
   $('#bestBtn').addEventListener('click', () => { const q = $('#searchInput').value.trim(); if (q) { pushSearchHistory(q); findBest(q, 0); } else toast('Введите название'); });
-  $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  $('#searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+    else if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.stopPropagation(); clearSearchQuery(); }
+  });
+  /* Крестик в поле: общий addClears ставится только полям-фильтрам
+     (.search-input), а у главного поиска своя рамка — крестика не было. */
+  $('#searchInput').addEventListener('input', e => { const c = $('#searchClear'); if (c) c.classList.toggle('hidden', !e.target.value); });
+  $('#searchClear').addEventListener('mousedown', e => e.preventDefault());
+  $('#searchClear').addEventListener('click', clearSearchQuery);
+  { const sc = $('#searchCard'); sc.checked = searchCardPref(); sc.addEventListener('change', () => savePref('tc_scard', sc.checked ? '1' : '0')); }
+  paintSearchTitle();
   // Источник и категория запоминаются: после перезапуска поиск шёл снова по
   // rutor, и выбор «Все источники» приходилось делать каждый раз.
   $('#searchProv').addEventListener('change', () => { sd.provider = $('#searchProv').value; savePref('tc_prov', sd.provider); });
@@ -3326,6 +3390,49 @@ async function onTopClick() {
 
 // История поиска: хранится 30 запросов (для автодополнения), кнопками
 // показываются последние 8. Запись можно удалить крестиком.
+function clearSearchQuery() {
+  const i = $('#searchInput'); if (!i) return;
+  i.value = ''; state.searchState.q = ''; state.searchState.title = null;
+  const c = $('#searchClear'); if (c) c.classList.add('hidden');
+  paintSearchTitle();
+  i.focus();
+}
+function searchCardPref() { return localStorage.getItem('tc_scard') !== '0'; }
+
+/* Карточка названия над выдачей. Поиск «Дюна» искал только раздачи, и
+   страницу фильма (описание, сезоны, ранжированные раздачи, избранное)
+   приходилось открывать отдельным кликом по строке. Теперь параллельно с
+   трекерами спрашивается TMDB: нашлось название — оно стоит первым, а при
+   дословном совпадении и включённой «сразу карточка» открывается само. */
+const tmdbNormJS = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^0-9a-zа-я]+/gi, '');
+async function lookupSearchTitle(q, run) {
+  const c = cleanSearchTitle(q);
+  const qq = c.q || q;
+  try {
+    const j = await withTimeout(apiGetJSON('/api/tmdb?q=' + encodeURIComponent(qq) + (c.year ? '&year=' + c.year : '')), 5000, 'TMDB не ответил');
+    if (searchRun !== run || !j || !j.ok || !j.title) return null;
+    const it = { title: j.title, year: j.year ? String(j.year) : '', kind: j.type === 'tv' ? 'tv' : 'movie', tmdb: j.id, poster: j.poster || '', overview: j.overview || '', rating: j.rating || 0, imdb: j.imdb || 0 };
+    it.exact = tmdbNormJS(it.title) === tmdbNormJS(qq);
+    return it;
+  } catch { return null; }
+}
+function paintSearchTitle() {
+  const el = $('#searchTitle'); if (!el) return;
+  const it = state.searchState.title;
+  if (!it) { el.innerHTML = ''; return; }
+  el.innerHTML = html`<div class="st-card" data-st-open tabindex="0" title="Открыть карточку: описание, сезоны, лучшие раздачи">
+    <div class="st-poster">${raw(it.poster ? html`<img src="${pimg(it.poster)}" alt="" onerror="this.remove()">` : ico('film', 30))}</div>
+    <div class="st-info">
+      <div class="st-k">${it.kind === 'tv' ? 'Сериал' : 'Фильм'}${it.rating > 0 ? ' · TMDB ' + Number(it.rating).toFixed(1) : ''}</div>
+      <div class="st-t">${it.title}${raw(it.year ? html` <span class="mv-year">${it.year}</span>` : '')}</div>
+      <div class="st-o">${(it.overview || '').slice(0, 220)}${(it.overview || '').length > 220 ? '…' : ''}</div>
+    </div>
+    <button class="primary" data-st-open>${raw(ico('arrow', 15))}Открыть карточку</button>
+  </div>`;
+  const open = () => openMovie(it);
+  el.querySelectorAll('[data-st-open]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); open(); }));
+  el.firstElementChild.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
+}
 function searchHistoryAll() {
   try { const h = JSON.parse(localStorage.getItem('tc_sq') || '[]'); return Array.isArray(h) ? h.filter(x => typeof x === 'string').slice(0, 30) : []; } catch { return []; }
 }
@@ -3399,20 +3506,25 @@ async function fetchTopCat(sec, label) {
   button.disabled = false; updateTopBtnLabel();
   paintResults(el);
 }
+/* parseSizeBytes понимает и «1.46 GB», и «37,85 ГБ». Кинозал пишет единицы
+   по-русски, а прежний разбор знал только латиницу: «37.85 ГБ» превращалось
+   в 38 байт, и у раздач Кинозала стоял размер «38 Б», а сортировка по
+   размеру ставила их в конец. */
+const SIZE_MULT = { '': 1, B: 1, Б: 1, K: 1e3, КБ: 1e3, KB: 1e3, KIB: 1024, M: 1e6, MB: 1e6, МБ: 1e6, MIB: 1048576, G: 1e9, GB: 1e9, ГБ: 1e9, GIB: 1073741824, T: 1e12, TB: 1e12, ТБ: 1e12, TIB: 1099511627776 };
 function parseSizeBytes(s) {
   if (s == null) return null;
   if (typeof s === 'number' && isFinite(s)) return s;
-  const m = String(s).match(/([\d.]+)\s*([KMGT]?B?)/i);
+  const m = String(s).replace(/\u00a0/g, ' ').match(/(\d+(?:[.,]\d+)?)\s*([KMGT]i?B?|[КМГТ]Б|Б|B)?(?![a-zа-я])/i);
   if (!m) return null;
-  const n = parseFloat(m[1]);
+  const n = parseFloat(m[1].replace(',', '.'));
   if (!isFinite(n)) return null;
-  const mult = { '': 1, B: 1, K: 1e3, KB: 1e3, M: 1e6, MB: 1e6, G: 1e9, GB: 1e9, T: 1e12, TB: 1e12 }[(m[2] || '').toUpperCase()];
+  const mult = SIZE_MULT[(m[2] || '').toUpperCase()];
+  if (!m[2] && n < 1e4) return null; // голое «1» — не размер
   return mult ? Math.round(n * mult) : null;
 }
 function row2res(r, provider) {
   if (!r || !r.title) return null;
-  const sz = r.size ? r.size.match(/([\d.]+)\s*([KMGT]?B)/i) : null;
-  const sizeBytes = sz ? parseFloat(sz[1]) * ({ K: 1e3, M: 1e6, G: 1e9, T: 1e12 })[(sz[2] || '').charAt(0).toUpperCase()] || 0 : 0;
+  const sizeBytes = parseSizeBytes(r.size) || 0;
   return {
     title: r.title, size_bytes: sizeBytes, size: r.size || '',
     seed: r.seed, peer: r.peer, link: r.link, hash: r.hash, magnet: r.magnet,
@@ -3483,6 +3595,16 @@ async function doSearch() {
   const run = ++searchRun;
   const ss = state.searchState;
   ss.run = run;
+  ss.title = null; paintSearchTitle();
+  // Категория «Музыка», «Софт», «Игры» — названия фильма там не ищем.
+  const videoCat = !cat || [1, 4, 5, 7, 10, 16].includes(cat);
+  if (videoCat) lookupSearchTitle(q, run).then(it => {
+    if (!it || ss.run !== run) return;
+    ss.title = it;
+    if (state.view !== 'search') return;
+    paintSearchTitle();
+    if (it.exact && !parts.drop.length && searchCardPref()) { pushSearchHistory(q); openMovie(it); }
+  });
   ss.pending = {};
   const live = () => ss.run === run;
   const jobs = [];
@@ -4459,7 +4581,11 @@ async function addToUserlist(r) {
   const key = (r.hash || '') + '|' + (r.title || r.name || '');
   const idx = ul.findIndex(x => (x.hash || '') + '|' + (x.title || '') === key);
   if (idx >= 0) { ul.splice(idx, 1); saveFavList(ul); toast('Удалено из избранного'); updateFavMarks(); return; }
-  ul.push({ title: r.title || r.name || '', magnet: r.magnet || magnetFromHash(r.hash, r.title), hash: r.hash, time: Date.now() });
+  // Раздача Кинозала приходит без магнита: без адреса get.php избранное
+  // было нечем запустить. Постер и название фильма — для карточки избранного.
+  const it = { title: r.title || r.name || '', magnet: r.magnet || magnetFromHash(r.hash, r.title), hash: r.hash, time: Date.now() };
+  ['link', 'get', '_p', 'size', 'size_bytes', 'poster', 'film', 'year'].forEach(k => { if (r[k]) it[k] = r[k]; });
+  ul.push(it);
   saveFavList(ul);
   toast('Добавлено в избранное');
   updateFavMarks();
@@ -4505,7 +4631,7 @@ async function playSearchLink(r) {
 async function playHashLoop(hash) {
   for (let i = 0; i < 12; i++) {
     await new Promise(res => setTimeout(res, 1000));
-    try { state.lib = await listTorrents(); } catch {}
+    try { const ms = musicHashes(); state.lib = (await listTorrents()).filter(t => !isMusicTorrent(t, ms)); } catch {}
     const t = state.lib.find(x => x.hash === hash);
     if (t) { watchNow(t); return; }
   }
@@ -4768,6 +4894,8 @@ function prepOverlay(title) {
     <div class="btn-group"><button data-cancel>Отмена</button></div>
   </div>`;
   document.body.appendChild(ov);
+  // Пока раздача ищет раздающих — полёт в гиперпространстве за окном.
+  const warpEnd = fxWarpCruise(ov);
   const started = Date.now();
   const el = s => ov.querySelector(s);
   const api = {
@@ -4781,7 +4909,7 @@ function prepOverlay(title) {
     },
     hint(text) { el('[data-hint]').textContent = text; },
     fail(text) { el('[data-stage]').textContent = text; ov.querySelector('.spin').classList.add('stop'); },
-    close() { api.cancelled = true; ov.remove(); },
+    close(ok) { api.cancelled = true; warpEnd(!!ok); ov.remove(); },
   };
   ov.querySelector('[data-cancel]').addEventListener('click', () => api.close());
   ov.addEventListener('click', e => { if (e.target === ov) api.close(); });
@@ -5060,6 +5188,7 @@ function playSelected(cur, f, opts = {}) {
   // ничего не происходило. Теперь спрашиваем, где смотреть.
   if (isRemoteUI() && !opts.player && !opts.onPC) return phonePlay(cur, f, opts);
   const key = opts.player || pickPlayer();
+  fxWarp(); // прыжок к фильму: запуск плеера
   const title = (cur.title || cur.name || 'stream') + epSuffix(f);
   trackPlay(cur.hash, f.id, opts.fromZero ? 0 : currentTc(cur, f.id));
   // Ход подгрузки виден всегда, а не только пока сервер не отдал список файлов:
@@ -6047,6 +6176,7 @@ function paintMovieReleases() {
         <div class="rel-tags">${raw(tags.join(''))}<span>${meta || 'без пометок о качестве'}</span></div>
         <div class="rel-nums"><span>${r.size_bytes ? fmtSize(r.size_bytes) : (r.size || '')}</span><span class="${(r.seed || 0) >= 10 ? 'good' : (r.seed || 0) ? '' : 'bad'}">⬆ ${r.seed || 0}</span>${raw(r.peer != null ? '<span>⬇ ' + esc(r.peer) + '</span>' : '')}<span class="page-sub" style="margin:0">${(r._srcs || [r._p]).map(s => SRC_NAME[s] || s).join(' + ')}</span>${raw(rq.notes.length ? '<span class="rel-note">' + esc(rq.notes.join(', ')) + '</span>' : '')}</div>
       </div>
+      <button class="iconbtn mv-relfav${relFav(r) ? ' on' : ''}" data-mv-relfav="${mv.rows.indexOf(r)}" title="${relFav(r) ? 'Убрать раздачу из избранного' : 'Эту раздачу — в избранное'}">${raw(ico('heart', 16))}</button>
       <button class="${r === bestKeyNow ? 'primary' : ''}" data-mv-rel="${mv.rows.indexOf(r)}">${raw(ico('play', 15))}Смотреть</button>
     </div>`;
   }).join('');
@@ -6062,6 +6192,15 @@ function paintMovieReleases() {
   const so = $('#mvSort'); if (so) so.addEventListener('change', () => { mv.sort = so.value; paintMovieReleases(); });
 }
 
+/* Раздача из карточки — в избранное. В избранном она лежит как обычная
+   раздача (запускается сразу), но с постером и названием фильма. */
+const relFavKey = r => (r.hash || '') + '|' + (r.title || r.name || '');
+function relFav(r) { const k = relFavKey(r); return favList().some(x => !isTitleFav(x) && (x.hash || '') + '|' + (x.title || '') === k); }
+function toggleRelFav(r) {
+  const m = mv.spec || {};
+  addToUserlist(Object.assign({}, r, { poster: r.poster || mvPoster(), film: m.title, year: m.year || (mv.meta && mv.meta.year) || '' }));
+  paintMovieReleases();
+}
 function onMovieClick(e) {
   if (state.view !== 'movie') return;
   const t = e.target;
@@ -6086,6 +6225,7 @@ function onMovieClick(e) {
   if (se) { mv.season = Number(se.dataset.mvSeason) || 0; paintMovieEps(); paintMovieReleases(); paintMovieHeadBits(); return; }
   const q = t.closest('[data-mv-q]'); if (q) { mv.qual = q.dataset.mvQ; paintMovieReleases(); return; }
   if (t.closest('[data-mv-ru]')) { mv.ru = !mv.ru; paintMovieReleases(); return; }
+  const rf = t.closest('[data-mv-relfav]'); if (rf) { const r = mv.rows[+rf.dataset.mvRelfav]; if (r) toggleRelFav(r); return; }
   const rel = t.closest('[data-mv-rel]'); if (rel) { const r = mv.rows[+rel.dataset.mvRel]; if (r) playSearchLink(r); return; }
   const lb = t.closest('[data-mv-lib]'); if (lb) { const x = (state.lib || []).find(y => y.hash === lb.dataset.mvLib); if (x) watchNow(x); return; }
   const ep = t.closest('[data-mv-ep]');
@@ -6097,6 +6237,217 @@ function onMovieClick(e) {
     toast('Этой серии нет в библиотеке — выберите раздачу сезона ' + sn + ' ниже');
     const rel = $('#mvRel'); if (rel) rel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+}
+/* ================= МУЗЫКА =================
+   Отдельный маленький раздел: поиск только музыкальных раздач и плеер прямо
+   в окне. Музыка живёт здесь и не расходится по программе: её раздачи не
+   попадают в Библиотеку, «Продолжить просмотр», Сериалы и Главную, а играет
+   она встроенным плеером, без запуска внешнего видеоплеера.
+   Строгость отбора — в два слоя: трекер ищет в разделе «Музыка» (rutor 2), а
+   выдача ещё раз проверяется по названию: нужен признак аудио (FLAC, MP3,
+   kbps, дискография…) и не должно быть признаков видео (1080p, BDRip…). */
+
+const MUSIC_KEY = 'tc_music';
+const MUSIC_AUDIO_RE = /\b(flac|mp3|aac|alac|ape|wav|wv|ogg|opus|m4a|dsd|dsf|lossless|hi-?res|\d{2,3}\s?kbps|\d{2}\s?bit|24-?bit|16-?bit|vbr|cbr|cue)\b|дискограф|discograph|альбом|album|сингл|single\b|\bep\b|\blp\b|саундтрек|soundtrack|\bost\b|сборник|compilation|мп3/i;
+const MUSIC_VIDEO_RE = /\b(2160p|1080[pi]|720p|480p|bdrip|bd-?remux|blu-?ray|web-?dl|web-?rip|hdtv|dvd-?rip|dvd5|dvd9|x264|x265|hevc|avc|xvid|mkv|avi)\b|клип[ыа]?\b|концерт.*(видео|dvd)|video/i;
+function isMusicRelease(title) {
+  const t = String(title || '');
+  return MUSIC_AUDIO_RE.test(t) && !MUSIC_VIDEO_RE.test(t);
+}
+function musicList() { try { const a = JSON.parse(localStorage.getItem(MUSIC_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } }
+function saveMusicList(l) { try { localStorage.setItem(MUSIC_KEY, JSON.stringify(l.slice(0, 300))); } catch {} }
+function musicHashes() { return new Set(musicList().map(x => x.hash).filter(Boolean)); }
+/* isMusicTorrent — раздача принадлежит разделу «Музыка»: её добавили отсюда
+   (категория music у TorrServer или запись в списке). Раздачу со звуком,
+   добавленную через Библиотеку, раздел не забирает: её туда положили руками. */
+function isMusicTorrent(t, set) {
+  if (!t) return false;
+  if (String(t.category || '').toLowerCase() === 'music') return true;
+  return (set || musicHashes()).has(t.hash);
+}
+
+const mu = { q: '', rows: [], busy: false, err: '', queue: [], ix: -1, t: null, audio: null };
+
+async function renderMusic(root) {
+  root.innerHTML = html`<div class="mu">
+    <div class="mu-head"><h1 class="page-title">Музыка</h1><span class="page-sub">только аудиораздачи · играет здесь же</span></div>
+    <div class="mu-search">
+      <span class="sb-ico">${raw(ico('search', 18))}</span>
+      <input id="muQ" placeholder="Исполнитель, альбом, саундтрек…" value="${mu.q}" autocomplete="off">
+      <button id="muX" class="sb-clear${mu.q ? '' : ' hidden'}" type="button" title="Очистить (Esc)" aria-label="Очистить">${raw(ico('x', 15))}</button>
+      <button id="muGo" class="primary">Найти</button>
+    </div>
+    <div id="muMine"></div>
+    <div id="muRes"></div>
+    <div id="muPlayer"></div>
+  </div>`;
+  const q = $('#muQ');
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') musicSearch(); else if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); } });
+  q.addEventListener('input', () => $('#muX').classList.toggle('hidden', !q.value));
+  $('#muX').addEventListener('click', () => { q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); q.focus(); });
+  $('#muGo').addEventListener('click', musicSearch);
+  if (!root._muBound) { root._muBound = true; root.addEventListener('click', onMusicClick); }
+  paintMusicMine(); paintMusicRes(); paintMusicPlayer();
+}
+
+async function musicSearch() {
+  const q = ($('#muQ') && $('#muQ').value || '').trim();
+  if (!q) return toast('Введите исполнителя или альбом', true);
+  mu.q = q; mu.busy = true; mu.err = ''; mu.rows = [];
+  paintMusicRes();
+  const got = [];
+  const jobs = [];
+  if (!state.rutorOff) jobs.push(withTimeout(searchRutor(q, 0, 2), SEARCH_TIMEOUT, 'rutor не ответил').then(r => got.push(...r)).catch(e => { mu.err = e.message; }));
+  // Кинозал ищет по всем разделам — строгий фильтр по названию отсекает лишнее.
+  jobs.push(withTimeout(searchKinozal(q, 0), SEARCH_TIMEOUT, 'Кинозал не ответил').then(r => got.push(...r)).catch(() => {}));
+  await Promise.all(jobs);
+  if (mu.q !== q) return;
+  const seen = new Set();
+  mu.rows = mergeResults([], got).filter(r => isMusicRelease(r.title || r.name)).filter(r => { const k = r.hash || r.title; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => (b.seed || 0) - (a.seed || 0)).slice(0, 60);
+  mu.busy = false;
+  paintMusicRes();
+}
+
+function musicFmt(r) {
+  const t = r.title || r.name || '';
+  const fmt = (t.match(/\b(flac|alac|ape|wav|dsd|mp3|aac|ogg|opus|m4a)\b/i) || [])[1];
+  const br = (t.match(/\b(\d{2,3})\s?kbps\b/i) || [])[1];
+  const bit = (t.match(/\b(24|16)\s?-?bit\b/i) || [])[1];
+  return [fmt && fmt.toUpperCase(), br && br + ' kbps', bit && bit + ' bit'].filter(Boolean).join(' · ');
+}
+function paintMusicRes() {
+  const el = $('#muRes'); if (!el) return;
+  if (mu.busy) { el.innerHTML = skeleton('Ищу музыку…', 3); return; }
+  if (!mu.q) { el.innerHTML = ''; return; }
+  if (!mu.rows.length) { el.innerHTML = html`<div class="empty">Музыкальных раздач не нашлось.${mu.err ? ' ' + mu.err : ''}</div>`; return; }
+  const mine = musicHashes();
+  el.innerHTML = html`<div class="mu-h">Найдено ${mu.rows.length}</div><div class="mu-list">${raw(mu.rows.map((r, i) => html`
+    <div class="mu-row">
+      <button class="mu-play" data-mu-play="${i}" title="Слушать">${raw(ico('play', 14))}</button>
+      <div class="mu-main"><div class="mu-t" title="${r.title || r.name}">${r.title || r.name}</div>
+        <div class="mu-s">${[musicFmt(r), r.size_bytes ? fmtSize(r.size_bytes) : r.size || '', '⬆ ' + (r.seed || 0)].filter(Boolean).join(' · ')}</div></div>
+      <button class="iconbtn${r.hash && mine.has(r.hash) ? ' on' : ''}" data-mu-save="${i}" title="В мою музыку">${raw(ico('plus', 15))}</button>
+    </div>`).join(''))}</div>`;
+}
+function paintMusicMine() {
+  const el = $('#muMine'); if (!el) return;
+  const l = musicList();
+  if (!l.length) { el.innerHTML = ''; return; }
+  el.innerHTML = html`<div class="mu-h">Моя музыка</div><div class="mu-chips">${raw(l.map((x, i) => html`<span class="mu-chip${mu.t && mu.t.hash === x.hash ? ' on' : ''}"><button data-mu-mine="${i}" title="${x.title}">${raw(ico('play', 12))}${x.title}</button><button class="mu-chip-x" data-mu-drop="${i}" title="Убрать из моей музыки">×</button></span>`).join(''))}</div>`;
+}
+
+/* Раздача добавляется в TorrServer с категорией music: так её узнают и
+   после перезапуска, и с другого окна, где нет записи в localStorage. */
+async function musicOpen(r, keep) {
+  try {
+    let hash = r.hash || ((r.magnet || '').match(/btih:([0-9a-fA-F]{40})/i) || [])[1] || '';
+    if (!hash && (r.get || r.link)) {
+      toast('Забираю раздачу с Кинозала…');
+      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link) + '&title=' + encodeURIComponent(r.title || '') + '&size=' + encodeURIComponent(r.size || ''), { method: 'POST' });
+      const j = await rr.json().catch(() => null);
+      if (!rr.ok || !j || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
+      if (j.magnet) await torrentAction('add', { link: j.magnet, save_to_db: true, category: 'music' }).catch(() => {});
+      hash = ((j.hash || j.magnet || '').match(/([0-9a-fA-F]{40})/) || [])[1] || '';
+    }
+    hash = String(hash).toLowerCase();
+    if (!hash) throw new Error('не удалось узнать хеш раздачи');
+    const title = cleanMusicTitle(r.title || r.name || hash);
+    await torrentAction('add', { link: r.magnet || magnetFromHash(hash, title), title, category: 'music', save_to_db: true }).catch(() => {});
+    await torrentAction('set', { hash, title, category: 'music' }).catch(() => {});
+    const l = musicList();
+    if (!l.some(x => x.hash === hash)) { l.unshift({ hash, title, added: Date.now() }); saveMusicList(l); }
+    else if (keep) toast('Уже в вашей музыке');
+    paintMusicMine(); paintMusicRes();
+    if (keep) { toast('Добавлено в музыку'); return; }
+    await musicPlayHash(hash, title);
+  } catch (e) { toast('Музыка: ' + e.message, true); }
+}
+function cleanMusicTitle(t) {
+  const s = String(t || '').replace(/\s*[\[(](?:flac|mp3|aac|alac|ape|\d{2,3}\s?kbps|lossless|24.?bit|16.?bit|web|cd)[^\])]*[\])]/gi, '').replace(/\s*\|\s*.*$/, '').replace(/\s{2,}/g, ' ').trim();
+  return s.length > 2 ? s.slice(0, 120) : String(t || '').slice(0, 120);
+}
+async function musicPlayHash(hash, title) {
+  const st = await waitForFiles({ hash, title });
+  if (!st) return;
+  const files = (st.file_stats || []).filter(f => isAudio(f.path))
+    .sort((a, b) => a.path.localeCompare(b.path, 'ru', { numeric: true }));
+  if (!files.length) return toast('В раздаче нет аудиофайлов', true);
+  mu.t = { hash, title: title || st.title || hash };
+  mu.queue = files; mu.ix = 0;
+  musicPlayIx(0);
+  paintMusicMine();
+}
+function musicAudio() {
+  if (mu.audio) return mu.audio;
+  // Элемент живёт в body: переход по разделам не обрывает трек на середине.
+  const a = document.createElement('audio');
+  a.preload = 'auto'; a.id = 'muAudio';
+  a.volume = Math.min(1, Math.max(0, Number(localStorage.getItem('tc_muvol') || 0.8)));
+  a.addEventListener('ended', () => musicNext(1));
+  a.addEventListener('timeupdate', paintMusicProgress);
+  a.addEventListener('play', () => { paintMusicPlayer(); paintNowPlaying(); });
+  a.addEventListener('pause', () => { paintMusicPlayer(); paintNowPlaying(); });
+  a.addEventListener('error', () => { if (mu.ix >= 0) toast('Трек не играет в окне — формат не поддерживается браузером', true); });
+  document.body.appendChild(a);
+  mu.audio = a;
+  return a;
+}
+function musicPlayIx(i) {
+  if (i < 0 || i >= mu.queue.length) return;
+  mu.ix = i;
+  const f = mu.queue[i];
+  const a = musicAudio();
+  a.src = ts(`/stream/${encodeURIComponent(basename(f.path))}?link=${encodeURIComponent(mu.t.hash)}&index=${f.id}&play`);
+  a.play().catch(() => {});
+  paintMusicPlayer(); paintNowPlaying();
+}
+function musicNext(d) { if (mu.ix + d >= 0 && mu.ix + d < mu.queue.length) musicPlayIx(mu.ix + d); else { paintMusicPlayer(); paintNowPlaying(); } }
+function musicToggle() { const a = musicAudio(); if (!a.src) return; if (a.paused) a.play().catch(() => {}); else a.pause(); }
+function musicStop() { if (mu.audio) { mu.audio.pause(); mu.audio.removeAttribute('src'); mu.audio.load(); } mu.ix = -1; mu.t = null; mu.queue = []; paintMusicPlayer(); paintNowPlaying(); paintMusicMine(); }
+function musicTrackName(f) { return f ? basename(f.path).replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, '') : ''; }
+function paintMusicPlayer() {
+  const el = $('#muPlayer'); if (!el) return;
+  if (!mu.t || mu.ix < 0) { el.innerHTML = ''; return; }
+  const a = mu.audio;
+  const f = mu.queue[mu.ix];
+  el.innerHTML = html`<div class="mu-bar">
+    <div class="mu-bar-t"><b title="${musicTrackName(f)}">${musicTrackName(f)}</b><small>${mu.t.title} · ${mu.ix + 1}/${mu.queue.length}</small></div>
+    <div class="mu-ctl">
+      <button class="iconbtn" data-mu-prev title="Предыдущий" ${mu.ix > 0 ? '' : 'disabled'}>${raw(ico('prev', 16))}</button>
+      <button class="iconbtn mu-pp" data-mu-pp title="Пауза / играть">${raw(ico(a && !a.paused ? 'pause' : 'play', 17))}</button>
+      <button class="iconbtn" data-mu-next title="Следующий" ${mu.ix < mu.queue.length - 1 ? '' : 'disabled'}>${raw(ico('next', 16))}</button>
+      <button class="iconbtn" data-mu-stop title="Остановить">${raw(ico('stop', 14))}</button>
+    </div>
+    <input type="range" class="mu-seek" min="0" max="1000" value="0" id="muSeek" title="Перемотка">
+    <span class="mu-time" id="muTime">0:00</span>
+    <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((a ? a.volume : 0.8) * 100)}" id="muVol" title="Громкость">
+    <details class="mu-q"><summary title="Список треков">≡</summary><div>${raw(mu.queue.map((x, i) => html`<button class="${i === mu.ix ? 'on' : ''}" data-mu-ix="${i}">${i + 1}. ${musicTrackName(x)}</button>`).join(''))}</div></details>
+  </div>`;
+  const sk = $('#muSeek'); sk.addEventListener('input', () => { const au = mu.audio; if (au && isFinite(au.duration)) au.currentTime = au.duration * sk.value / 1000; });
+  const vo = $('#muVol'); vo.addEventListener('input', () => { const au = musicAudio(); au.volume = vo.value / 100; savePref('tc_muvol', au.volume); });
+  paintMusicProgress();
+}
+function paintMusicProgress() {
+  const a = mu.audio; if (!a) return;
+  const sk = $('#muSeek'), tm = $('#muTime');
+  if (sk && isFinite(a.duration) && a.duration > 0 && document.activeElement !== sk) sk.value = Math.round(a.currentTime / a.duration * 1000);
+  if (tm) tm.textContent = fmtPos(a.currentTime || 0) + (isFinite(a.duration) ? ' / ' + fmtPos(a.duration) : '');
+}
+function onMusicClick(e) {
+  if (state.view !== 'music') return;
+  const t = e.target;
+  const g = (sel, k) => { const b = t.closest(sel); return b ? b.dataset[k] : null; };
+  let v;
+  if ((v = g('[data-mu-play]', 'muPlay')) != null) { const r = mu.rows[+v]; if (r) musicOpen(r, false); return; }
+  if ((v = g('[data-mu-save]', 'muSave')) != null) { const r = mu.rows[+v]; if (r) musicOpen(r, true); return; }
+  if ((v = g('[data-mu-mine]', 'muMine')) != null) { const x = musicList()[+v]; if (x) musicPlayHash(x.hash, x.title); return; }
+  if ((v = g('[data-mu-drop]', 'muDrop')) != null) { const l = musicList(); const [gone] = l.splice(+v, 1); saveMusicList(l); paintMusicMine(); if (gone) toastUndo('Убрано из музыки: ' + gone.title, () => { const ll = musicList(); ll.splice(+v, 0, gone); saveMusicList(ll); paintMusicMine(); }); return; }
+  if ((v = g('[data-mu-ix]', 'muIx')) != null) { musicPlayIx(+v); return; }
+  if (t.closest('[data-mu-pp]')) return musicToggle();
+  if (t.closest('[data-mu-prev]')) return musicNext(-1);
+  if (t.closest('[data-mu-next]')) return musicNext(1);
+  if (t.closest('[data-mu-stop]')) return musicStop();
 }
 /* ================= PLAYERS PAGE ================= */
 function renderPlayers(root) {
@@ -6460,6 +6811,9 @@ async function subsAdd(title, query) {
 }
 async function subsRemove(id) {
   try {
+    // Снятую руками подписку автослежение больше не заводит.
+    const gone = (state.subs || []).find(s => s.id === id);
+    if (gone) autoFollowSkip(gone.title);
     await subsAction('remove', { id });
     state.subs = (state.subs || []).filter(s => s.id !== id);
     paintSubsBadge();
@@ -6522,12 +6876,14 @@ function renderSubs(root) {
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
       <button id="subAdd" class="primary">${raw(ico('plus',16))} Следить</button>
       <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">${raw(ico('refresh'))}</button>
+      <label class="check" title="Каждый сериал, аниме и многосерийный мультфильм из Библиотеки получает подписку сам. Снятая руками подписка сама не вернётся"><input type="checkbox" id="subAuto"> следить за сериалами из Библиотеки</label>
     </div>
     <div id="subBody"><div class="empty">Загрузка подписок...</div></div>`;
   const add = () => { const inp = $('#subNew'); subsAdd(inp.value).then(() => { inp.value = ''; }); };
   $('#subAdd').addEventListener('click', add);
   $('#subNew').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
   $('#subCheck').addEventListener('click', subsCheck);
+  { const a = $('#subAuto'); a.checked = autoFollowOn(); a.addEventListener('change', () => { savePref(AF_KEY, a.checked ? '1' : '0'); if (a.checked) autoFollowSeries(true); }); }
   paintSubsBody();
   // Список спрашивается у демона, а не берётся из памяти: подписки живут с ним
   // и меняются в том числе пока страница была закрыта.
@@ -6566,9 +6922,10 @@ function subsArrived(d) {
     ? 'Вышла серия: ' + (d.title || '') + where + '. Раздачи пока нет — сообщу, когда появится'
     : 'Новые серии: ' + (d.title || '') + where;
   toast(msg);
+  notifPush({ kind: 'ep', title: d.title || s.title || '', text: msg, sub: d.id });
   // Системное уведомление — когда окно свёрнуто, тост не увидеть.
   try {
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: msg });
+    if ((document.hidden || !document.hasFocus()) && 'Notification' in window && Notification.permission === 'granted') new Notification('TorrClient', { body: msg });
   } catch (_) { /* уведомления недоступны */ }
   if (state.view === 'subs') paintSubsBody();
 }
@@ -6582,7 +6939,7 @@ function renderSeries(root) {
     </div>
     <div id="serBody"><div class="empty">Загрузка библиотеки...</div></div>`;
   $('#serQuery').addEventListener('input', () => { localStorage.setItem('tc_serq', $('#serQuery').value); paintSeriesBody(); });
-  loadLibrary().catch(() => {}).then(paintSeriesBody);
+  loadLibrary().catch(() => {}).then(() => { paintSeriesBody(); autoFollowSeries(); });
 }
 function plural(n, one, few, many) {
   const m10 = n % 10, m100 = n % 100;
@@ -6783,6 +7140,356 @@ function seriesCard(g) {
         }).join('')).join(''))}</span></div>`;
     }).join('') + `</div></div></div>`;
 }
+/* ================= УВЕДОМЛЕНИЯ, «СЕЙЧАС ИГРАЕТ», АВТОСЛЕЖЕНИЕ =================
+   Находка демона (новая серия) раньше показывалась тостом на четыре секунды
+   и пропадала: не заметил — не узнал. Теперь у неё есть место — колокольчик в
+   шапке со счётчиком и списком, который переживает перезапуск. Рядом —
+   «Сейчас играет»: что открыто во внешнем плеере (демон сообщает событием
+   nowplaying) и какой трек играет в разделе «Музыка». */
+
+const NOTIF_KEY = 'tc_notifs';
+function notifList() { try { const a = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } }
+function saveNotifs(l) { try { localStorage.setItem(NOTIF_KEY, JSON.stringify(l.slice(0, 50))); } catch {} }
+function notifPush(n) {
+  const l = notifList();
+  // Повтор той же находки (демон перепроверил подписку) не плодит строки.
+  const dup = l.findIndex(x => x.text === n.text && Date.now() - (x.at || 0) < 6 * 3600e3);
+  if (dup >= 0) l.splice(dup, 1);
+  l.unshift(Object.assign({ at: Date.now(), read: false }, n));
+  saveNotifs(l);
+  paintNotifBtn();
+  const bell = $('#notifBtn'); if (bell) { bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring'); }
+}
+function notifUnread() { return notifList().filter(x => !x.read).length; }
+function paintNotifBtn() {
+  const b = $('#notifBtn'); if (!b) return;
+  const n = notifUnread();
+  b.innerHTML = ico('bell', 18) + (n ? '<span class="tb-badge">' + (n > 9 ? '9+' : n) + '</span>' : '');
+  b.title = n ? 'Уведомления: новых ' + n : 'Уведомления';
+}
+function openNotifs() {
+  closeNotifs();
+  const l = notifList();
+  const pop = document.createElement('div');
+  pop.className = 'notif-pop'; pop.id = 'notifPop';
+  pop.innerHTML = html`<div class="notif-h"><b>Уведомления</b><span class="spacer"></span>
+      ${raw(l.length ? '<button class="link-btn" data-nf-clear>очистить</button>' : '')}
+      <button class="link-btn" data-nf-subs>подписки</button></div>
+    ${raw(l.length ? l.map((x, i) => html`<button class="notif-it${x.read ? '' : ' new'}" data-nf="${i}">
+        <span class="notif-ico">${raw(ico(x.kind === 'ep' ? 'tv' : 'info', 16))}</span>
+        <span class="notif-tx"><span>${x.text}</span><small>${new Date(x.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small></span></button>`).join('')
+      : '<div class="notif-empty">Пока пусто. О новых сериях сериалов из Библиотеки сообщу здесь.</div>')}`;
+  document.body.appendChild(pop);
+  const r = $('#notifBtn').getBoundingClientRect();
+  pop.style.top = (r.bottom + 6) + 'px';
+  pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+  pop.addEventListener('click', e => {
+    const it = e.target.closest('[data-nf]');
+    if (it) {
+      const x = l[+it.dataset.nf]; closeNotifs();
+      if (x && x.kind === 'ep') openMovie({ title: subsName(x.title || ''), kind: 'tv' });
+      return;
+    }
+    if (e.target.closest('[data-nf-clear]')) { saveNotifs([]); closeNotifs(); paintNotifBtn(); return; }
+    if (e.target.closest('[data-nf-subs]')) { closeNotifs(); setView('subs'); }
+  });
+  // Открыл список — значит увидел.
+  saveNotifs(l.map(x => Object.assign({}, x, { read: true })));
+  setTimeout(paintNotifBtn, 0);
+  setTimeout(() => document.addEventListener('click', notifOutside, true), 0);
+}
+function notifOutside(e) { if (!e.target.closest('#notifPop, #notifBtn')) closeNotifs(); }
+function closeNotifs() { const p = $('#notifPop'); if (p) p.remove(); document.removeEventListener('click', notifOutside, true); }
+
+/* Разрешение на системные уведомления браузер даёт только по жесту
+   пользователя: спрашиваем один раз, при первом клике по окну. */
+document.addEventListener('click', function askNotif() {
+  document.removeEventListener('click', askNotif, true);
+  try { if ('Notification' in window && Notification.permission === 'default' && localStorage.getItem('tc_notif_asked') !== '1') { localStorage.setItem('tc_notif_asked', '1'); Notification.requestPermission(); } } catch (_) { /* нет уведомлений */ }
+}, true);
+
+/* ---- автослежение за сериалами ----
+   Подписку раньше заводили руками кнопкой «Следить», и о новых сериях не
+   узнавали, потому что подписок просто не было. Теперь каждый сериал из
+   Библиотеки (по названию раздачи или по номерам серий в именах файлов —
+   так у аниме и мультсериалов) получает подписку сам. Снятая руками подписка
+   запоминается и сама больше не возвращается. */
+const AF_KEY = 'tc_autofollow';
+const AF_SKIP = 'tc_af_skip';
+function autoFollowOn() { return localStorage.getItem(AF_KEY) !== '0'; }
+function autoFollowSkip(title) {
+  let l = []; try { l = JSON.parse(localStorage.getItem(AF_SKIP) || '[]'); } catch {}
+  const k = subsKey(subsName(title || ''));
+  if (k && !l.includes(k)) { l.push(k); try { localStorage.setItem(AF_SKIP, JSON.stringify(l.slice(-300))); } catch {} }
+}
+let afBusy = false;
+async function autoFollowSeries(loud) {
+  if (!autoFollowOn() || afBusy || !Array.isArray(state.lib) || !state.lib.length) return;
+  afBusy = true;
+  try {
+    if (!Array.isArray(state.subs)) await loadSubs();
+    let skip = []; try { skip = JSON.parse(localStorage.getItem(AF_SKIP) || '[]'); } catch {}
+    const names = new Map();
+    state.lib.forEach(t => {
+      const title = t.title || t.name || '';
+      const stat = (statCache[t.hash] && statCache[t.hash].data) || t;
+      const eps = (stat.file_stats || []).filter(f => isVideo(f.path) && (parseSeriesEp(basename(f.path)) || {}).e).length;
+      if (!isSeries(title) && eps < 3) return;
+      const n = subsName(title);
+      const k = subsKey(n);
+      if (n && n.length >= 2 && k && !skip.includes(k)) names.set(k, n);
+    });
+    const add = [...names.values()].filter(n => !subsKnown(n)).slice(0, 25);
+    let ok = 0;
+    for (const n of add) { try { await subsAction('add', { title: n, query: '' }); ok++; } catch { /* следующий */ } }
+    if (ok) { await loadSubs(); paintSubsBadge(); toast('Слежу за новыми сериями: ' + ok + ' ' + plural(ok, 'сериал', 'сериала', 'сериалов')); if (state.view === 'subs') paintSubsBody(); }
+    else if (loud) toast('Все сериалы из Библиотеки уже отслеживаются');
+  } finally { afBusy = false; }
+}
+
+/* ---- сейчас играет ---- */
+state.now = [];
+async function loadNowPlaying() {
+  try { const j = await api('/api/nowplaying'); state.now = Array.isArray(j.items) ? j.items : []; } catch { state.now = []; }
+  paintNowPlaying();
+}
+function paintNowPlaying() {
+  const b = $('#nowBtn'); if (!b) return;
+  let label = '', sub = '', kind = '';
+  if (mu.t && mu.ix >= 0 && mu.audio && mu.audio.src) {
+    kind = 'music';
+    label = musicTrackName(mu.queue[mu.ix]);
+    sub = mu.audio.paused ? 'пауза' : 'музыка';
+  } else if (state.now && state.now.length) {
+    const it = state.now[0];
+    const t = (state.lib || []).find(x => x.hash === it.hash);
+    kind = 'video';
+    label = t ? (t.title || t.name) : 'Видео';
+    const f = t && (((statCache[t.hash] && statCache[t.hash].data) || t).file_stats || []).find(x => x.id === it.file_index);
+    sub = (f && isSeries(t.title || t.name || '') ? epLabel(f, t) + ' · ' : '') + (it.player || 'плеер');
+  }
+  b.classList.toggle('hidden', !kind);
+  b.dataset.kind = kind;
+  if (!kind) { b.innerHTML = ''; return; }
+  b.innerHTML = html`<span class="np-eq${kind === 'music' && mu.audio && mu.audio.paused ? ' paused' : ''}"><i></i><i></i><i></i></span><span class="np-tx"><b>${label}</b><small>Сейчас играет · ${sub}</small></span>`;
+  b.title = 'Сейчас играет: ' + label;
+}
+function onNowClick() {
+  const b = $('#nowBtn'); if (!b) return;
+  if (b.dataset.kind === 'music') { if (state.view === 'music') musicToggle(); else setView('music'); return; }
+  const it = state.now && state.now[0];
+  const t = it && (state.lib || []).find(x => x.hash === it.hash);
+  if (t) openMovie(Object.assign(fromRelease(t), { poster: t.poster || '' }));
+}
+
+/* extrasBoot — вызывается после запуска ленты событий. */
+function extrasBoot() {
+  paintNotifBtn();
+  const nb = $('#notifBtn'); if (nb) nb.addEventListener('click', e => { e.stopPropagation(); if ($('#notifPop')) closeNotifs(); else openNotifs(); });
+  const np = $('#nowBtn'); if (np) np.addEventListener('click', onNowClick);
+  loadNowPlaying();
+  if (eventsSrc) eventsSrc.addEventListener('nowplaying', e => {
+    try { const d = JSON.parse(e.data); state.now = Array.isArray(d.items) ? d.items : []; } catch { return; }
+    paintNowPlaying();
+  });
+  else setInterval(loadNowPlaying, 10000);
+  // Автослежение — когда библиотека уже прочитана (её грузит первая страница).
+  setTimeout(() => { if (Array.isArray(state.lib) && state.lib.length) autoFollowSeries(); else loadLibrary().then(() => autoFollowSeries()).catch(() => {}); }, 20000);
+  fxBoot();
+}
+/* ================= ЭФФЕКТЫ: ЗВЕЗДОПАД, ВАРП, РЕТРО =================
+   Фон рисуется одним <canvas> под содержимым. Для «Графита» это тихое
+   звёздное небо с редкими падающими звёздами, для «Денди» — пиксельные звёзды,
+   плывущие вниз, как в космической стрелялке на приставке. Варп-прыжок —
+   полноэкранная вспышка звёздных лучей при запуске просмотра и фон окна
+   подготовки, пока раздача ищет раздающих.
+   Всё выключается одной галочкой в Настройках и само молчит при «уменьшить
+   движение» в системе и в свёрнутом окне — анимация не должна есть батарею. */
+
+const FX_KEY = 'tc_fx';
+function fxOn() {
+  if (localStorage.getItem(FX_KEY) === '0') return false;
+  try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch {}
+  return true;
+}
+const fx = { cv: null, ctx: null, stars: [], shoot: [], raf: 0, mode: '', last: 0, w: 0, h: 0, dpr: 1 };
+function fxMode() {
+  const th = document.documentElement.dataset.theme;
+  if (th === 'retro') return 'pixel';
+  if (th === 'dark' || th === 'oled') return 'sky';
+  return '';
+}
+function fxResize() {
+  if (!fx.cv) return;
+  fx.dpr = Math.min(2, window.devicePixelRatio || 1);
+  fx.w = window.innerWidth; fx.h = window.innerHeight;
+  fx.cv.width = Math.round(fx.w * fx.dpr); fx.cv.height = Math.round(fx.h * fx.dpr);
+  fx.ctx.setTransform(fx.dpr, 0, 0, fx.dpr, 0, 0);
+  fxSeed();
+}
+function fxSeed() {
+  const n = Math.round(Math.min(220, fx.w * fx.h / 9000));
+  fx.stars = Array.from({ length: n }, () => ({ x: Math.random() * fx.w, y: Math.random() * fx.h, z: Math.random(), tw: Math.random() * Math.PI * 2 }));
+  fx.shoot = [];
+}
+const RETRO_PAL = ['#fcfcfc', '#3cbcfc', '#f8b800', '#f83800', '#58d854', '#fc74b4'];
+function fxFrame(ts) {
+  fx.raf = 0;
+  if (!fx.cv || !fx.mode || document.hidden) return;
+  // 30 кадров в секунду достаточно для неба и вдвое дешевле.
+  if (ts - fx.last < 32) { fx.raf = requestAnimationFrame(fxFrame); return; }
+  const dt = Math.min(0.1, (ts - (fx.last || ts)) / 1000); fx.last = ts;
+  const c = fx.ctx; c.clearRect(0, 0, fx.w, fx.h);
+  if (fx.mode === 'sky') {
+    for (const s of fx.stars) {
+      s.tw += dt * (0.6 + s.z * 1.8);
+      const a = 0.18 + 0.5 * s.z * (0.6 + 0.4 * Math.sin(s.tw));
+      c.fillStyle = 'rgba(200,220,255,' + a.toFixed(3) + ')';
+      const r = 0.4 + s.z * 1.1;
+      c.beginPath(); c.arc(s.x, s.y, r, 0, 6.283); c.fill();
+    }
+    // Звездопад: падающая звезда раз в несколько секунд, иногда — две.
+    if (Math.random() < dt * 0.35) {
+      const ang = Math.PI * (0.18 + Math.random() * 0.14);
+      fx.shoot.push({ x: Math.random() * fx.w * 1.1, y: -20 + Math.random() * fx.h * 0.4, vx: -Math.cos(ang) * 620, vy: Math.sin(ang) * 620, life: 0, max: 0.9 + Math.random() * 0.7 });
+    }
+    fx.shoot = fx.shoot.filter(s => (s.life += dt) < s.max);
+    for (const s of fx.shoot) {
+      s.x += s.vx * dt; s.y += s.vy * dt;
+      const k = 1 - s.life / s.max;
+      const g = c.createLinearGradient(s.x, s.y, s.x - s.vx * 0.16, s.y - s.vy * 0.16);
+      g.addColorStop(0, 'rgba(255,255,255,' + (0.9 * k).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(124,176,255,0)');
+      c.strokeStyle = g; c.lineWidth = 1.6; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(s.x, s.y); c.lineTo(s.x - s.vx * 0.16, s.y - s.vy * 0.16); c.stroke();
+    }
+  } else if (fx.mode === 'pixel') {
+    for (const s of fx.stars) {
+      s.y += dt * (12 + s.z * 70);
+      if (s.y > fx.h) { s.y = -4; s.x = Math.random() * fx.w; }
+      const sz = s.z > 0.85 ? 3 : s.z > 0.5 ? 2 : 1;
+      s.tw += dt * 3;
+      c.globalAlpha = s.z > 0.85 && Math.sin(s.tw) < -0.6 ? 0.25 : 0.35 + s.z * 0.5;
+      c.fillStyle = RETRO_PAL[Math.floor(s.z * 97) % RETRO_PAL.length];
+      c.fillRect(Math.round(s.x), Math.round(s.y), sz, sz);
+    }
+    c.globalAlpha = 1;
+  }
+  fx.raf = requestAnimationFrame(fxFrame);
+}
+function fxApply() {
+  const mode = fxOn() ? fxMode() : '';
+  fx.mode = mode;
+  if (!mode) { if (fx.cv) { fx.cv.remove(); fx.cv = null; } return; }
+  if (!fx.cv) {
+    fx.cv = document.createElement('canvas'); fx.cv.id = 'fxSky'; fx.cv.setAttribute('aria-hidden', 'true');
+    document.body.prepend(fx.cv);
+    fx.ctx = fx.cv.getContext('2d');
+    fxResize();
+  }
+  if (!fx.raf) fx.raf = requestAnimationFrame(fxFrame);
+}
+
+/* ---- варп-прыжок ----
+   fxWarp(ms) — короткий прыжок: лучи из центра разгоняются и гаснут вспышкой.
+   fxWarpCruise() — фон окна подготовки, пока раздача ищет раздающих: лучи
+   идут ровно, а на выходе — тот же разгон. Возвращает функцию остановки. */
+function fxWarpCanvas() {
+  const cv = document.createElement('canvas'); cv.className = 'fx-warp';
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = window.innerWidth, h = window.innerHeight;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  document.body.appendChild(cv);
+  const retro = document.documentElement.dataset.theme === 'retro';
+  const N = retro ? 160 : 340;
+  const st = Array.from({ length: N }, () => ({ a: Math.random() * 6.283, d: Math.random() * 0.9 + 0.02, s: Math.random() * 0.7 + 0.3, col: RETRO_PAL[Math.floor(Math.random() * RETRO_PAL.length)] }));
+  return { cv, c, w, h, st, retro };
+}
+function fxWarpRun(o, speedAt, total, onEnd) {
+  const { c, w, h, st, retro } = o;
+  const cx = w / 2, cy = h / 2, R = Math.hypot(cx, cy);
+  let t0 = 0, raf = 0, stopped = false;
+  const frame = ts => {
+    if (stopped) return;
+    if (!t0) t0 = ts;
+    const t = (ts - t0) / 1000;
+    const v = speedAt(t);
+    // Хвост от прошлых кадров: лучи тянутся, а не мигают.
+    c.fillStyle = retro ? 'rgba(0,0,0,.5)' : 'rgba(2,4,12,' + (v > 2 ? 0.28 : 0.45) + ')';
+    c.fillRect(0, 0, w, h);
+    for (const s of st) {
+      const d0 = s.d;
+      s.d += (0.004 + s.d * 0.9) * v * s.s * 0.05;
+      if (s.d > 1.15) { s.d = 0.02 + Math.random() * 0.05; s.a = Math.random() * 6.283; continue; }
+      const r0 = d0 * R, r1 = s.d * R;
+      const x0 = cx + Math.cos(s.a) * r0, y0 = cy + Math.sin(s.a) * r0;
+      const x1 = cx + Math.cos(s.a) * r1, y1 = cy + Math.sin(s.a) * r1;
+      if (retro) {
+        c.fillStyle = s.col;
+        const n = Math.max(1, Math.round((r1 - r0) / 6));
+        for (let i = 0; i <= n; i++) { const k = i / n; c.fillRect(Math.round((x0 + (x1 - x0) * k) / 3) * 3, Math.round((y0 + (y1 - y0) * k) / 3) * 3, 3, 3); }
+      } else {
+        const a = Math.min(1, 0.25 + s.d);
+        c.strokeStyle = 'rgba(' + (190 + Math.round(65 * s.s)) + ',' + (215 + Math.round(40 * s.s)) + ',255,' + a.toFixed(2) + ')';
+        c.lineWidth = 0.6 + s.d * 2.2;
+        c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+      }
+    }
+    if (total && t >= total) { stop(); if (onEnd) onEnd(); return; }
+    raf = requestAnimationFrame(frame);
+  };
+  const stop = () => { stopped = true; cancelAnimationFrame(raf); };
+  raf = requestAnimationFrame(frame);
+  return stop;
+}
+function fxFlash(retro) {
+  const f = document.createElement('div'); f.className = 'fx-flash' + (retro ? ' retro' : '');
+  document.body.appendChild(f);
+  setTimeout(() => f.remove(), 700);
+}
+let warpBusy = false;
+function fxWarp(ms) {
+  if (!fxOn() || warpBusy) return;
+  warpBusy = true;
+  const o = fxWarpCanvas();
+  const T = (ms || 1100) / 1000;
+  // Разгон: сначала звёзды стоят, потом рывок — как переход в гиперпространство.
+  fxWarpRun(o, t => 0.4 + Math.pow(t / T, 3) * 28, T, () => {
+    fxFlash(o.retro);
+    o.cv.classList.add('out');
+    setTimeout(() => { o.cv.remove(); warpBusy = false; }, 380);
+  });
+}
+function fxWarpCruise(host) {
+  if (!fxOn()) return () => {};
+  const o = fxWarpCanvas();
+  o.cv.classList.add('cruise');
+  if (host) host.classList.add('warp-host');
+  let boost = 0;
+  let stop = fxWarpRun(o, () => 2.2 + boost, 0);
+  return ok => {
+    stop();
+    if (!ok) { o.cv.classList.add('out'); setTimeout(() => o.cv.remove(), 380); return; }
+    stop = fxWarpRun(o, t => 2.2 + Math.pow(t / 0.6, 3) * 26, 0.6, () => { fxFlash(o.retro); o.cv.classList.add('out'); setTimeout(() => o.cv.remove(), 380); });
+  };
+}
+
+/* ---- ретро: включение ЭЛТ при выборе темы ---- */
+function fxCrtOn() {
+  if (!fxOn()) return;
+  document.documentElement.classList.remove('crt-on'); void document.documentElement.offsetWidth;
+  document.documentElement.classList.add('crt-on');
+  setTimeout(() => document.documentElement.classList.remove('crt-on'), 900);
+}
+
+function fxBoot() {
+  fxApply();
+  window.addEventListener('resize', () => { if (fx.cv) fxResize(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && fx.mode && !fx.raf) { fx.last = 0; fx.raf = requestAnimationFrame(fxFrame); } });
+  // Тема меняется в одном месте — applyTheme; небо следует за ней.
+  new MutationObserver(() => fxApply()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
 /* Онлайн-экземпляры JacRed: агрегатор русских трекеров с ручками Jackett.
    jr.maxvol.pro отвечает Torznab, jac-red.ru — только JSON-ручкой Jackett
    (демон переходит на неё сам). */
@@ -6905,6 +7612,7 @@ function renderSettings(root) {
     <div class="card"><h3>Оформление</h3>
       ${raw(themePickerHtml())}
       <p class="page-sub">Кнопка 🌓 в шапке и клавиша T перебирают темы по кругу.</p>
+      <label class="check" title="Звездопад на фоне «Графита», пиксельные звёзды «Денди», варп-прыжок при запуске просмотра"><input type="checkbox" id="fxToggle" ${localStorage.getItem('tc_fx') === '0' ? '' : 'checked'}> Анимации: звёздное небо и варп-прыжок при запуске</label>
     </div>
     <div class="card" id="remoteCard"><h3>Доступ с телефона</h3>
       <p class="page-sub">Откройте TorrClient на телефоне в той же Wi-Fi-сети: наведите камеру на QR-код или введите адрес и PIN. С телефона можно искать, добавлять раздачи и запускать просмотр на компьютере.</p>
@@ -6950,6 +7658,7 @@ function renderSettings(root) {
     });
   });
   $('#npAdd').addEventListener('click', addProfile);
+  { const fxt = $('#fxToggle'); if (fxt) fxt.addEventListener('change', () => { savePref('tc_fx', fxt.checked ? '1' : '0'); fxApply(); }); }
   $('#wfReg').addEventListener('click', async () => {
     try { await api('/api/reg?action=install', { method: 'POST' }); toast('Протокол magnet:// зарегистрирован. Проверьте, что TorrClient — браузер по умолчанию для magnet.'); renderServerStatus(); } catch (e) { toast(e.message, true); }
   });
