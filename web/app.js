@@ -31,7 +31,7 @@ const fmtDate = ts => ts ? new Date(ts * 1000).toLocaleDateString('ru-RU') : '';
 const fmtDur = s => { if (!s) return ''; s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ' ч ' : '') + m + ' мин'; };
 
 const state = {
-  view: 'library', hello: null, profiles: [], active: null, players: [],
+  view: 'home', hello: null, profiles: [], active: null, players: [],
   lib: [], viewed: [], dlJobs: [], settings: null, watch: { folder: '', log: [] }, folders: null,
   query: '', category: 'all', searchState: { loading: false, results: [], provider: savedPref('tc_prov', ['rutor', 'torznab', 'kinozal', 'both'], 'both'), cat: savedPref('tc_cat', null, ''), q: '' },
   // seen — фильтр по состоянию просмотра, coll — выбранная подборка. Пустая
@@ -62,14 +62,14 @@ function toast(msg, isErr) {
 // Темы — только наборы цветов (переменные CSS), переключение мгновенное.
 // sw — образец для выбора в настройках: фон, панель, акцент, второй акцент.
 const THEME_LIST = [
-  { id: 'dark', name: 'Тёмная', tone: 'dark', sw: ['#0e131a', '#1c2532', '#4f8cff', '#7ce08a'] },
-  { id: 'light', name: 'Светлая', tone: 'light', sw: ['#f3f5f9', '#ffffff', '#2f6fe6', '#1f9d45'] },
-  { id: 'system', name: 'Как в системе', tone: 'auto', sw: ['#0e131a', '#f3f5f9', '#4f8cff', '#2f6fe6'] },
-  { id: 'oled', name: 'Чёрная (OLED)', tone: 'dark', sw: ['#000000', '#161616', '#4f8cff', '#7ce08a'] },
-  { id: 'nord', name: 'Северная', tone: 'dark', sw: ['#2e3440', '#434c5e', '#88c0d0', '#a3be8c'] },
-  { id: 'dracula', name: 'Дракула', tone: 'dark', sw: ['#1e1f29', '#343746', '#bd93f9', '#50fa7b'] },
-  { id: 'forest', name: 'Лес', tone: 'dark', sw: ['#0f1712', '#1e2d23', '#4caf7a', '#b5e06a'] },
-  { id: 'sepia', name: 'Сепия', tone: 'light', sw: ['#f4ecdc', '#eadfc8', '#a0602a', '#5f8a3a'] },
+  { id: 'dark', name: 'Графит', tone: 'dark', sw: ['#0f1012', '#1f2024', '#7cb0ff', '#5fcf8c'] },
+  { id: 'light', name: 'Светлая', tone: 'light', sw: ['#f7f7f5', '#ffffff', '#1f6fd1', '#2f8f5c'] },
+  { id: 'system', name: 'Как в системе', tone: 'auto', sw: ['#0f1012', '#f7f7f5', '#7cb0ff', '#1f6fd1'] },
+  { id: 'oled', name: 'Чёрная (OLED)', tone: 'dark', sw: ['#000000', '#151517', '#7cb0ff', '#5fcf8c'] },
+  { id: 'nord', name: 'Северная', tone: 'dark', sw: ['#2e3440', '#3b4252', '#88c0d0', '#a3be8c'] },
+  { id: 'dracula', name: 'Дракула', tone: 'dark', sw: ['#1e1f29', '#2e303f', '#bd93f9', '#50fa7b'] },
+  { id: 'forest', name: 'Лес', tone: 'dark', sw: ['#0f1512', '#1c2620', '#6fcf98', '#b5e06a'] },
+  { id: 'sepia', name: 'Сепия', tone: 'light', sw: ['#f4ecdc', '#efe5d0', '#9a5a22', '#527a30'] },
 ];
 const THEMES = THEME_LIST.map(t => t.id);
 const THEME_NAMES = Object.fromEntries(THEME_LIST.map(t => [t.id, t.name.toLowerCase()]));
@@ -104,13 +104,13 @@ function skeleton(label, n = 6, grid = false) {
   return `<div class="skel-label">${label}</div><div class="skel${grid ? ' skel-grid' : ''}">${rows}</div>`;
 }
 
-const NAV_KEYS = ['library', 'search', 'favorites', 'bookmarks', 'players', 'series', 'subs', 'downloads', 'settings', 'server'];
-const NAV_LABELS = { library: 'Библиотека', search: 'Поиск', favorites: 'Избранное', bookmarks: 'Закладки', players: 'Плееры', series: 'Сериалы', subs: 'Подписки', downloads: 'Загрузки', settings: 'Настройки', server: 'Сервер' };
+// Разделы и их порядок задаёт NAV_GROUPS (05-ui.js); Alt+цифра — первые десять.
+const navKeys = () => NAV_ITEMS.map(x => x[0]).slice(0, 10);
 function showKeys() {
-  const rows = [['/ или Ctrl+K', 'перейти к поиску'], ['T', 'сменить тему'], ['R', 'обновить раздел'], ['Esc в поле', 'очистить поле'], ['Alt+1 … Alt+0', 'разделы по порядку'], ['Esc', 'закрыть окно'], ['?', 'этот список']];
-  const nav = NAV_KEYS.map((k, i) => `Alt+${(i + 1) % 10} — ${NAV_LABELS[k]}`).join(' · ');
+  const rows = [['Ctrl+K', 'палитра: разделы, команды, раздачи, поиск'], ['/', 'перейти к поиску'], ['T', 'сменить тему'], ['R', 'обновить раздел'], ['[', 'свернуть / развернуть панель'], ['Esc в поле', 'очистить поле'], ['Alt+1 … Alt+0', 'разделы по порядку'], ['Esc', 'закрыть окно'], ['?', 'этот список']];
+  const nav = navKeys().map((k, i) => `Alt+${(i + 1) % 10} — ${NAV_ITEMS[i][1]}`).join(' · ');
   const ov = document.createElement('div'); ov.className = 'overlay';
-  ov.innerHTML = `<div class="modal" style="max-width:520px"><h3>Горячие клавиши</h3><table class="keys-table">${rows.map(([k, d]) => `<tr><td><span class="kbd">${k}</span></td><td>${d}</td></tr>`).join('')}</table><p class="page-sub">${nav}</p><div class="row"><button class="primary" id="keysOk">Понятно</button></div></div>`;
+  ov.innerHTML = `<div class="modal" style="max-width:560px"><h3>Горячие клавиши</h3><table class="keys-table">${rows.map(([k, d]) => `<tr><td><span class="kbd">${k}</span></td><td>${d}</td></tr>`).join('')}</table><p class="page-sub">${nav}</p><div class="row"><button class="primary" id="keysOk">Понятно</button></div></div>`;
   document.body.appendChild(ov);
   const close = () => ov.remove();
   ov.addEventListener('click', e => { if (e.target === ov) close(); });
@@ -122,9 +122,9 @@ function focusSearch() {
 }
 document.addEventListener('keydown', e => {
   const t = e.target; const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); focusSearch(); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'л')) { e.preventDefault(); openPalette(); return; }
   if (e.altKey && !e.ctrlKey && /^[0-9]$/.test(e.key)) {
-    const k = NAV_KEYS[(+e.key + 9) % 10]; if (k) { e.preventDefault(); setView(k); } return;
+    const k = navKeys()[(+e.key + 9) % 10]; if (k) { e.preventDefault(); setView(k); } return;
   }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   if (document.querySelector('body > .overlay')) return;
@@ -132,6 +132,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === '?') { e.preventDefault(); showKeys(); }
   else if (e.key === 't' || e.key === 'T' || e.key === 'е' || e.key === 'Е') cycleTheme();
   else if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') refreshView();
+  else if (e.key === '[' || e.key === 'х' || e.key === 'Х') toggleSide();
 });
 
 // addClear — крестик «×» в поле ввода: одним щелчком (или Esc) очищает поле и
@@ -248,6 +249,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['2.0.0', ['Новый облик: спокойная графитовая тема по умолчанию, крупные постеры, единые карточки, кнопки и окна во всех разделах; все восемь тем перерисованы', 'Разделы теперь в боковой панели тремя группами — основное, «Моё» и «Система»; панель сворачивается до значков (клавиша [ ). На телефоне — полоса вкладок внизу и лист «Ещё»', '«Главная» — новый стартовый раздел: продолжить просмотр крупными карточками, новые серии по подпискам, избранное, «Сейчас смотрят» и недавно добавленное — всё на одном экране', 'Палитра команд Ctrl+K: любой раздел, действие, тема, раздача из библиотеки или избранного — по нескольким буквам; Enter ищет набранное на трекерах, вторая строка — лучшая раздача', 'Поиск: большое поле, фильтры одной строкой, подборки (ТОП-24, Популярное, Для вас, Сейчас смотрят) отдельными кнопками', 'Кнопка «Добавить» всегда в шапке, а не только в Библиотеке и Поиске']],
   ['1.20.0', ['♥ «Сейчас смотрят» и «Для вас»: сердечко на карточке добавляет название в избранное — оттуда одним нажатием подбирается лучшая раздача', 'Больше нет привязки к одному источнику: ТОП за 24 часа собирается из rutor и индексаторов (JacRed, Jackett, Prowlarr) разом, а без ключа TMDB — из ленты свежих раздач индексатора', '«Популярное» при недоступном rutor строится через индексаторы', 'Настройки → «Источники поиска»: rutor можно выключить совсем; по умолчанию поиск идёт по всем источникам', 'Удаление из «Избранного» снова работает']],
   ['1.19.0', ['📲 Отправить на устройство: продолжить просмотр с того же места на телефоне, планшете, другом компьютере с открытым TorrClient или на телевизоре с DLNA в той же сети (меню плитки и кнопка в панели показа)', '⏾ Таймер сна в шапке: через 15–120 минут или после текущей серии — остановить плеер, усыпить или выключить компьютер; предупреждение за минуту с «Отложить»', 'Поиск по настройкам: несколько слов в любом порядке, синонимы, подсветка найденного, Enter — к первому, Ctrl+F или «/»', 'ТОП за 24 часа без ограничения в 24 раздачи: свежие раздачи всех категорий rutor; если rutor не отвечает — ТОП собирается через индексаторы по трендам TMDB', 'Учёт просмотра при плейлисте VLC: серия определяется по текущему элементу плейлиста, позиции следующих серий больше не пишутся на первую', '«Сейчас смотрят»: в жанрах появились Аниме, Мультфильмы и Аниме-фильмы', 'Кинозал: вход по логину и паролю в настройках, проверка файла, а если .torrent не скачивается — та же раздача ищется на rutor и в индексаторах', 'Подписки на сериалы: поиск по rutor и индексаторам, понятная запись аниме и мультиков («[1-12 из 24]», «TV-2», «эпизоды»), чистый запрос вместо названия раздачи со скобками, проверка сразу после подписки, дата следующей серии по TMDB, системные уведомления', 'Обновление TorrServer MatriX в разделе «Сервер»: версия, скачивание с GitHub и перезапуск одной кнопкой', 'Библиотека после запуска больше не остаётся пустой: пока TorrServer поднимается, список запрашивается повторно сам']],
   ['1.18.3', ['«Продолжить просмотр» показывает и то, что запускали в плеере без отчёта о позиции или с телефона: по списку просмотренного TorrServer']],
@@ -354,6 +356,242 @@ function streamBase(fname) { return fname ? `/stream/${encodeURIComponent(fname)
   }
 })();
 
+
+/* ================= КАРКАС 2.0: значки, разделы, палитра команд =================
+   Разделов стало одиннадцать — строкой вкладок они уже не читались. Теперь они
+   живут в боковой панели тремя группами (смотреть / моё / система), а на
+   телефоне — полосой внизу. Любой раздел, действие, раздача из библиотеки или
+   запрос к трекерам доступны с клавиатуры через палитру (Ctrl+K). */
+
+/* ico — значок одной линией (stroke = currentColor), чтобы он брал цвет текста
+   и одинаково выглядел во всех темах. Набор свой и маленький: портативная
+   сборка не тянет шрифтов значков. */
+const ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
+  grid: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>',
+  heart: '<path d="M19.5 12.6 12 20l-7.5-7.4A4.8 4.8 0 0 1 12 6.3a4.8 4.8 0 0 1 7.5 6.3Z"/>',
+  bookmark: '<path d="M6.5 3h11a1 1 0 0 1 1 1v17L12 17l-6.5 4V4a1 1 0 0 1 1-1Z"/>',
+  player: '<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="m10 8.3 4.6 2.7-4.6 2.7Z"/>',
+  tv: '<rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="m8 3 4 4 4-4"/>',
+  bell: '<path d="M6 8.5a6 6 0 0 1 12 0c0 6.5 3 8 3 8H3s3-1.5 3-8"/><path d="M10.3 20.5a1.9 1.9 0 0 0 3.4 0"/>',
+  download: '<path d="M12 3.5v11.5"/><path d="m7 10.5 5 5 5-5"/><path d="M5 20.5h14"/>',
+  sliders: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  server: '<rect x="3" y="3.5" width="18" height="7" rx="2"/><rect x="3" y="13.5" width="18" height="7" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+  refresh: '<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V9H15"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+  theme: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17Z" fill="currentColor"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  collapse: '<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  star: '<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8Z"/>',
+  sparkles: '<path d="M11 4.5 12.8 9l4.7 1.8-4.7 1.8L11 17.2l-1.8-4.6-4.7-1.8L9.2 9Z"/><path d="M18.5 3v4M16.5 5h4M18 16v3M16.5 17.5h3"/>',
+  flame: '<path d="M12 21c3.9 0 7-2.8 7-6.8 0-3.8-2.6-6.3-4.6-8.7-.4 2.3-1.5 3.6-3 4.3.3-2.8-.7-5.4-3-7.3C8.6 6 5 9 5 14.2 5 18.2 8.1 21 12 21Z"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  play: '<path d="M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.4-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7Z" fill="currentColor" stroke="none"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  more: '<circle cx="12" cy="5.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="18.5" r="1.5" fill="currentColor" stroke="none"/>',
+  dots: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
+  up: '<path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/>',
+  keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  film: '<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8.5h4.5M3 15.5h4.5M16.5 8.5H21M16.5 15.5H21"/>',
+};
+function ico(name, size) {
+  const s = size || 18;
+  return `<svg class="ico" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+}
+
+/* Разделы по группам. Порядок задаёт и Alt+1…Alt+0 (первые десять). */
+const NAV_GROUPS = [
+  { label: '', items: [['home', 'Главная', 'home'], ['library', 'Библиотека', 'grid'], ['search', 'Поиск', 'search']] },
+  { label: 'Моё', items: [['favorites', 'Избранное', 'heart'], ['bookmarks', 'Закладки', 'bookmark'], ['series', 'Сериалы', 'tv'], ['subs', 'Подписки', 'bell']] },
+  { label: 'Система', items: [['downloads', 'Загрузки', 'download'], ['players', 'Плееры', 'player'], ['settings', 'Настройки', 'sliders'], ['server', 'Сервер', 'server']] },
+];
+const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
+const NAV_ICON = Object.fromEntries(NAV_ITEMS.map(([k, , i]) => [k, i]));
+// На телефоне внизу помещаются четыре раздела и «Ещё» — остальные в листе.
+const TABBAR_KEYS = ['home', 'library', 'search', 'favorites'];
+
+function navBtnHtml(k, label, icon, n) {
+  return `<button data-view="${k}" class="${state.view === k ? 'on' : ''}" title="${label}${n ? ' — Alt+' + (n % 10) : ''}"><span class="nav-ico">${ico(icon, 19)}</span><span class="nav-l">${label}</span><span class="nav-badge hidden"></span></button>`;
+}
+function renderSidebarNav() {
+  let n = 0;
+  $('#nav').innerHTML = NAV_GROUPS.map(g => `<div class="nav-group">${g.label ? `<div class="nav-h">${g.label}</div>` : ''}${g.items.map(([k, l, i]) => navBtnHtml(k, l, i, ++n <= 10 ? n : 0)).join('')}</div>`).join('');
+  const tb = $('#tabbar');
+  if (tb) {
+    tb.innerHTML = TABBAR_KEYS.map(k => { const it = NAV_ITEMS.find(x => x[0] === k); return `<button data-view="${k}" class="${state.view === k ? 'on' : ''}">${ico(it[2], 22)}<span>${it[1]}</span><span class="nav-badge hidden"></span></button>`; }).join('')
+      + `<button data-more class="${TABBAR_KEYS.includes(state.view) ? '' : 'on'}">${ico('dots', 22)}<span>Ещё</span><span class="nav-badge hidden"></span></button>`;
+    tb.querySelector('[data-more]').addEventListener('click', openMoreSheet);
+  }
+}
+/* markNav — подсветка текущего раздела в панели, внизу и в заголовке окна. */
+function markNav() {
+  $$('[data-view]').forEach(b => { if (b.closest('#nav, #tabbar, .sheet')) b.classList.toggle('on', b.dataset.view === state.view); });
+  const more = $('#tabbar [data-more]');
+  if (more) more.classList.toggle('on', !TABBAR_KEYS.includes(state.view));
+  const it = NAV_ITEMS.find(x => x[0] === state.view);
+  document.title = it && state.view !== 'home' ? it[1] + ' — TorrClient' : 'TorrClient';
+}
+/* setNavBadge — число на разделе (новые серии по подпискам). Ставится на все
+   копии кнопки: в панели, в нижней полосе и на «Ещё». */
+function setNavBadge(view, n) {
+  $$(`#nav [data-view="${view}"] .nav-badge, #tabbar [data-view="${view}"] .nav-badge`).forEach(b => { b.textContent = n > 99 ? '99+' : String(n || ''); b.classList.toggle('hidden', !n); });
+  $$(`#nav [data-view="${view}"]`).forEach(b => b.classList.toggle('hasnew', n > 0));
+  const more = $('#tabbar [data-more] .nav-badge');
+  if (more && !TABBAR_KEYS.includes(view)) { more.textContent = n ? '•' : ''; more.classList.toggle('hidden', !n); }
+}
+
+/* Свёрнутая панель: только значки. Выбор помнится. */
+function applySideCollapsed() {
+  const c = localStorage.getItem('tc_side') === 'mini';
+  document.documentElement.classList.toggle('side-mini', c);
+  const b = $('#sideCollapse');
+  if (b) { b.innerHTML = ico('collapse', 17); b.title = c ? 'Развернуть панель' : 'Свернуть панель'; }
+}
+function toggleSide() {
+  try { localStorage.setItem('tc_side', localStorage.getItem('tc_side') === 'mini' ? 'full' : 'mini'); } catch {}
+  applySideCollapsed();
+}
+
+/* Лист «Ещё» на телефоне: все разделы плиткой. */
+function openMoreSheet() {
+  closeSheet();
+  const ov = document.createElement('div'); ov.className = 'overlay sheet-ov';
+  ov.innerHTML = `<div class="sheet" role="dialog" aria-label="Все разделы"><div class="sheet-grip"></div>${NAV_GROUPS.map(g => `${g.label ? `<div class="nav-h">${g.label}</div>` : ''}<div class="sheet-grid">${g.items.map(([k, l, i]) => `<button data-view="${k}" class="${state.view === k ? 'on' : ''}">${ico(i, 22)}<span>${l}</span></button>`).join('')}</div>`).join('')}</div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => {
+    const b = e.target.closest('[data-view]');
+    if (b) { closeSheet(); setView(b.dataset.view); return; }
+    if (e.target === ov) closeSheet();
+  });
+}
+function closeSheet() { $$('body > .sheet-ov').forEach(o => o.remove()); }
+
+/* Иконки в шапке ставятся из кода: разметка index.html остаётся короткой. */
+function paintShellIcons() {
+  const put = (sel, html) => { const el = $(sel); if (el) el.insertAdjacentHTML('afterbegin', html); };
+  const r = $('#refreshBtn'); if (r && !r.firstChild) r.innerHTML = ico('refresh', 18);
+  const t = $('#themeBtn'); if (t && !t.firstChild) t.innerHTML = ico('theme', 18);
+  const s = $('#sleepBtn .tb-ico'); if (s && !s.firstChild) s.innerHTML = ico('moon', 18);
+  const a = $('#addBtn .tb-ico'); if (a && !a.firstChild) a.innerHTML = ico('plus', 17);
+  const o = $('#omni .omni-ico'); if (o && !o.firstChild) o.innerHTML = ico('search', 17);
+  const u = $('#toTop'); if (u && !u.firstChild) u.innerHTML = ico('up', 20);
+  if (/Mac|iPhone|iPad/.test(navigator.platform || '')) { const k = $('#omni .omni-kbd'); if (k) k.textContent = '⌘K'; }
+  void put;
+}
+
+/* ---------- палитра команд (Ctrl+K) ---------- */
+/* Один вход ко всему: разделы, действия, темы, раздачи библиотеки, избранное и
+   поиск по трекерам. Совпадение — по всем словам запроса в любом порядке
+   (ё = е), выше — то, что начинается с запроса. */
+const palNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е');
+function palScore(text, words) {
+  if (!words.length) return 1;
+  const t = palNorm(text);
+  let sc = 0;
+  for (const w of words) {
+    const i = t.indexOf(w);
+    if (i < 0) return 0;
+    sc += i === 0 ? 3 : (/[\s\-/(«"]/.test(t[i - 1]) ? 2 : 1);
+  }
+  return sc;
+}
+function searchFor(q) {
+  q = String(q || '').trim(); if (!q) return;
+  state.searchState.q = q;
+  state.skipAutoTop = true;
+  setView('search');
+  const i = $('#searchInput'); if (i) i.value = q;
+  if (typeof pushSearchHistory === 'function') pushSearchHistory(q);
+  doSearch();
+}
+function palItems(q) {
+  const words = palNorm(q).split(/\s+/).filter(Boolean);
+  const out = [];
+  const add = (group, label, icon, run, extra) => {
+    const sc = palScore(label + ' ' + ((extra && extra.kw) || ''), words);
+    if (sc) out.push(Object.assign({ group, label, icon, run, sc }, extra || {}));
+  };
+  const qq = String(q || '').trim();
+  if (qq) {
+    out.push({ group: 'Поиск', label: `Искать «${qq}» на трекерах`, icon: 'search', run: () => searchFor(qq), sc: 99, hint: 'Enter' });
+    out.push({ group: 'Поиск', label: `Лучшая раздача: «${qq}»`, icon: 'star', run: () => { if (typeof pushSearchHistory === 'function') pushSearchHistory(qq); findBest(qq, 0); }, sc: 98, sub: 'rutor, Кинозал и индексаторы разом — одна кнопка «Смотреть»' });
+  }
+  NAV_ITEMS.forEach(([k, l, i]) => add('Разделы', l, i, () => setView(k), { kw: 'раздел перейти ' + k }));
+  const acts = [
+    ['Добавить магнит или .torrent', 'plus', () => openAddModal(), 'добавить торрент магнит файл'],
+    ['Обновить раздел', 'refresh', () => refreshView(), 'обновить перезагрузить'],
+    ['Рекомендации по библиотеке', 'sparkles', () => showRecommendations(), 'для вас похожее'],
+    ['ТОП за 24 часа', 'flame', () => homeGo('top'), 'топ 24 свежие'],
+    ['Популярное за всё время', 'film', () => homeGo('pop'), 'популярное сиды'],
+    ['Сейчас смотрят (тренды недели)', 'clock', () => homeGo('trend'), 'тренды tmdb'],
+    ['Таймер сна', 'moon', () => openSleepMenu(), 'сон выключить усыпить'],
+    ['Проверить подписки сейчас', 'bell', () => subsCheck(), 'новые серии проверить'],
+    ['Сменить тему', 'theme', () => cycleTheme(), 'тема оформление светлая темная'],
+    ['Свернуть или развернуть панель', 'collapse', () => toggleSide(), 'панель боковая'],
+    ['Горячие клавиши', 'keyboard', () => showKeys(), 'клавиши справка'],
+    ['Что нового', 'info', () => showWhatsNew((state.hello && state.hello.app_version) || '', ''), 'версия изменения'],
+  ];
+  acts.forEach(([l, i, run, kw]) => add('Действия', l, i, run, { kw }));
+  if (words.length) THEME_LIST.forEach(t => add('Темы', 'Тема: ' + t.name, 'theme', () => setTheme(t.id), { kw: 'тема оформление' }));
+  if (words.length) {
+    const lib = (state.lib || []).map(t => ({ t, sc: palScore(t.title || t.name || '', words) })).filter(x => x.sc).sort((a, b) => b.sc - a.sc).slice(0, 6);
+    lib.forEach(({ t, sc }) => out.push({ group: 'Библиотека', label: t.title || t.name || t.hash, icon: 'play', run: () => watchNow(t), sc: sc + 0.5, poster: t.poster }));
+    const fav = favList().map(f => ({ f, sc: palScore(f.title || '', words) })).filter(x => x.sc).slice(0, 4);
+    fav.forEach(({ f, sc }) => out.push({ group: 'Избранное', label: f.title || 'магнит', icon: 'heart', run: () => (isTitleFav(f) ? findBest(f.title, f.year ? +String(f.year).slice(0, 4) : 0) : playSearchLink(f)), sc, poster: f.poster }));
+  }
+  const order = ['Поиск', 'Библиотека', 'Избранное', 'Разделы', 'Действия', 'Темы'];
+  if (!words.length) return out.filter(x => x.group !== 'Поиск');
+  return out.sort((a, b) => (order.indexOf(a.group) - order.indexOf(b.group)) || (b.sc - a.sc));
+}
+function openPalette(initial) {
+  if ($('body > .pal-ov')) { const i = $('.pal-input'); if (i) i.focus(); return; }
+  closeSheet();
+  const ov = document.createElement('div'); ov.className = 'overlay pal-ov';
+  ov.innerHTML = `<div class="pal" role="dialog" aria-label="Палитра команд">
+    <div class="pal-head">${ico('search', 18)}<input class="pal-input" placeholder="Раздел, команда, раздача из библиотеки или название для трекеров…" autocomplete="off" spellcheck="false"><span class="kbd">Esc</span></div>
+    <div class="pal-list" role="listbox"></div>
+    <div class="pal-foot"><span><span class="kbd">↑</span><span class="kbd">↓</span> выбрать</span><span><span class="kbd">Enter</span> открыть</span><span><span class="kbd">Esc</span> закрыть</span></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const input = ov.querySelector('.pal-input'), list = ov.querySelector('.pal-list');
+  let items = [], sel = 0;
+  const paint = () => {
+    items = palItems(input.value);
+    sel = Math.min(sel, Math.max(0, items.length - 1));
+    let g = '';
+    list.innerHTML = items.length ? items.map((it, i) => {
+      const head = it.group !== g ? `<div class="pal-g">${esc(g = it.group)}</div>` : '';
+      const lead = it.poster ? `<img class="pal-poster" src="${esc(pimg(it.poster))}" alt="" onerror="this.replaceWith(document.createElement('span'))">` : `<span class="pal-ico">${ico(it.icon, 17)}</span>`;
+      return head + `<button class="pal-item${i === sel ? ' on' : ''}" data-i="${i}" role="option">${lead}<span class="pal-txt"><span class="pal-l">${esc(it.label)}</span>${it.sub ? `<span class="pal-sub">${esc(it.sub)}</span>` : ''}</span>${it.hint ? `<span class="kbd">${esc(it.hint)}</span>` : ''}</button>`;
+    }).join('') : '<div class="pal-empty">Ничего не нашлось</div>';
+    const on = list.querySelector('.pal-item.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+  };
+  const close = () => ov.remove();
+  const run = i => { const it = items[i]; if (!it) return; close(); try { it.run(); } catch (e) { toast(e.message, true); } };
+  input.addEventListener('input', () => { sel = 0; paint(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(items.length - 1, sel + 1); paint(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); paint(); }
+    else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+  });
+  list.addEventListener('mousemove', e => { const b = e.target.closest('.pal-item'); if (b && +b.dataset.i !== sel) { sel = +b.dataset.i; $$('.pal-item', list).forEach(x => x.classList.toggle('on', +x.dataset.i === sel)); } });
+  list.addEventListener('click', e => { const b = e.target.closest('.pal-item'); if (b) run(+b.dataset.i); });
+  ov.addEventListener('mousedown', e => { if (e.target === ov) close(); });
+  if (initial) input.value = initial;
+  paint();
+  setTimeout(() => input.focus(), 0);
+}
+
+/* pageHead — единая шапка раздела: заголовок, подпись и действия справа. */
+function pageHead(title, sub, actions) {
+  return html`<div class="page-head"><div class="ph-txt"><h1 class="page-title">${title}</h1>${raw(sub ? html`<div class="page-sub">${sub}</div>` : '')}</div>${raw(actions ? '<div class="ph-act">' + actions + '</div>' : '')}</div>`;
+}
 /* ---------- папки загрузок и наблюдения ---------- */
 /* Путь на несуществующем диске выглядит в настройках совершенно правильным, а
    закачки в него не идут: каталог не создаётся, и ошибку никто не читает. Это
@@ -513,7 +751,7 @@ function hookEvents() {
   });
   // Подписка проверена (например, только что заведённая) — перечитать список.
   eventsSrc.addEventListener('subs_changed', () => {
-    loadSubs().then(() => { if (state.view === 'subs') paintSubsBody(); }).catch(() => {});
+    loadSubs().then(() => { if (state.view === 'subs') paintSubsBody(); else if (state.view === 'home') paintHome(); }).catch(() => {});
   });
   eventsSrc.addEventListener('torrents', e => {
     let list = [];
@@ -522,7 +760,7 @@ function hookEvents() {
     if ($('#dlTorrents')) { paintTorrentRows(list); paintCacheCard(list); }
   });
   eventsSrc.addEventListener('state', () => {
-    loadUserData().then(() => { if (state.view === 'library') paintLibrary(); }).catch(() => {});
+    loadUserData().then(() => { if (state.view === 'library') paintLibrary(); else if (state.view === 'home') paintHome(); }).catch(() => {});
   });
   return true;
 }
@@ -550,6 +788,7 @@ function applyPosition(d) {
   // нельзя: пользователь как раз выбирает серию или правит настройки.
   if (first || $('.overlay')) return;
   if (state.view === 'library') paintLibrary();
+  else if (state.view === 'home') paintHome();
 }
 
 function hookGlobal() {
@@ -603,8 +842,11 @@ function imdbUrlFor(r) {
 function setView(v) {
   state.view = v;
   try { localStorage.setItem(LS.view, v); } catch {}
-  $$('#nav [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  markNav();
+  closeSheet();
   route();
+  // Новый раздел открывается с начала, а не с прокрутки прошлого.
+  try { window.scrollTo(0, 0); } catch {}
 }
 function route() {
   const v = state.view;
@@ -612,19 +854,23 @@ function route() {
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
   $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
-  const pages = { library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
-  const fn = pages[v] || renderLibrary;
+  const pages = { home: renderHome, library: renderLibrary, search: renderSearch, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
+  const fn = pages[v] || renderHome;
   const main = $('main'); main.innerHTML = '';
+  main.dataset.view = v;
   // Крестики в полях ставятся и сразу, и после асинхронной отрисовки.
   Promise.resolve(fn(main)).finally(() => addClears(main));
   addClears(main);
 }
 function hookNav() {
-  $('#nav').innerHTML = [
-    ['library', 'Библиотека'], ['search', 'Поиск'], ['favorites', 'Избранное'], ['bookmarks', 'Закладки'], ['players', 'Плееры'],
-    ['series', 'Сериалы'], ['subs', 'Подписки'], ['downloads', 'Загрузки'], ['settings', 'Настройки'], ['server', 'Сервер'],
-  ].map(([k, n]) => `<button data-view="${k}" class="${state.view === k ? 'on' : ''}">${n}</button>`).join('');
-  $$('#nav [data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.ctxmenu').forEach(m => m.classList.add('hidden')); setView(b.dataset.view); }));
+  renderSidebarNav();
+  paintShellIcons();
+  applySideCollapsed();
+  markNav();
+  $$('#nav [data-view], #tabbar [data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.ctxmenu').forEach(m => m.classList.add('hidden')); setView(b.dataset.view); }));
+  const sc = $('#sideCollapse'); if (sc) sc.addEventListener('click', toggleSide);
+  const om = $('#omni'); if (om) om.addEventListener('click', () => openPalette());
+  const ad = $('#addBtn'); if (ad) ad.addEventListener('click', () => openAddModal());
   // Число новых серий на вкладке: подписки проверяет демон и без открытой
   // страницы, а узнать об этом было бы неоткуда.
   loadSubs().catch(() => {});
@@ -659,7 +905,9 @@ function renderServerStatus() {
   const el = $('#serverStatus');
   if (!el) return;
   const prof = state.profiles.find(p => p.id === state.active) || {};
-  el.innerHTML = html`<span class="dot ${state.active ? 'ok' : 'err'}"></span><span title="${prof.name || '—'}">Локальный сервер</span>`;
+  el.innerHTML = html`<span class="dot ${state.active ? 'ok' : 'err'}"></span><span class="st-txt" title="${prof.name || '—'}"><b>${state.active ? 'Сервер на связи' : 'Нет сервера'}</b><small>${prof.name || 'TorrServer'}</small></span>`;
+  el.title = 'Профиль TorrServer: ' + (prof.name || '—') + ' — открыть раздел «Сервер»';
+  el.onclick = () => setView('server');
 }
 
 /* ---------- почему нет постеров ---------- */
@@ -668,6 +916,8 @@ function renderServerStatus() {
    пропавшие постеры выглядели как «сервис ничего не знает об этом фильме»:
    настройки при этом выглядели заполненными, и искать причину было негде.
    Теперь причина приходит кодом и висит в верхней строке, пока не исправлена. */
+// Короткая надпись для шапки; полная причина — во всплывающей подсказке.
+const META_ERR_SHORT = { 'tmdb key not configured': 'Нет ключа TMDB', 'tmdb key rejected': 'Ключ TMDB отклонён' };
 const META_ERR_TEXT = {
   'tmdb key not configured': 'Постеры и оценки не загружаются: не задан ключ TMDB',
   'tmdb key rejected': 'Постеры и оценки не загружаются: ключ TMDB отклонён сервисом',
@@ -684,8 +934,8 @@ function renderMetaWarn() {
   if (!el) return;
   const text = metaErrText(state.metaError);
   el.classList.toggle('hidden', !text);
-  el.textContent = text ? text + ' · Настроить' : '';
-  el.title = text ? 'Открыть Настройки → TMDB' : '';
+  el.innerHTML = text ? ico('info', 15) + '<span class="tbw-l">' + esc(META_ERR_SHORT[state.metaError] || text) + '</span>' : '';
+  el.title = text ? text + ' — открыть Настройки → TMDB' : '';
 }
 /* Смена ключа отменяет прежние отказы: и заданные впустую вопросы, и
    запомненные «названий серий нет». Без этого свежий ключ не дал бы ничего до
@@ -817,47 +1067,292 @@ function sleepEvent(d) {
   }
   sleepState = { active: false }; paintSleep();
 }
+
+/* ================= ГЛАВНАЯ =================
+   Стартовый экран 2.0: всё, с чего обычно начинается вечер, — на одном
+   экране и без поиска по разделам. Полосы появляются только тогда, когда им
+   есть что показать: пустая полоса места не занимает. */
+const homeState = { trend: null, trendAt: 0, trendErr: '', trendBusy: false };
+
+function greeting() {
+  const h = new Date().getHours();
+  return h >= 5 && h < 12 ? 'Доброе утро' : h >= 12 && h < 17 ? 'Добрый день' : h >= 17 && h < 23 ? 'Добрый вечер' : 'Доброй ночи';
+}
+
+async function renderHome(root) {
+  root.innerHTML = html`
+    <section class="home-hero">
+      <div class="hh-txt">
+        <h1 class="hh-hello">${greeting()}</h1>
+        <div class="hh-sum" id="homeSum">Собираю, что у вас есть…</div>
+      </div>
+      <form class="hh-search" id="homeSearch" autocomplete="off">
+        <span class="hh-ico">${raw(ico('search', 20))}</span>
+        <input id="homeQ" placeholder="Что посмотрим? Название фильма или сериала" aria-label="Название для поиска">
+        <button type="button" id="homeBest" title="Опросить все источники и выбрать лучшую раздачу">${raw(ico('star', 16))}<span>Лучшая</span></button>
+        <button type="submit" class="primary">Найти</button>
+      </form>
+      <div class="hh-chips">
+        <button data-home="top">${raw(ico('flame', 16))}ТОП за 24 часа</button>
+        <button data-home="pop">${raw(ico('film', 16))}Популярное</button>
+        <button data-home="trend">${raw(ico('clock', 16))}Сейчас смотрят</button>
+        <button data-home="rec">${raw(ico('sparkles', 16))}Для вас</button>
+      </div>
+    </section>
+    <section class="rail hidden" id="railCont"></section>
+    <section class="rail hidden" id="railNew"></section>
+    <section class="rail hidden" id="railFav"></section>
+    <section class="rail hidden" id="railTrend"></section>
+    <section class="rail hidden" id="railRecent"></section>
+    <div id="homeEmpty"></div>`;
+
+  const q = $('#homeQ');
+  $('#homeSearch').addEventListener('submit', e => { e.preventDefault(); const v = q.value.trim(); if (v) searchFor(v); else q.focus(); });
+  $('#homeBest').addEventListener('click', () => { const v = q.value.trim(); if (!v) { q.focus(); toast('Введите название'); return; } pushSearchHistory(v); findBest(v, 0); });
+  $$('[data-home]', root).forEach(b => b.addEventListener('click', () => homeGo(b.dataset.home)));
+  root.addEventListener('click', onHomeClick);
+  bindRailScroll(root);
+
+  paintHome();
+  const jobs = [];
+  if (!(state.lib || []).length) jobs.push(loadLibrary(false).then(() => applyStoredMeta()).catch(() => {}));
+  else jobs.push(loadPositions().catch(() => {}));
+  jobs.push(loadSubs().catch(() => {}));
+  await Promise.all(jobs);
+  if (state.view !== 'home') return;
+  paintHome();
+  loadTrend().then(() => { if (state.view === 'home') paintTrend(); });
+}
+
+/* homeGo — подборки из шапки Главной открываются в Поиске, как и прежде. */
+function homeGo(what) {
+  if (what === 'rec') { showRecommendations(); return; }
+  state.skipAutoTop = true;
+  setView('search');
+  if (what === 'top') onTopClick();
+  else if (what === 'pop') fetchPopular();
+  else if (what === 'trend') { const k = $('#dKind'); if (k) { k.value = 'trending'; fillDiscGenres(); } fetchDiscover(true); }
+}
+
+function paintHome() {
+  if (state.view !== 'home') return;
+  const cont = continueItems();
+  const newSubs = (state.subs || []).filter(s => Number(s.new_count) > 0);
+  const favs = favList().slice().reverse();
+  const recent = (state.lib || []).slice().sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0)).slice(0, 14);
+  const sum = [];
+  const n = (state.lib || []).length;
+  sum.push(n ? n + ' ' + plural(n, 'раздача', 'раздачи', 'раздач') + ' в библиотеке' : 'Библиотека пока пуста');
+  if (cont.length) sum.push(cont.length + ' — продолжить');
+  const nn = subsNewTotal();
+  if (nn) sum.push(nn + ' ' + plural(nn, 'новая серия', 'новые серии', 'новых серий'));
+  const s = $('#homeSum'); if (s) s.textContent = state.libError && !n ? 'TorrServer ещё не ответил — библиотека появится, как только он поднимется' : sum.join(' · ');
+
+  paintRail('railCont', 'Продолжить просмотр', cont.length, cont.slice(0, 16).map(contBig).join(''), 'library', 'Библиотека', 'cw');
+  paintRail('railNew', 'Новые серии по подпискам', newSubs.length, newSubs.map(newSubCard).join(''), 'subs', 'Все подписки', 'ns');
+  paintRail('railFav', 'Избранное', favs.length, favs.slice(0, 18).map((f, i) => favMini(f, favs.length - 1 - i)).join(''), 'favorites', 'Всё избранное', 'pc');
+  paintRail('railRecent', 'Недавно добавлено', recent.length, recent.map(recentMini).join(''), 'library', 'Вся библиотека', 'pc');
+  paintTrend();
+
+  const empty = $('#homeEmpty');
+  if (empty) {
+    const nothing = !n && !favs.length && !cont.length;
+    empty.innerHTML = nothing ? html`<div class="home-empty">
+      <div class="he-art">${raw(ico('film', 34))}</div>
+      <h2>С чего начать</h2>
+      <p>Найдите фильм в строке выше — TorrClient опросит трекеры и предложит лучшую раздачу. Или перетащите магнит либо .torrent прямо в окно.</p>
+      <div class="row" style="justify-content:center"><button class="primary" data-home-add>${raw(ico('plus', 16))} Добавить торрент</button><button data-home="top2">${raw(ico('flame', 16))} Что свежего</button></div>
+    </div>` : '';
+  }
+}
+
+function paintRail(id, title, count, body, goView, goLabel, kind) {
+  const el = $('#' + id); if (!el) return;
+  if (!count) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  el.innerHTML = html`<div class="rail-h"><h2>${title}</h2><span class="rail-n">${count}</span><span class="spacer"></span>
+    ${raw(goView ? html`<button class="link-btn" data-go="${goView}">${goLabel}${raw(ico('arrow', 15))}</button>` : '')}</div>
+    <div class="rail-wrap"><button class="rail-btn prev" data-rs="-1" aria-label="Назад">${raw(ico('collapse', 16))}</button><div class="rail-row rail-${kind}">${raw(body)}</div><button class="rail-btn next" data-rs="1" aria-label="Вперёд">${raw(ico('collapse', 16))}</button></div>`;
+  syncRailBtns(el);
+}
+function bindRailScroll(root) {
+  root.addEventListener('scroll', e => { const w = e.target.closest && e.target.closest('.rail'); if (w) syncRailBtns(w); }, true);
+}
+function syncRailBtns(rail) {
+  const row = rail.querySelector('.rail-row'); if (!row) return;
+  const p = rail.querySelector('.rail-btn.prev'), n = rail.querySelector('.rail-btn.next');
+  requestAnimationFrame(() => {
+    if (p) p.classList.toggle('off', row.scrollLeft < 8);
+    if (n) n.classList.toggle('off', row.scrollLeft + row.clientWidth >= row.scrollWidth - 8);
+  });
+}
+
+function posterImg(url, cls) {
+  return url ? html`<img class="${cls || ''}" src="${pimg(url)}" loading="lazy" alt="" onerror="this.remove()">` : '';
+}
+
+/* Крупная карточка «продолжить»: размытая обложка фоном, постер, серия,
+   сколько осталось. */
+function contBig(it) {
+  const title = cleanSearchTitle(it.t.title || it.t.name || '').q || it.t.title || it.t.name || it.t.hash;
+  const next = it.kind === 'next';
+  const left = it.duration > 0 && it.pos > 0 ? Math.max(0, it.duration - it.pos) : 0;
+  const c = cleanSearchTitle(it.t.title || it.t.name || '');
+  const film = !isSeries(it.t.title || it.t.name) && playableOf(it.t).length <= 1;
+  const sub = film ? ['Фильм', c.year].filter(Boolean).join(' · ') : it.f.unknown ? 'с места остановки' : epLabel(it.f, it.t);
+  return html`<div class="cw-card${next ? ' is-next' : ''}" data-cont data-cont-hash="${it.t.hash}" data-cont-file="${it.f.id}" tabindex="0">
+    ${raw(posterImg(it.t.poster, 'cw-bg'))}
+    <div class="cw-in">
+      <div class="cw-poster">${raw(posterImg(it.t.poster))}${raw(it.t.poster ? '' : ico('film', 26))}</div>
+      <div class="cw-txt">
+        <div class="cw-kicker">${next ? 'Следующая серия' : (left ? 'Осталось ' + fmtDur(left) : 'Начато')}</div>
+        <div class="cw-title" title="${it.t.title || it.t.name || ''}">${title}</div>
+        <div class="cw-sub">${sub}</div>
+        <div class="cw-bar"><i style="width:${Math.round((next ? 0 : it.share) * 100)}%"></i></div>
+        <div class="cw-act">
+          <button class="primary" data-cont-play>${raw(ico('play', 15))}${next ? 'Смотреть' : 'Продолжить'}</button>
+          <button class="ghost" data-cont-done title="Отметить просмотренной">${raw(ico('check', 16))}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function newSubCard(s) {
+  return html`<div class="ns-card" data-ns="${s.id}">
+    <div class="ns-top"><span class="ns-ico">${raw(ico('bell', 18))}</span><span class="chip hasnew">${s.new_count} ${plural(s.new_count, 'новая', 'новые', 'новых')}</span></div>
+    <div class="ns-title">${s.title}</div>
+    <div class="ns-sub">${s.last_seen || ('сезон ' + (s.season || '?') + (s.episode ? ', серия ' + s.episode : ''))}</div>
+    <div class="ns-act"><button class="primary" data-ns-find>${raw(ico('star', 15))}Найти раздачу</button><button class="ghost" data-ns-seen title="Отметить прочитанным">${raw(ico('check', 16))}</button></div>
+  </div>`;
+}
+function favMini(f, ix) {
+  const isT = isTitleFav(f);
+  const title = isT ? f.title : (cleanSearchTitle(f.title || '').q || f.title || 'магнит');
+  return html`<div class="pcard" data-fav-ix="${ix}" tabindex="0" role="button" title="${f.title || ''}">
+    <div class="pc-poster">${raw(posterImg(f.poster))}<span class="pc-ph">${raw(ico('film', 28))}</span><span class="pc-play">${raw(ico('play', 22))}</span></div>
+    <div class="pc-title">${title}</div>
+    <div class="pc-sub">${isT ? (f.kind === 'tv' ? 'Сериал' : 'Фильм') + (f.year ? ' · ' + String(f.year).slice(0, 4) : '') + ' · подберу раздачу' : (f.size || 'раздача')}</div>
+  </div>`;
+}
+function recentMini(t) {
+  const c = cleanSearchTitle(t.title || t.name || '');
+  return html`<div class="pcard" data-lib-hash="${t.hash}" tabindex="0" role="button" title="${t.title || t.name || ''}">
+    <div class="pc-poster">${raw(posterImg(t.poster))}<span class="pc-ph">${raw(ico('film', 28))}</span><span class="pc-play">${raw(ico('play', 22))}</span>
+      ${raw(isSeries(t.title || t.name) ? html`<span class="chip series pc-tag">Сериал</span>` : '')}</div>
+    <div class="pc-title">${c.q || t.title || t.name || t.hash}</div>
+    <div class="pc-sub">${[c.year, t.torrent_size ? fmtSize(t.torrent_size) : '', fmtDate(t.timestamp)].filter(Boolean).join(' · ')}</div>
+  </div>`;
+}
+function trendMini(it, i) {
+  return html`<div class="pcard disc-card" data-trend="${i}" tabindex="0" role="button" title="${it.title}">
+    <div class="pc-poster disc-poster">${raw(posterImg(it.poster))}<span class="pc-ph">${raw(ico('film', 28))}</span><span class="pc-play">${raw(ico('star', 22))}</span>${raw(discFavHtml(it))}
+      ${raw(it.rating ? html`<span class="chip rating pc-rate">${Number(it.rating).toFixed(1)}</span>` : '')}</div>
+    <div class="pc-title">${it.title}</div>
+    <div class="pc-sub">${it.kind === 'tv' ? 'Сериал' : 'Фильм'}${it.year ? ' · ' + String(it.year).slice(0, 4) : ''}</div>
+  </div>`;
+}
+
+/* «Сейчас смотрят»: тренды TMDB за неделю — фильмы и сериалы вперемешку.
+   Ответ помнится полчаса: Главную открывают часто, а тренды меняются медленно. */
+async function loadTrend() {
+  if (homeState.trendBusy || (homeState.trend && Date.now() - homeState.trendAt < 30 * 60000)) return;
+  homeState.trendBusy = true;
+  try {
+    const [m, t] = await Promise.all(['movie', 'tv'].map(k => apiGetJSON('/api/discover?kind=' + k + '&cat=trending&origin=any&page=1').catch(e => ({ ok: false, error: e.message }))));
+    const items = [];
+    const a = (m && m.ok && m.items) || [], b = (t && t.ok && t.items) || [];
+    for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) items.push(a[i]); if (b[i]) items.push(b[i]); }
+    homeState.trend = items.slice(0, 24); homeState.trendAt = Date.now();
+    homeState.trendErr = items.length ? '' : ((m && m.error) || (t && t.error) || 'пустой ответ');
+    if (homeState.trendErr) noteMetaError(homeState.trendErr);
+  } finally { homeState.trendBusy = false; }
+}
+function paintTrend() {
+  const el = $('#railTrend'); if (!el) return;
+  const items = homeState.trend || [];
+  if (items.length) { paintRail('railTrend', 'Сейчас смотрят', items.length, items.map(trendMini).join(''), '', '', 'pc'); return; }
+  if (homeState.trendErr && metaErrText(homeState.trendErr)) {
+    el.classList.remove('hidden');
+    el.innerHTML = html`<div class="rail-h"><h2>Сейчас смотрят</h2></div><div class="note-card">${raw(ico('info', 18))}<div><b>Нужен ключ TMDB</b><div class="page-sub">С ним здесь появятся тренды недели, а в библиотеке — постеры и оценки. Ключ бесплатный.</div></div><button data-go="settings">Открыть настройки</button></div>`;
+    return;
+  }
+  el.classList.add('hidden');
+}
+
+function onHomeClick(e) {
+  const go = e.target.closest('[data-go]');
+  if (go) { setView(go.dataset.go); return; }
+  const rs = e.target.closest('[data-rs]');
+  if (rs) { const row = rs.parentElement.querySelector('.rail-row'); row.scrollBy({ left: Number(rs.dataset.rs) * row.clientWidth * 0.85, behavior: 'smooth' }); setTimeout(() => syncRailBtns(rs.closest('.rail')), 450); return; }
+  if (e.target.closest('[data-home-add]')) { openAddModal(); return; }
+  if (e.target.closest('[data-home="top2"]')) { homeGo('top'); return; }
+  const cw = e.target.closest('[data-cont]');
+  if (cw) {
+    const it = continueItems().find(x => x.t.hash === cw.dataset.contHash && x.f.id === Number(cw.dataset.contFile));
+    if (!it) return;
+    if (e.target.closest('[data-cont-done]')) { doneContinue(it).then(paintHome); return; }
+    playContinue(it); return;
+  }
+  const ns = e.target.closest('[data-ns]');
+  if (ns) {
+    const s = (state.subs || []).find(x => x.id === ns.dataset.ns); if (!s) return;
+    if (e.target.closest('[data-ns-seen]')) { subsSeen(s.id).then(paintHome); return; }
+    findBest(s.query || s.title, 0); return;
+  }
+  const fv = e.target.closest('.disc-fav');
+  if (fv) { e.stopPropagation(); toggleDiscFav((homeState.trend || []).find(x => discFavKey(x) === fv.dataset.fk)); paintHome(); return; }
+  const tr = e.target.closest('[data-trend]');
+  if (tr) { const it = (homeState.trend || [])[+tr.dataset.trend]; if (it) findBest(it.title, it.year ? +String(it.year).slice(0, 4) : 0); return; }
+  const fc = e.target.closest('[data-fav-ix]');
+  if (fc) { const f = favList()[+fc.dataset.favIx]; if (!f) return; if (isTitleFav(f)) findBest(f.title, f.year ? +String(f.year).slice(0, 4) : 0); else playSearchLink(f); return; }
+  const lc = e.target.closest('[data-lib-hash]');
+  if (lc) { const t = (state.lib || []).find(x => x.hash === lc.dataset.libHash); if (t) watchNow(t); }
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || state.view !== 'home') return;
+  const c = e.target.closest && e.target.closest('.pcard, .cw-card');
+  if (c && e.target === c) { e.preventDefault(); c.click(); }
+});
 async function renderLibrary(root) {
   const lv = localStorage.getItem('tc_libview') || 'grid';
   root.innerHTML = html`
-    <div class="toolbar">
-      <h1 class="page-title">Библиотека</h1>
-      <input class="search-input" id="libQuery" placeholder="Фильтр по названию..." value="${state.query}">
-      <select id="libCat" style="width:auto">
+    <div class="page-head">
+      <div class="ph-txt"><h1 class="page-title">Библиотека</h1><div class="page-sub" id="libSub"></div></div>
+      <div class="ph-act">
+        <button id="libRec" title="Фильмы и сериалы, похожие на те, что в библиотеке (нужен ключ TMDB)">${raw(ico('sparkles', 16))}Рекомендации</button>
+        <div class="seg" id="libViewSeg">
+          <button data-vw="grid" class="${lv === 'grid' ? 'on' : ''}" title="Сетка">${raw(ico('grid', 16))}</button>
+          <button data-vw="list" class="${lv === 'list' ? 'on' : ''}" title="Список">${raw(ico('list', 16))}</button>
+        </div>
+      </div>
+    </div>
+    <div class="filterbar">
+      <input class="search-input" id="libQuery" placeholder="Фильтр по названию…" value="${state.query}">
+      <select id="libCat">
         <option value="all">Все категории</option>
         <option value="movie">Фильмы</option>
         <option value="tv">Сериалы</option>
         <option value="music">Музыка</option>
         <option value="other">Другое</option>
       </select>
-      <select id="libOrder" style="width:auto">
+      <select id="libOrder">
         <option value="name">По названию</option>
         <option value="date">По дате</option>
         <option value="size">По размеру</option>
         <option value="progress">По просмотру</option>
       </select>
-      <select id="libSeen" style="width:auto" title="Что показать по просмотру">
+      <select id="libSeen" title="Что показать по просмотру">
         <option value="all">Любой просмотр</option>
         <option value="new">Не начато</option>
         <option value="started">Начато</option>
         <option value="done">Досмотрено</option>
       </select>
-      <select id="libColl" style="width:auto" title="Подборка"></select>
-      <button id="collNew" class="iconbtn" title="Новая подборка">＋</button>
-      <button id="libReset" class="iconbtn hidden" title="Сбросить фильтры">✕</button>
-      <button data-act="refresh" class="iconbtn" title="Обновить">⟳</button>
-      <button id="libRec" title="Фильмы и сериалы, похожие на те, что в библиотеке (нужен ключ TMDB)">✨ Рекомендации</button>
-      <span class="spacer"></span>
-      <div class="seg" id="libViewSeg">
-        <button data-vw="grid" class="${lv === 'grid' ? 'on' : ''}" title="Сетка">▦</button>
-        <button data-vw="list" class="${lv === 'list' ? 'on' : ''}" title="Список">☰</button>
-      </div>
-      <button class="primary" data-open="add">+ Добавить торрент</button>
+      <select id="libColl" title="Подборка"></select>
+      <button id="collNew" class="iconbtn" title="Новая подборка">${raw(ico('plus', 16))}</button>
+      <button id="libReset" class="iconbtn hidden" title="Сбросить фильтры">${raw(ico('x', 16))}</button>
     </div>
-    <div class="page-sub" id="libSub"></div>
-    <div id="libContinue" class="cont-strip hidden"></div>
     <div id="libGrid" class="grid ${lv === 'list' ? 'list' : ''}"></div>
-    <div id="libEmpty" class="empty hidden">Библиотека пуста. Добавьте магнит или .torrent.</div>`;
+    <div id="libEmpty" class="empty hidden">${raw(ico('film', 34))}<b>Библиотека пуста</b>Перетащите магнит или .torrent в окно либо нажмите «Добавить» вверху.</div>`;
 
   $('#libQuery').value = state.query;
   $('#libCat').value = state.category;
@@ -886,8 +1381,6 @@ async function renderLibrary(root) {
     $('#libSeen').value = 'all'; $('#libColl').value = '';
     paintLibrary();
   });
-  $('[data-open="add"]').addEventListener('click', openAddModal);
-  $('[data-act="refresh"]').addEventListener('click', () => { refreshLibrary(); });
   $$('#libViewSeg [data-vw]').forEach(b => b.addEventListener('click', () => {
     localStorage.setItem('tc_libview', b.dataset.vw);
     $('#libGrid').className = 'grid' + (b.dataset.vw === 'list' ? ' list' : '');
@@ -1208,18 +1701,20 @@ function bindContinue() {
     if (!card) return;
     const it = continueItems().find(x => x.t.hash === card.dataset.contHash && x.f.id === Number(card.dataset.contFile));
     if (!it) return;
-    // Отметка досмотра обнуляет позицию: возвращаться к серии больше некуда.
-    if (e.target.closest('[data-cont-done]')) {
-      savePosition(it.t.hash, it.f.id, 0, it.duration, true).then(() => { paintContinue(); paintLibrary(); });
-      return;
-    }
-    if (!it.f.unknown) { playSelected(it.t, it.f); return; }
-    // Файлы раздачи ещё не известны — сначала спрашиваем их у TorrServer.
-    waitForFiles(it.t).then(st => {
-      const f = st && (st.file_stats || []).find(x => x.id === it.f.id);
-      if (f) playSelected(Object.assign(it.t, { file_stats: st.file_stats }), f);
-      else if (st) toast('Файл не найден в раздаче', true);
-    });
+    if (e.target.closest('[data-cont-done]')) { doneContinue(it).then(() => { paintContinue(); paintLibrary(); }); return; }
+    playContinue(it);
+  });
+}
+// Отметка досмотра обнуляет позицию: возвращаться к серии больше некуда.
+function doneContinue(it) { return savePosition(it.t.hash, it.f.id, 0, it.duration, true); }
+// playContinue — запуск с места остановки (Библиотека и Главная).
+function playContinue(it) {
+  if (!it.f.unknown) { playSelected(it.t, it.f); return; }
+  // Файлы раздачи ещё не известны — сначала спрашиваем их у TorrServer.
+  waitForFiles(it.t).then(st => {
+    const f = st && (st.file_stats || []).find(x => x.id === it.f.id);
+    if (f) playSelected(Object.assign(it.t, { file_stats: st.file_stats }), f);
+    else if (st) toast('Файл не найден в раздаче', true);
   });
 }
 
@@ -1254,13 +1749,14 @@ function tile(t) {
   // библиотеки, и во время просмотра он застывал на случайной цифре. Живые
   // скорости — в окне «Закачки».
   if (!metaBits.length && fmtDate(t.timestamp)) metaBits.push('добавлен ' + fmtDate(t.timestamp));
-  const pg = hasMedia ? `<div class="progress"${sp ? ` title="просмотрено ${sp.done} из ${sp.total}"` : ''}><i style="width:${Math.min(100, (sp ? sp.share : loaded) * 100).toFixed(0)}%"></i></div>` : '';
+  // Пустая полоса под каждой плиткой — шум: полоса видна, когда есть что показать.
+  const pg = hasMedia && (sp ? sp.share : loaded) > 0.004 ? `<div class="progress"${sp ? ` title="просмотрено ${sp.done} из ${sp.total}"` : ''}><i style="width:${Math.min(100, (sp ? sp.share : loaded) * 100).toFixed(0)}%"></i></div>` : '';
   const pgNote = sp ? `<div class="page-sub">просмотрено ${sp.done} из ${sp.total}${sp.started ? ' · начато ' + sp.started : ''}</div>` : '';
   return html`
   <div class="tile" data-hash="${t.hash}">
     <div class="poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (t.poster ? 'hidden' : '') + '"'))}
-      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
@@ -1283,7 +1779,7 @@ function tile(t) {
       <div class="metabar">
         <span class="mb-stats">${raw(metaBits.map(esc).join(' &nbsp;·&nbsp; ') || '—')}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       <button data-act="info">Инфо о раздаче</button>
@@ -1983,7 +2479,7 @@ async function renderFavorites(root) {
     <div id="favBody"></div>`;
   $('#favClear').addEventListener('click', () => { if (list.length && confirm('Очистить весь список избранного?')) { saveFavList([]); renderFavorites($('main')); } });
   const body = $('#favBody');
-  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «⋮ → В избранное» в результатах поиска.</div>'; return; }
+  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «Ещё → В избранное» в результатах поиска.</div>'; return; }
   const sorted = [...list].sort((a, b) => (b.time || 0) - (a.time || 0));
   body.innerHTML = '<div class="grid results">' + sorted.map((it, i) => favCard(it, i)).join('') + '</div>';
   $$('.tile.fav', body).forEach(card => bindFavCard(card, sorted[parseInt(card.dataset.ix, 10)]));
@@ -1996,7 +2492,7 @@ function favCard(it, ix) {
   <div class="tile result fav" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (it.poster ? 'hidden' : '') + '"'))}
-      ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-fa="play" title="${isT ? 'Подобрать лучшую раздачу' : 'Смотреть'}"><span class="tri"></span></button>
       <div class="badges"><span class="chip grey">${isT ? 'название' : 'избранное'}</span></div>
       <div class="rate-stack">
@@ -2013,7 +2509,7 @@ function favCard(it, ix) {
       <div class="metabar">
         <span class="mb-stats">${isT ? (it.kind === 'tv' ? 'Сериал · ' : '') + (it.year || '') + ' · ' : ''}${it.time ? 'добавлено ' + new Date(it.time).toLocaleDateString('ru-RU') : '—'}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       ${raw(isT ? '' : '<button data-fa="magnet">Магнит-ссылка</button>')}
@@ -2079,7 +2575,7 @@ async function favEnrich(list) {
 async function renderBookmarks(root) {
   const list = getBookmarks();
   root.innerHTML = `<div class="toolbar"><h1 class="page-title">Закладки просмотра</h1>
-    <div class="page-sub">Позиции, которые плееры не запоминают. Сохраняются в карточке торрента («⋮ → Закладка») или в окне «Инфо».</div>
+    <div class="page-sub">Позиции, которые плееры не запоминают. Сохраняются в карточке торрента («Ещё → Закладка») или в окне «Инфо».</div>
     <span class="spacer"></span>
     <button id="bmClear" class="danger">Очистить</button></div>
     <div id="bmBody"></div>`;
@@ -2135,7 +2631,7 @@ function bookmarkCard(b, ix) {
   <div class="tile result bm" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (b.poster ? 'hidden' : '') + '"'))}
-      ${raw(b.poster ? html`<img src="${pimg(b.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(b.poster ? html`<img src="${pimg(b.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-bm="resume" title="${pos ? 'Продолжить' : 'Смотреть'}"><span class="tri"></span></button>
       <div class="badges"><span class="chip series">закладка</span></div>
       <div class="rate-stack">
@@ -2152,7 +2648,7 @@ function bookmarkCard(b, ix) {
       <div class="metabar">
         <span class="mb-stats">${b.file ? b.file : 'файл ' + b.file_index}${raw(pos ? ' &nbsp;·&nbsp; ' + pos : '')}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       <button data-bm="resume">Продолжить (${pos ? pos : 'с начала'})</button>
@@ -2216,36 +2712,38 @@ async function renderSearch(root) {
   const sd = state.searchState;
   const hist = searchHistory();
   root.innerHTML = html`
-    <div class="toolbar">
-      <h1 class="page-title">Поиск</h1>
-      <input class="search-input" id="searchInput" list="searchHistList" autocomplete="off" placeholder="Название фильма или сериала..." title="/ или Ctrl+K — сюда, ? — все клавиши" value="${sd.q}">
-      <datalist id="searchHistList">${raw(searchHistoryAll().map(h => html`<option value="${h}">`).join(''))}</datalist>
-      <button id="searchBtn" class="primary">Найти</button>
-      <select id="searchCat" title="Категория" style="width:auto">
-        ${raw(CATS.map(c => html`<option value="${c.v}">${c.label}</option>`).join(''))}
-      </select>
-      <select id="searchQual" title="Качество раздачи" style="width:auto">
-        ${raw(Object.entries(QUAL).map(([v, q]) => html`<option value="${v}">${q.label}</option>`).join(''))}
-      </select>
-      <label style="margin:0;display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:12px" title="Прятать из выдачи игры, софт и книги"><input type="checkbox" id="searchVid"> только видео</label>
-      <select id="searchProv" title="Источник" style="width:auto">
-        <option value="rutor">rutor</option>
-        <option value="torznab">Torznab</option>
-        <option value="kinozal">Кинозал.ТВ</option>
-        <option value="both">Все источники</option>
-      </select>
-      <button id="top24Btn" class="top24btn">ТОП-24</button>
-      <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">★ Лучшая</button>
-      <button id="popBtn" class="top24btn" title="Раздачи выбранной категории за всё время, по числу сидов (rutor или индексаторы)">Популярное</button>
-      <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">✨ Для вас</button>
-      <span class="spacer"></span>
-      <button class="primary" data-open="add" title="Добавить торрент">+ Добавить</button>
+    <div class="search-hero">
+      <h1 class="page-title">Поиск раздач</h1>
+      <div class="search-box">
+        <span class="sb-ico">${raw(ico('search', 20))}</span>
+        <input id="searchInput" list="searchHistList" autocomplete="off" placeholder="Название фильма или сериала — можно с годом, «-слово» исключает" title="/ — сюда, Ctrl+K — палитра, ? — все клавиши" value="${sd.q}">
+        <datalist id="searchHistList">${raw(searchHistoryAll().map(h => html`<option value="${h}">`).join(''))}</datalist>
+        <button id="bestBtn" title="Опросить все источники и выбрать лучшую раздачу по запросу">${raw(ico('star', 16))}<span>Лучшая</span></button>
+        <button id="searchBtn" class="primary">Найти</button>
+      </div>
+      <div class="filterbar compact">
+        <select id="searchProv" title="Источник">
+          <option value="rutor">rutor</option>
+          <option value="torznab">Torznab</option>
+          <option value="kinozal">Кинозал.ТВ</option>
+          <option value="both">Все источники</option>
+        </select>
+        <select id="searchCat" title="Категория">
+          ${raw(CATS.map(c => html`<option value="${c.v}">${c.label}</option>`).join(''))}
+        </select>
+        <select id="searchQual" title="Качество раздачи">
+          ${raw(Object.entries(QUAL).map(([v, q]) => html`<option value="${v}">${q.label}</option>`).join(''))}
+        </select>
+        <label class="check" title="Прятать из выдачи игры, софт и книги"><input type="checkbox" id="searchVid"> только видео</label>
+        <label class="check" title="Новая выдача добавится к текущей, а не заменит её"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
+      </div>
     </div>
-    <div class="quick">
-      <span class="qlabel">Быстро:</span>
-      ${raw(CATS.filter(c => c.v).slice(0, 5).map(c => html`<button data-cat="${c.v}">${c.label}</button>`).join(''))}
-      <span class="spacer"></span>
-      <label style="margin:0;display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:12px"><input type="checkbox" id="searchAppend"> добавить к текущим</label>
+    <div class="quick collections">
+      <button id="top24Btn" class="top24btn">ТОП-24</button>
+      <button id="popBtn" class="top24btn pop" title="Раздачи выбранной категории за всё время, по числу сидов (rutor или индексаторы)">${raw(ico('film', 16))}Популярное</button>
+      <button id="recBtn" title="Похожее на фильмы и сериалы из вашей библиотеки (нужен ключ TMDB)">${raw(ico('sparkles', 16))}Для вас</button>
+      <span class="q-sep"></span>
+      ${raw(CATS.filter(c => c.v).slice(0, 5).map(c => html`<button class="cat" data-cat="${c.v}">${c.label}</button>`).join(''))}
     </div>
     ${raw(hist.length ? html`<div class="quick"><span class="qlabel">История:</span>${raw(hist.map(h => html`<span class="hq-chip"><button data-hq="${h}">${h}</button><button class="hq-x" data-hqx="${h}" title="Удалить из истории">×</button></span>`).join(''))}<button id="hqClear" class="hq-x" title="Очистить историю">очистить</button></div>` : '')}
     <div class="quick" id="discBar">
@@ -2292,7 +2790,6 @@ async function renderSearch(root) {
   { const c = $('#hqClear'); if (c) c.addEventListener('click', () => { saveSearchHistory([]); const q = c.closest('.quick'); if (q) q.remove(); }); }
   $('#top24Btn').addEventListener('click', onTopClick);
   $('#popBtn').addEventListener('click', () => fetchPopular());
-  $('[data-open="add"]').addEventListener('click', openAddModal);
   updateTopBtnLabel();
   paintResults($('#searchResults'));
   // Раздел открыт ради рекомендаций — ТОП-24 не загружается поверх них.
@@ -3058,14 +3555,14 @@ function resultRow(r, ix) {
   <div class="tile result" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (r.poster ? 'hidden' : '') + '"'))}
-      ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-sa="play" title="Смотреть"><span class="tri"></span></button>
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
         ${raw(isSer ? html`<span class="chip series">${seriesTag(title)}</span>` : '')}
         <span class="chip rq rq-${rq.tier}" title="${rateTip(rq)}">${rq.score}${rq.ru ? ' · RU' : ''}</span>
-        <span class="chip grey">${r._p || ''}</span>
+        ${raw(r._p ? html`<span class="chip grey src">${SRC_NAME[r._p] || r._p}</span>` : '')}
       </div>
       <div class="rate-stack">
         <span class="chip rating" data-tmdb hidden></span>
@@ -3081,7 +3578,7 @@ function resultRow(r, ix) {
       <div class="metabar">
         <span class="mb-stats">${raw(mb.map(esc).join(' &nbsp;·&nbsp; ') || '—')}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       <button data-sa="kp">Кинопоиск</button>
@@ -4667,7 +5164,7 @@ async function sendToDevice(t, f) {
     <div class="page-sub" style="margin-bottom:8px">${title}${raw(currentTc(t, f.id) > 5 ? ' · с ' + esc(fmtPos(currentTc(t, f.id))) : '')}</div>
     <div class="dev-list" data-list><div class="empty">Ищу устройства в сети…</div></div>
     <label class="row" style="gap:6px;margin:8px 0"><input type="checkbox" data-stop${isRemoteUI() ? '' : ' checked'}> Остановить плеер на компьютере</label>
-    <div class="row wrap"><button data-scan>⟳ Искать снова</button>
+    <div class="row wrap"><button data-scan>Искать снова</button>
       <span class="page-sub" style="flex:1;margin:0">Устройство — это открытый TorrClient на телефоне или планшете (по адресу удалённого доступа) либо телевизор с DLNA в той же сети.</span></div>
     <div class="row" style="margin-top:6px;gap:6px"><span class="page-sub" style="margin:0">Имя этого устройства:</span><input data-myname value="${devName()}" style="flex:1"></div></div>`;
   document.body.appendChild(ov);
@@ -4987,7 +5484,7 @@ function renderDownloads(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Загрузки</h1>
     <div class="page-sub" id="dlFolder"></div></div>
-      <button data-act="dlrefresh" class="iconbtn" title="Обновить">⟳</button></div>
+      <button data-act="dlrefresh" class="iconbtn" title="Обновить">${raw(ico('refresh'))}</button></div>
     <div class="card" id="dlSummary"><div class="empty">Сведения о сервере...</div></div>
     <div class="card" id="dlTorrents"><div class="empty">Сведения о раздачах...</div></div>
     <div class="card"><div class="row wrap"><b>Папка для сохранения:</b> <code id="dlPath"></code>
@@ -5059,11 +5556,7 @@ function subsNewTotal() { return (state.subs || []).reduce((n, s) => n + (Number
 /* paintSubsBadge — число непрочитанных находок на самой вкладке: без него о
    новой серии узнают, только заглянув в раздел. */
 function paintSubsBadge() {
-  const btn = $('#nav [data-view="subs"]');
-  if (!btn) return;
-  const n = subsNewTotal();
-  btn.textContent = n ? 'Подписки (' + n + ')' : 'Подписки';
-  btn.classList.toggle('hasnew', n > 0);
+  setNavBadge('subs', subsNewTotal());
 }
 async function subsAction(action, body) {
   return api('/api/subs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action }, body || {})) });
@@ -5143,8 +5636,8 @@ function renderSubs(root) {
     <div class="toolbar"><div class="grow"><h1 class="page-title">Подписки на сериалы</h1>
       <div class="page-sub">Раз в полчаса приложение ищет новые серии на rutor и в подключённых индексаторах (источники — в Настройках) — сериалы, аниме и мультсериалы. С ключом TMDB оно знает и дату выхода следующей серии. О находке сообщит уведомлением.</div></div>
       <input class="search-input" id="subNew" placeholder="Название сериала или запрос для трекера...">
-      <button id="subAdd" class="primary">＋ Следить</button>
-      <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">⟳</button>
+      <button id="subAdd" class="primary">${raw(ico('plus',16))} Следить</button>
+      <button id="subCheck" class="iconbtn" title="Проверить трекер сейчас">${raw(ico('refresh'))}</button>
     </div>
     <div id="subBody"><div class="empty">Загрузка подписок...</div></div>`;
   const add = () => { const inp = $('#subNew'); subsAdd(inp.value).then(() => { inp.value = ''; }); };
@@ -5381,7 +5874,7 @@ function seriesCard(g) {
   return html`<div class="card ser-card" data-sername="${cleanSeriesName(head.title)}" data-serhash="${head.hash}">
     <div class="ser-poster">
       ${raw(PH_SVG.replace('class="ph"', head.poster ? 'class="ph hidden"' : 'class="ph"'))}
-      ${raw(head.poster ? html`<img src="${head.poster}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(head.poster ? html`<img src="${head.poster}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <span class="chip rating" data-tmdb hidden></span>
     </div>
     <div class="ser-main">
@@ -6134,7 +6627,7 @@ async function paintTsUpdate(force, body) {
     else if (j.newer) btn = '<button id="tsUpdGo" class="primary">Обновить до ' + esc(j.latest) + '</button>';
     else if (j.latest && j.current) btn = '<span>Установлена последняя версия.</span> <button id="tsUpdGo">Переустановить</button>';
   }
-  el.innerHTML = line + (j.error ? '<div class="err-text">' + esc(j.error) + '</div>' : '') + (act ? '<div>' + act + '</div>' : '') + '<div class="row wrap" style="margin-top:6px">' + btn + ' <button id="tsUpdCheck" class="iconbtn" title="Проверить на GitHub">⟳</button></div>';
+  el.innerHTML = line + (j.error ? '<div class="err-text">' + esc(j.error) + '</div>' : '') + (act ? '<div>' + act + '</div>' : '') + '<div class="row wrap" style="margin-top:6px">' + btn + ' <button id="tsUpdCheck" class="iconbtn" title="Проверить на GitHub">' + ico('refresh') + '</button></div>';
   const go = $('#tsUpdGo'); if (go) go.onclick = () => { if (confirm('TorrServer перезапустится — текущий просмотр прервётся. Обновить?')) paintTsUpdate(false, { action: 'install' }); };
   const ck = $('#tsUpdCheck'); if (ck) ck.onclick = () => paintTsUpdate(true);
   clearTimeout(tsUpdPoll);

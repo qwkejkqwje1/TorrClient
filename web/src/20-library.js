@@ -1,44 +1,43 @@
 async function renderLibrary(root) {
   const lv = localStorage.getItem('tc_libview') || 'grid';
   root.innerHTML = html`
-    <div class="toolbar">
-      <h1 class="page-title">Библиотека</h1>
-      <input class="search-input" id="libQuery" placeholder="Фильтр по названию..." value="${state.query}">
-      <select id="libCat" style="width:auto">
+    <div class="page-head">
+      <div class="ph-txt"><h1 class="page-title">Библиотека</h1><div class="page-sub" id="libSub"></div></div>
+      <div class="ph-act">
+        <button id="libRec" title="Фильмы и сериалы, похожие на те, что в библиотеке (нужен ключ TMDB)">${raw(ico('sparkles', 16))}Рекомендации</button>
+        <div class="seg" id="libViewSeg">
+          <button data-vw="grid" class="${lv === 'grid' ? 'on' : ''}" title="Сетка">${raw(ico('grid', 16))}</button>
+          <button data-vw="list" class="${lv === 'list' ? 'on' : ''}" title="Список">${raw(ico('list', 16))}</button>
+        </div>
+      </div>
+    </div>
+    <div class="filterbar">
+      <input class="search-input" id="libQuery" placeholder="Фильтр по названию…" value="${state.query}">
+      <select id="libCat">
         <option value="all">Все категории</option>
         <option value="movie">Фильмы</option>
         <option value="tv">Сериалы</option>
         <option value="music">Музыка</option>
         <option value="other">Другое</option>
       </select>
-      <select id="libOrder" style="width:auto">
+      <select id="libOrder">
         <option value="name">По названию</option>
         <option value="date">По дате</option>
         <option value="size">По размеру</option>
         <option value="progress">По просмотру</option>
       </select>
-      <select id="libSeen" style="width:auto" title="Что показать по просмотру">
+      <select id="libSeen" title="Что показать по просмотру">
         <option value="all">Любой просмотр</option>
         <option value="new">Не начато</option>
         <option value="started">Начато</option>
         <option value="done">Досмотрено</option>
       </select>
-      <select id="libColl" style="width:auto" title="Подборка"></select>
-      <button id="collNew" class="iconbtn" title="Новая подборка">＋</button>
-      <button id="libReset" class="iconbtn hidden" title="Сбросить фильтры">✕</button>
-      <button data-act="refresh" class="iconbtn" title="Обновить">⟳</button>
-      <button id="libRec" title="Фильмы и сериалы, похожие на те, что в библиотеке (нужен ключ TMDB)">✨ Рекомендации</button>
-      <span class="spacer"></span>
-      <div class="seg" id="libViewSeg">
-        <button data-vw="grid" class="${lv === 'grid' ? 'on' : ''}" title="Сетка">▦</button>
-        <button data-vw="list" class="${lv === 'list' ? 'on' : ''}" title="Список">☰</button>
-      </div>
-      <button class="primary" data-open="add">+ Добавить торрент</button>
+      <select id="libColl" title="Подборка"></select>
+      <button id="collNew" class="iconbtn" title="Новая подборка">${raw(ico('plus', 16))}</button>
+      <button id="libReset" class="iconbtn hidden" title="Сбросить фильтры">${raw(ico('x', 16))}</button>
     </div>
-    <div class="page-sub" id="libSub"></div>
-    <div id="libContinue" class="cont-strip hidden"></div>
     <div id="libGrid" class="grid ${lv === 'list' ? 'list' : ''}"></div>
-    <div id="libEmpty" class="empty hidden">Библиотека пуста. Добавьте магнит или .torrent.</div>`;
+    <div id="libEmpty" class="empty hidden">${raw(ico('film', 34))}<b>Библиотека пуста</b>Перетащите магнит или .torrent в окно либо нажмите «Добавить» вверху.</div>`;
 
   $('#libQuery').value = state.query;
   $('#libCat').value = state.category;
@@ -67,8 +66,6 @@ async function renderLibrary(root) {
     $('#libSeen').value = 'all'; $('#libColl').value = '';
     paintLibrary();
   });
-  $('[data-open="add"]').addEventListener('click', openAddModal);
-  $('[data-act="refresh"]').addEventListener('click', () => { refreshLibrary(); });
   $$('#libViewSeg [data-vw]').forEach(b => b.addEventListener('click', () => {
     localStorage.setItem('tc_libview', b.dataset.vw);
     $('#libGrid').className = 'grid' + (b.dataset.vw === 'list' ? ' list' : '');
@@ -389,18 +386,20 @@ function bindContinue() {
     if (!card) return;
     const it = continueItems().find(x => x.t.hash === card.dataset.contHash && x.f.id === Number(card.dataset.contFile));
     if (!it) return;
-    // Отметка досмотра обнуляет позицию: возвращаться к серии больше некуда.
-    if (e.target.closest('[data-cont-done]')) {
-      savePosition(it.t.hash, it.f.id, 0, it.duration, true).then(() => { paintContinue(); paintLibrary(); });
-      return;
-    }
-    if (!it.f.unknown) { playSelected(it.t, it.f); return; }
-    // Файлы раздачи ещё не известны — сначала спрашиваем их у TorrServer.
-    waitForFiles(it.t).then(st => {
-      const f = st && (st.file_stats || []).find(x => x.id === it.f.id);
-      if (f) playSelected(Object.assign(it.t, { file_stats: st.file_stats }), f);
-      else if (st) toast('Файл не найден в раздаче', true);
-    });
+    if (e.target.closest('[data-cont-done]')) { doneContinue(it).then(() => { paintContinue(); paintLibrary(); }); return; }
+    playContinue(it);
+  });
+}
+// Отметка досмотра обнуляет позицию: возвращаться к серии больше некуда.
+function doneContinue(it) { return savePosition(it.t.hash, it.f.id, 0, it.duration, true); }
+// playContinue — запуск с места остановки (Библиотека и Главная).
+function playContinue(it) {
+  if (!it.f.unknown) { playSelected(it.t, it.f); return; }
+  // Файлы раздачи ещё не известны — сначала спрашиваем их у TorrServer.
+  waitForFiles(it.t).then(st => {
+    const f = st && (st.file_stats || []).find(x => x.id === it.f.id);
+    if (f) playSelected(Object.assign(it.t, { file_stats: st.file_stats }), f);
+    else if (st) toast('Файл не найден в раздаче', true);
   });
 }
 
@@ -435,13 +434,14 @@ function tile(t) {
   // библиотеки, и во время просмотра он застывал на случайной цифре. Живые
   // скорости — в окне «Закачки».
   if (!metaBits.length && fmtDate(t.timestamp)) metaBits.push('добавлен ' + fmtDate(t.timestamp));
-  const pg = hasMedia ? `<div class="progress"${sp ? ` title="просмотрено ${sp.done} из ${sp.total}"` : ''}><i style="width:${Math.min(100, (sp ? sp.share : loaded) * 100).toFixed(0)}%"></i></div>` : '';
+  // Пустая полоса под каждой плиткой — шум: полоса видна, когда есть что показать.
+  const pg = hasMedia && (sp ? sp.share : loaded) > 0.004 ? `<div class="progress"${sp ? ` title="просмотрено ${sp.done} из ${sp.total}"` : ''}><i style="width:${Math.min(100, (sp ? sp.share : loaded) * 100).toFixed(0)}%"></i></div>` : '';
   const pgNote = sp ? `<div class="page-sub">просмотрено ${sp.done} из ${sp.total}${sp.started ? ' · начато ' + sp.started : ''}</div>` : '';
   return html`
   <div class="tile" data-hash="${t.hash}">
     <div class="poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (t.poster ? 'hidden' : '') + '"'))}
-      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(t.poster ? html`<img src="${pimg(t.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-act="watch" title="Смотреть"><span class="tri"></span></button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
@@ -464,7 +464,7 @@ function tile(t) {
       <div class="metabar">
         <span class="mb-stats">${raw(metaBits.map(esc).join(' &nbsp;·&nbsp; ') || '—')}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       <button data-act="info">Инфо о раздаче</button>

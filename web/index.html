@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
 <title>TorrClient</title>
 <!-- Постеры приходят пачками с image.tmdb.org: тёплое соединение экономит
      рукопожатие TLS на первой же волне картинок. -->
@@ -10,23 +11,44 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">Torr<b>Client</b> <span id="appVer" class="ver-badge" title="Версия программы — нажмите, чтобы увидеть, что нового"></span></div>
-  <span class="spacer"></span>
-  <select id="activeselect" class="tb-select hidden"></select>
-  <!-- Причина, по которой постеры и оценки не приходят (ключ TMDB не задан или
-       отклонён сервисом). Скрыта, пока причина не названа: пустая полоса
-       «предупреждения» на исправных настройках только путала бы. -->
-  <button id="metaWarn" class="tb-warn hidden"></button>
-  <button id="refreshBtn" class="tb-theme tb-refresh" title="Обновить раздел (R)" aria-label="Обновить"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
-  <button id="sleepBtn" class="tb-theme tb-sleep" title="Таймер сна: остановить плеер, усыпить или выключить компьютер">⏾<span id="sleepLeft"></span></button>
-  <button id="themeBtn" class="tb-theme" title="Тема: тёмная / светлая / как в системе (клавиша T)">🌓</button>
-  <div id="serverStatus" class="tb-status"></div>
-</header>
-<nav id="nav"></nav>
-<main>Загрузка...</main>
-<div id="toast"></div>
-<button id="toTop" title="Наверх">▲</button>
+<!-- Каркас 2.0: боковая панель разделов слева, сверху — строка с поиском-палитрой
+     и быстрыми действиями. На телефоне панель уходит вниз полосой вкладок. -->
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Torr<b>Client</b></span>
+      <span id="appVer" class="ver-badge" title="Версия программы — нажмите, чтобы увидеть, что нового"></span>
+    </div>
+    <nav id="nav" aria-label="Разделы"></nav>
+    <div class="side-foot">
+      <div id="serverStatus" class="tb-status"></div>
+      <button id="sideCollapse" class="side-collapse" title="Свернуть панель" aria-label="Свернуть панель"></button>
+    </div>
+  </aside>
+  <div class="app-col">
+    <header class="topbar">
+      <button id="omni" class="omni" title="Поиск и команды (Ctrl+K)">
+        <span class="omni-ico" aria-hidden="true"></span>
+        <span class="omni-text">Найти фильм, раздел или команду…</span>
+        <span class="kbd omni-kbd">Ctrl K</span>
+      </button>
+      <span class="spacer"></span>
+      <!-- Причина, по которой постеры и оценки не приходят (ключ TMDB не задан или
+           отклонён сервисом). Скрыта, пока причина не названа. -->
+      <button id="metaWarn" class="tb-warn hidden"></button>
+      <select id="activeselect" class="tb-select hidden"></select>
+      <button id="refreshBtn" class="tb-btn tb-refresh" title="Обновить раздел (R)" aria-label="Обновить"></button>
+      <button id="sleepBtn" class="tb-btn tb-sleep" title="Таймер сна: остановить плеер, усыпить или выключить компьютер" aria-label="Таймер сна"><span class="tb-ico"></span><span id="sleepLeft"></span></button>
+      <button id="themeBtn" class="tb-btn tb-theme" title="Тема (клавиша T)" aria-label="Тема"></button>
+      <button id="addBtn" class="primary tb-add" title="Добавить магнит или .torrent"><span class="tb-ico"></span><span class="tb-add-l">Добавить</span></button>
+    </header>
+    <main>Загрузка...</main>
+  </div>
+</div>
+<nav id="tabbar" class="tabbar" aria-label="Разделы"></nav>
+<div id="toast" role="status" aria-live="polite"></div>
+<button id="toTop" title="Наверх" aria-label="Наверх"></button>
 <script src="/app.js"></script>
 </body>
 </html>

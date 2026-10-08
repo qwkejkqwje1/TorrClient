@@ -14,14 +14,14 @@ function resultRow(r, ix) {
   <div class="tile result" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (r.poster ? 'hidden' : '') + '"'))}
-      ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(r.poster ? html`<img src="${pimg(r.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-sa="play" title="Смотреть"><span class="tri"></span></button>
       <button class="fav-ov" data-sa="fav" title="В избранное">♥</button>
       <div class="badges">
         ${raw(q ? html`<span class="chip ${q}">${q === 'q2160' ? '4K' : '1080p'}</span>` : '')}
         ${raw(isSer ? html`<span class="chip series">${seriesTag(title)}</span>` : '')}
         <span class="chip rq rq-${rq.tier}" title="${rateTip(rq)}">${rq.score}${rq.ru ? ' · RU' : ''}</span>
-        <span class="chip grey">${r._p || ''}</span>
+        ${raw(r._p ? html`<span class="chip grey src">${SRC_NAME[r._p] || r._p}</span>` : '')}
       </div>
       <div class="rate-stack">
         <span class="chip rating" data-tmdb hidden></span>
@@ -37,7 +37,7 @@ function resultRow(r, ix) {
       <div class="metabar">
         <span class="mb-stats">${raw(mb.map(esc).join(' &nbsp;·&nbsp; ') || '—')}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       <button data-sa="kp">Кинопоиск</button>

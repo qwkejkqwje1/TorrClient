@@ -31,7 +31,7 @@ const fmtDate = ts => ts ? new Date(ts * 1000).toLocaleDateString('ru-RU') : '';
 const fmtDur = s => { if (!s) return ''; s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ' ч ' : '') + m + ' мин'; };
 
 const state = {
-  view: 'library', hello: null, profiles: [], active: null, players: [],
+  view: 'home', hello: null, profiles: [], active: null, players: [],
   lib: [], viewed: [], dlJobs: [], settings: null, watch: { folder: '', log: [] }, folders: null,
   query: '', category: 'all', searchState: { loading: false, results: [], provider: savedPref('tc_prov', ['rutor', 'torznab', 'kinozal', 'both'], 'both'), cat: savedPref('tc_cat', null, ''), q: '' },
   // seen — фильтр по состоянию просмотра, coll — выбранная подборка. Пустая
@@ -62,14 +62,14 @@ function toast(msg, isErr) {
 // Темы — только наборы цветов (переменные CSS), переключение мгновенное.
 // sw — образец для выбора в настройках: фон, панель, акцент, второй акцент.
 const THEME_LIST = [
-  { id: 'dark', name: 'Тёмная', tone: 'dark', sw: ['#0e131a', '#1c2532', '#4f8cff', '#7ce08a'] },
-  { id: 'light', name: 'Светлая', tone: 'light', sw: ['#f3f5f9', '#ffffff', '#2f6fe6', '#1f9d45'] },
-  { id: 'system', name: 'Как в системе', tone: 'auto', sw: ['#0e131a', '#f3f5f9', '#4f8cff', '#2f6fe6'] },
-  { id: 'oled', name: 'Чёрная (OLED)', tone: 'dark', sw: ['#000000', '#161616', '#4f8cff', '#7ce08a'] },
-  { id: 'nord', name: 'Северная', tone: 'dark', sw: ['#2e3440', '#434c5e', '#88c0d0', '#a3be8c'] },
-  { id: 'dracula', name: 'Дракула', tone: 'dark', sw: ['#1e1f29', '#343746', '#bd93f9', '#50fa7b'] },
-  { id: 'forest', name: 'Лес', tone: 'dark', sw: ['#0f1712', '#1e2d23', '#4caf7a', '#b5e06a'] },
-  { id: 'sepia', name: 'Сепия', tone: 'light', sw: ['#f4ecdc', '#eadfc8', '#a0602a', '#5f8a3a'] },
+  { id: 'dark', name: 'Графит', tone: 'dark', sw: ['#0f1012', '#1f2024', '#7cb0ff', '#5fcf8c'] },
+  { id: 'light', name: 'Светлая', tone: 'light', sw: ['#f7f7f5', '#ffffff', '#1f6fd1', '#2f8f5c'] },
+  { id: 'system', name: 'Как в системе', tone: 'auto', sw: ['#0f1012', '#f7f7f5', '#7cb0ff', '#1f6fd1'] },
+  { id: 'oled', name: 'Чёрная (OLED)', tone: 'dark', sw: ['#000000', '#151517', '#7cb0ff', '#5fcf8c'] },
+  { id: 'nord', name: 'Северная', tone: 'dark', sw: ['#2e3440', '#3b4252', '#88c0d0', '#a3be8c'] },
+  { id: 'dracula', name: 'Дракула', tone: 'dark', sw: ['#1e1f29', '#2e303f', '#bd93f9', '#50fa7b'] },
+  { id: 'forest', name: 'Лес', tone: 'dark', sw: ['#0f1512', '#1c2620', '#6fcf98', '#b5e06a'] },
+  { id: 'sepia', name: 'Сепия', tone: 'light', sw: ['#f4ecdc', '#efe5d0', '#9a5a22', '#527a30'] },
 ];
 const THEMES = THEME_LIST.map(t => t.id);
 const THEME_NAMES = Object.fromEntries(THEME_LIST.map(t => [t.id, t.name.toLowerCase()]));
@@ -104,13 +104,13 @@ function skeleton(label, n = 6, grid = false) {
   return `<div class="skel-label">${label}</div><div class="skel${grid ? ' skel-grid' : ''}">${rows}</div>`;
 }
 
-const NAV_KEYS = ['library', 'search', 'favorites', 'bookmarks', 'players', 'series', 'subs', 'downloads', 'settings', 'server'];
-const NAV_LABELS = { library: 'Библиотека', search: 'Поиск', favorites: 'Избранное', bookmarks: 'Закладки', players: 'Плееры', series: 'Сериалы', subs: 'Подписки', downloads: 'Загрузки', settings: 'Настройки', server: 'Сервер' };
+// Разделы и их порядок задаёт NAV_GROUPS (05-ui.js); Alt+цифра — первые десять.
+const navKeys = () => NAV_ITEMS.map(x => x[0]).slice(0, 10);
 function showKeys() {
-  const rows = [['/ или Ctrl+K', 'перейти к поиску'], ['T', 'сменить тему'], ['R', 'обновить раздел'], ['Esc в поле', 'очистить поле'], ['Alt+1 … Alt+0', 'разделы по порядку'], ['Esc', 'закрыть окно'], ['?', 'этот список']];
-  const nav = NAV_KEYS.map((k, i) => `Alt+${(i + 1) % 10} — ${NAV_LABELS[k]}`).join(' · ');
+  const rows = [['Ctrl+K', 'палитра: разделы, команды, раздачи, поиск'], ['/', 'перейти к поиску'], ['T', 'сменить тему'], ['R', 'обновить раздел'], ['[', 'свернуть / развернуть панель'], ['Esc в поле', 'очистить поле'], ['Alt+1 … Alt+0', 'разделы по порядку'], ['Esc', 'закрыть окно'], ['?', 'этот список']];
+  const nav = navKeys().map((k, i) => `Alt+${(i + 1) % 10} — ${NAV_ITEMS[i][1]}`).join(' · ');
   const ov = document.createElement('div'); ov.className = 'overlay';
-  ov.innerHTML = `<div class="modal" style="max-width:520px"><h3>Горячие клавиши</h3><table class="keys-table">${rows.map(([k, d]) => `<tr><td><span class="kbd">${k}</span></td><td>${d}</td></tr>`).join('')}</table><p class="page-sub">${nav}</p><div class="row"><button class="primary" id="keysOk">Понятно</button></div></div>`;
+  ov.innerHTML = `<div class="modal" style="max-width:560px"><h3>Горячие клавиши</h3><table class="keys-table">${rows.map(([k, d]) => `<tr><td><span class="kbd">${k}</span></td><td>${d}</td></tr>`).join('')}</table><p class="page-sub">${nav}</p><div class="row"><button class="primary" id="keysOk">Понятно</button></div></div>`;
   document.body.appendChild(ov);
   const close = () => ov.remove();
   ov.addEventListener('click', e => { if (e.target === ov) close(); });
@@ -122,9 +122,9 @@ function focusSearch() {
 }
 document.addEventListener('keydown', e => {
   const t = e.target; const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); focusSearch(); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'л')) { e.preventDefault(); openPalette(); return; }
   if (e.altKey && !e.ctrlKey && /^[0-9]$/.test(e.key)) {
-    const k = NAV_KEYS[(+e.key + 9) % 10]; if (k) { e.preventDefault(); setView(k); } return;
+    const k = navKeys()[(+e.key + 9) % 10]; if (k) { e.preventDefault(); setView(k); } return;
   }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   if (document.querySelector('body > .overlay')) return;
@@ -132,6 +132,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === '?') { e.preventDefault(); showKeys(); }
   else if (e.key === 't' || e.key === 'T' || e.key === 'е' || e.key === 'Е') cycleTheme();
   else if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') refreshView();
+  else if (e.key === '[' || e.key === 'х' || e.key === 'Х') toggleSide();
 });
 
 // addClear — крестик «×» в поле ввода: одним щелчком (или Esc) очищает поле и
@@ -248,6 +249,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['2.0.0', ['Новый облик: спокойная графитовая тема по умолчанию, крупные постеры, единые карточки, кнопки и окна во всех разделах; все восемь тем перерисованы', 'Разделы теперь в боковой панели тремя группами — основное, «Моё» и «Система»; панель сворачивается до значков (клавиша [ ). На телефоне — полоса вкладок внизу и лист «Ещё»', '«Главная» — новый стартовый раздел: продолжить просмотр крупными карточками, новые серии по подпискам, избранное, «Сейчас смотрят» и недавно добавленное — всё на одном экране', 'Палитра команд Ctrl+K: любой раздел, действие, тема, раздача из библиотеки или избранного — по нескольким буквам; Enter ищет набранное на трекерах, вторая строка — лучшая раздача', 'Поиск: большое поле, фильтры одной строкой, подборки (ТОП-24, Популярное, Для вас, Сейчас смотрят) отдельными кнопками', 'Кнопка «Добавить» всегда в шапке, а не только в Библиотеке и Поиске']],
   ['1.20.0', ['♥ «Сейчас смотрят» и «Для вас»: сердечко на карточке добавляет название в избранное — оттуда одним нажатием подбирается лучшая раздача', 'Больше нет привязки к одному источнику: ТОП за 24 часа собирается из rutor и индексаторов (JacRed, Jackett, Prowlarr) разом, а без ключа TMDB — из ленты свежих раздач индексатора', '«Популярное» при недоступном rutor строится через индексаторы', 'Настройки → «Источники поиска»: rutor можно выключить совсем; по умолчанию поиск идёт по всем источникам', 'Удаление из «Избранного» снова работает']],
   ['1.19.0', ['📲 Отправить на устройство: продолжить просмотр с того же места на телефоне, планшете, другом компьютере с открытым TorrClient или на телевизоре с DLNA в той же сети (меню плитки и кнопка в панели показа)', '⏾ Таймер сна в шапке: через 15–120 минут или после текущей серии — остановить плеер, усыпить или выключить компьютер; предупреждение за минуту с «Отложить»', 'Поиск по настройкам: несколько слов в любом порядке, синонимы, подсветка найденного, Enter — к первому, Ctrl+F или «/»', 'ТОП за 24 часа без ограничения в 24 раздачи: свежие раздачи всех категорий rutor; если rutor не отвечает — ТОП собирается через индексаторы по трендам TMDB', 'Учёт просмотра при плейлисте VLC: серия определяется по текущему элементу плейлиста, позиции следующих серий больше не пишутся на первую', '«Сейчас смотрят»: в жанрах появились Аниме, Мультфильмы и Аниме-фильмы', 'Кинозал: вход по логину и паролю в настройках, проверка файла, а если .torrent не скачивается — та же раздача ищется на rutor и в индексаторах', 'Подписки на сериалы: поиск по rutor и индексаторам, понятная запись аниме и мультиков («[1-12 из 24]», «TV-2», «эпизоды»), чистый запрос вместо названия раздачи со скобками, проверка сразу после подписки, дата следующей серии по TMDB, системные уведомления', 'Обновление TorrServer MatriX в разделе «Сервер»: версия, скачивание с GitHub и перезапуск одной кнопкой', 'Библиотека после запуска больше не остаётся пустой: пока TorrServer поднимается, список запрашивается повторно сам']],
   ['1.18.3', ['«Продолжить просмотр» показывает и то, что запускали в плеере без отчёта о позиции или с телефона: по списку просмотренного TorrServer']],

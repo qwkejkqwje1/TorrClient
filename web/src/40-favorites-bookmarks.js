@@ -34,7 +34,7 @@ async function renderFavorites(root) {
     <div id="favBody"></div>`;
   $('#favClear').addEventListener('click', () => { if (list.length && confirm('Очистить весь список избранного?')) { saveFavList([]); renderFavorites($('main')); } });
   const body = $('#favBody');
-  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «⋮ → В избранное» в результатах поиска.</div>'; return; }
+  if (!list.length) { body.innerHTML = '<div class="empty">Пусто. Нажмите ♥ на карточке в «Сейчас смотрят» или «Ещё → В избранное» в результатах поиска.</div>'; return; }
   const sorted = [...list].sort((a, b) => (b.time || 0) - (a.time || 0));
   body.innerHTML = '<div class="grid results">' + sorted.map((it, i) => favCard(it, i)).join('') + '</div>';
   $$('.tile.fav', body).forEach(card => bindFavCard(card, sorted[parseInt(card.dataset.ix, 10)]));
@@ -47,7 +47,7 @@ function favCard(it, ix) {
   <div class="tile result fav" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (it.poster ? 'hidden' : '') + '"'))}
-      ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(it.poster ? html`<img src="${pimg(it.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-fa="play" title="${isT ? 'Подобрать лучшую раздачу' : 'Смотреть'}"><span class="tri"></span></button>
       <div class="badges"><span class="chip grey">${isT ? 'название' : 'избранное'}</span></div>
       <div class="rate-stack">
@@ -64,7 +64,7 @@ function favCard(it, ix) {
       <div class="metabar">
         <span class="mb-stats">${isT ? (it.kind === 'tv' ? 'Сериал · ' : '') + (it.year || '') + ' · ' : ''}${it.time ? 'добавлено ' + new Date(it.time).toLocaleDateString('ru-RU') : '—'}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       ${raw(isT ? '' : '<button data-fa="magnet">Магнит-ссылка</button>')}
@@ -130,7 +130,7 @@ async function favEnrich(list) {
 async function renderBookmarks(root) {
   const list = getBookmarks();
   root.innerHTML = `<div class="toolbar"><h1 class="page-title">Закладки просмотра</h1>
-    <div class="page-sub">Позиции, которые плееры не запоминают. Сохраняются в карточке торрента («⋮ → Закладка») или в окне «Инфо».</div>
+    <div class="page-sub">Позиции, которые плееры не запоминают. Сохраняются в карточке торрента («Ещё → Закладка») или в окне «Инфо».</div>
     <span class="spacer"></span>
     <button id="bmClear" class="danger">Очистить</button></div>
     <div id="bmBody"></div>`;
@@ -186,7 +186,7 @@ function bookmarkCard(b, ix) {
   <div class="tile result bm" data-ix="${ix}">
     <div class="result-poster">
       ${raw(PH_SVG.replace('class="ph"', 'class="ph ' + (b.poster ? 'hidden' : '') + '"'))}
-      ${raw(b.poster ? html`<img src="${pimg(b.poster)}" loading="lazy" onerror="this.remove();this.parentElement.querySelector('svg').classList.remove('hidden')">` : '')}
+      ${raw(b.poster ? html`<img src="${pimg(b.poster)}" loading="lazy" onerror="var p=this.parentElement;this.remove();p.querySelector('svg').classList.remove('hidden')">` : '')}
       <button class="play-ov" data-bm="resume" title="${pos ? 'Продолжить' : 'Смотреть'}"><span class="tri"></span></button>
       <div class="badges"><span class="chip series">закладка</span></div>
       <div class="rate-stack">
@@ -203,7 +203,7 @@ function bookmarkCard(b, ix) {
       <div class="metabar">
         <span class="mb-stats">${b.file ? b.file : 'файл ' + b.file_index}${raw(pos ? ' &nbsp;·&nbsp; ' + pos : '')}</span>
       </div>
-      <button class="menu-ico" data-menu title="Ещё">⋮</button>
+      <button class="menu-ico" data-menu title="Ещё" aria-label="Ещё">${raw(ico('more', 18))}</button>
     </div>
     <div class="ctxmenu hidden">
       <button data-bm="resume">Продолжить (${pos ? pos : 'с начала'})</button>
