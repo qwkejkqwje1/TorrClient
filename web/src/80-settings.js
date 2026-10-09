@@ -120,7 +120,8 @@ function renderSettings(root) {
     <div class="card"><h3>Оформление</h3>
       ${raw(themePickerHtml())}
       <p class="page-sub">Кнопка 🌓 в шапке и клавиша T перебирают темы по кругу.</p>
-      <label class="check" title="Звездопад на фоне «Графита», пиксельные звёзды «Денди», варп-прыжок при запуске просмотра"><input type="checkbox" id="fxToggle" ${localStorage.getItem('tc_fx') === '0' ? '' : 'checked'}> Анимации: звёздное небо и варп-прыжок при запуске</label>
+      <label class="check" title="Звездопад на фоне «Графита», пиксельные звёзды «Денди», варп-прыжок при запуске просмотра"><input type="checkbox" id="fxToggle" ${localStorage.getItem('tc_fx') === '0' ? '' : 'checked'}> Живой фон темы (звёзды, дождь символов, лепестки, море)</label>
+      <div class="row wrap" style="margin-top:8px; align-items:center; gap:8px"><span>Анимация запуска просмотра:</span>${raw(launchSelectHtml())}</div>
     </div>
     <div class="card" id="remoteCard"><h3>Доступ с телефона</h3>
       <p class="page-sub">Откройте TorrClient на телефоне в той же Wi-Fi-сети: наведите камеру на QR-код или введите адрес и PIN. С телефона можно искать, добавлять раздачи и запускать просмотр на компьютере.</p>
@@ -167,6 +168,7 @@ function renderSettings(root) {
   });
   $('#npAdd').addEventListener('click', addProfile);
   { const fxt = $('#fxToggle'); if (fxt) fxt.addEventListener('change', () => { savePref('tc_fx', fxt.checked ? '1' : '0'); fxApply(); }); }
+  bindLaunchSelect();
   $('#wfReg').addEventListener('click', async () => {
     try { await api('/api/reg?action=install', { method: 'POST' }); toast('Протокол magnet:// зарегистрирован. Проверьте, что TorrClient — браузер по умолчанию для magnet.'); renderServerStatus(); } catch (e) { toast(e.message, true); }
   });

@@ -99,6 +99,10 @@ const THEME_LIST = [
   // Глобальная тема: не только цвета, но и шрифт, пиксельные рамки, ЭЛТ-развёртка
   // и свои анимации (95-retro.css, 78-fx.js).
   { id: 'retro', name: 'Денди 90-х', tone: 'dark', sw: ['#000000', '#1c1c3a', '#f83800', '#f8b800'] },
+  { id: 'matrix', name: 'Матрица', tone: 'dark', sw: ['#000000', '#062014', '#39ff7a', '#a6ff3c'] },
+  { id: 'neon', name: 'Кибер-неон', tone: 'dark', sw: ['#0d0221', '#22094a', '#ff2bd6', '#00f0ff'] },
+  { id: 'sakura', name: 'Японский сад', tone: 'light', sw: ['#f6f0e4', '#fbf7ef', '#c2456e', '#5d8a4a'] },
+  { id: 'sea', name: 'Девятый вал', tone: 'dark', sw: ['#06131f', '#122b40', '#f2c14e', '#5fc9b5'] },
 ];
 const THEMES = THEME_LIST.map(t => t.id);
 const THEME_NAMES = Object.fromEntries(THEME_LIST.map(t => [t.id, t.name.toLowerCase()]));
