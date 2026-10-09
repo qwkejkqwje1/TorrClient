@@ -29,7 +29,7 @@ function isMusicTorrent(t, set) {
 const mu = { q: '', rows: [], busy: false, err: '', queue: [], ix: -1, t: null, audio: null };
 
 async function renderMusic(root) {
-  root.innerHTML = html`<div class="mu">
+  root.innerHTML = html`<div class="mu-wrap"><div class="mu">
     <div class="mu-head"><h1 class="page-title">Музыка</h1><span class="page-sub">только аудиораздачи · играет здесь же</span></div>
     <div class="mu-search">
       <span class="sb-ico">${raw(ico('search', 18))}</span>
@@ -40,7 +40,7 @@ async function renderMusic(root) {
     <div id="muMine"></div>
     <div id="muRes"></div>
     <div id="muPlayer"></div>
-  </div>`;
+  </div>${raw(dancerHtml())}</div>`;
   const q = $('#muQ');
   q.addEventListener('keydown', e => { if (e.key === 'Enter') musicSearch(); else if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); } });
   q.addEventListener('input', () => $('#muX').classList.toggle('hidden', !q.value));
@@ -48,6 +48,7 @@ async function renderMusic(root) {
   $('#muGo').addEventListener('click', musicSearch);
   if (!root._muBound) { root._muBound = true; root.addEventListener('click', onMusicClick); }
   paintMusicMine(); paintMusicRes(); paintMusicPlayer();
+  bindDancer();
 }
 
 async function musicSearch() {

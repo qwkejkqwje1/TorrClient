@@ -38,3 +38,19 @@
 .mu-q > div{position:absolute; right:0; bottom:36px; width:min(360px,80vw); max-height:300px; overflow:auto; background:var(--bg2); border:1px solid var(--line2); border-radius:var(--r); box-shadow:var(--sh-2); padding:4px}
 .mu-q > div button{display:block; width:100%; text-align:left; border:0; background:none; min-height:28px; font-size:12.5px; padding:2px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .mu-q > div button.on{color:var(--acc); background:var(--acc-soft)}
+/* неоновая танцовщица: справа от раздела, на узком экране — над ним */
+.mu-wrap{position:relative; display:flex; gap:20px; align-items:flex-start}
+.mu-wrap .mu{flex:1; min-width:0}
+.mu-stage{position:sticky; top:12px; flex:none; width:300px; height:min(560px,calc(100vh - 110px)); border-radius:var(--r-lg); overflow:hidden; background:#05030f; border:1px solid rgba(0,240,255,.18); box-shadow:0 0 30px rgba(255,43,214,.12),var(--sh-2)}
+.mu-stage canvas{display:block; width:100%; height:100%}
+.mu-stage-x{position:absolute; top:6px; right:6px; width:28px; height:28px; min-height:0; padding:0; color:rgba(200,240,255,.7); background:rgba(0,0,0,.3); border-radius:50%; font-size:16px}
+.mu-stage-cap{position:absolute; left:10px; bottom:8px; right:10px; font:11px/1.3 var(--mono); color:rgba(0,240,255,.6); letter-spacing:.08em; text-transform:uppercase; pointer-events:none}
+.mu-stage.off{width:auto; height:auto; background:none; border:0; box-shadow:none; overflow:visible}
+.mu-stage.off canvas,.mu-stage.off .mu-stage-cap{display:none}
+.mu-stage.off .mu-stage-x{position:static; width:36px; height:36px; font-size:18px; background:var(--bg2); border:1px solid var(--line2)}
+@media (max-width:1180px){
+  .mu-wrap{flex-direction:column-reverse}
+  .mu-wrap .mu{width:100%}
+  .mu-stage{position:relative; top:0; width:100%; max-width:860px; height:300px}
+  .mu-stage.off{position:absolute; right:24px}
+}
