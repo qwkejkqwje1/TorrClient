@@ -99,6 +99,10 @@ const THEME_LIST = [
   // Глобальная тема: не только цвета, но и шрифт, пиксельные рамки, ЭЛТ-развёртка
   // и свои анимации (95-retro.css, 78-fx.js).
   { id: 'retro', name: 'Денди 90-х', tone: 'dark', sw: ['#000000', '#1c1c3a', '#f83800', '#f8b800'] },
+  { id: 'matrix', name: 'Матрица', tone: 'dark', sw: ['#000000', '#062014', '#39ff7a', '#a6ff3c'] },
+  { id: 'neon', name: 'Кибер-неон', tone: 'dark', sw: ['#0d0221', '#22094a', '#ff2bd6', '#00f0ff'] },
+  { id: 'sakura', name: 'Японский сад', tone: 'light', sw: ['#f6f0e4', '#fbf7ef', '#c2456e', '#5d8a4a'] },
+  { id: 'sea', name: 'Девятый вал', tone: 'dark', sw: ['#06131f', '#122b40', '#f2c14e', '#5fc9b5'] },
 ];
 const THEMES = THEME_LIST.map(t => t.id);
 const THEME_NAMES = Object.fromEntries(THEME_LIST.map(t => [t.id, t.name.toLowerCase()]));
@@ -279,6 +283,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['2.3.0', ['В разделе «Музыка» живёт неоновая танцовщица-голограмма: слышит трек, сама находит темп и танцует под него (× убирает её)', 'Новые темы с живым фоном: «Матрица», «Кибер-неон», светлая «Японский сад» с лепестками сакуры и «Девятый вал» в духе Айвазовского и Ван Гога', 'Анимации запуска просмотра: варп, «Матрица», «Киноплёнка» с отсчётом 3-2-1, «Вихрь сакуры», «Неон», «Девятый вал» — по теме, случайная или своя (Настройки → Оформление)', 'Звездопад у «Графита» стал случайным: звёзды падают в разное время и в разных местах']],
   ['2.2.0', ['Поиск сразу открывает карточку фильма, если название нашлось в TMDB (галочка «сразу карточка»); над раздачами — карточка названия', 'Крестик и Esc в поле поиска очищают запрос', 'В карточке фильма у каждой раздачи «♥» — именно эта раздача уходит в избранное', 'Исправлен размер раздач Кинозала: «37.85 ГБ» показывалось как 38 байт', '«Продолжить просмотр» — от последнего открытого и не больше 6 карточек', 'Оценка качества у аниме и мультсериалов в Библиотеке — по именам файлов', 'Новое «Сейчас играет» в шапке: что открыто в плеере или какой трек звучит', 'Колокольчик уведомлений: новые серии больше не теряются', 'Сериалы из Библиотеки отслеживаются сами — о новых сериях приходит уведомление', 'Раздел «Музыка»: только аудиораздачи и плеер прямо в окне; музыка не попадает в Библиотеку', 'Новая тема «Денди 90-х», звёздное небо у «Графита» и варп-прыжок при запуске просмотра (выключается в Настройках → Оформление)']],
   ['2.1.0', ['Карточка фильма: постер, описание, сезоны и серии с отметками просмотра, все раздачи с оценкой качества и числом раздающих, «Смотреть» и «Следить». Открывается с любой карточки названия и с раздач поиска, кроме ТОПа за 24 часа', 'Лучшая раздача считается по качеству, русской дорожке, раздающим и размеру; для сериала выберите сезон — лишние раздачи уйдут', 'Поиск показывает раздачи по мере ответа каждого источника, а зависший отрезается через 12 секунд', 'Главная настраивается: включить, выключить и переставить ряды, свои ряды (подборка TMDB, ТОП раздела, поиск — например «Новинки аниме»), ряд «Детское»; приветствие убрано', 'Любой раздел можно сделать стартовым: правый клик по нему в панели или «Настроить» на Главной', 'Кнопки мыши «назад» и «вперёд» ходят по разделам и карточкам', 'Удаление без окна подтверждения: «Удалено · Вернуть»', 'В библиотеке у раздач — оценка качества и источник/кодек/звук', 'Исправлена кнопка «Смотреть» на постере (вместо значка был синий круг); сердечки — по центру сверху']],
   ['2.0.0', ['Новый облик: спокойная графитовая тема по умолчанию, крупные постеры, единые карточки, кнопки и окна во всех разделах; все восемь тем перерисованы', 'Разделы теперь в боковой панели тремя группами — основное, «Моё» и «Система»; панель сворачивается до значков (клавиша [ ). На телефоне — полоса вкладок внизу и лист «Ещё»', '«Главная» — новый стартовый раздел: продолжить просмотр крупными карточками, новые серии по подпискам, избранное, «Сейчас смотрят» и недавно добавленное — всё на одном экране', 'Палитра команд Ctrl+K: любой раздел, действие, тема, раздача из библиотеки или избранного — по нескольким буквам; Enter ищет набранное на трекерах, вторая строка — лучшая раздача', 'Поиск: большое поле, фильтры одной строкой, подборки (ТОП-24, Популярное, Для вас, Сейчас смотрят) отдельными кнопками', 'Кнопка «Добавить» всегда в шапке, а не только в Библиотеке и Поиске']],
@@ -6269,7 +6274,7 @@ function isMusicTorrent(t, set) {
 const mu = { q: '', rows: [], busy: false, err: '', queue: [], ix: -1, t: null, audio: null };
 
 async function renderMusic(root) {
-  root.innerHTML = html`<div class="mu">
+  root.innerHTML = html`<div class="mu-wrap"><div class="mu">
     <div class="mu-head"><h1 class="page-title">Музыка</h1><span class="page-sub">только аудиораздачи · играет здесь же</span></div>
     <div class="mu-search">
       <span class="sb-ico">${raw(ico('search', 18))}</span>
@@ -6280,7 +6285,7 @@ async function renderMusic(root) {
     <div id="muMine"></div>
     <div id="muRes"></div>
     <div id="muPlayer"></div>
-  </div>`;
+  </div>${raw(dancerHtml())}</div>`;
   const q = $('#muQ');
   q.addEventListener('keydown', e => { if (e.key === 'Enter') musicSearch(); else if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); } });
   q.addEventListener('input', () => $('#muX').classList.toggle('hidden', !q.value));
@@ -6288,6 +6293,7 @@ async function renderMusic(root) {
   $('#muGo').addEventListener('click', musicSearch);
   if (!root._muBound) { root._muBound = true; root.addEventListener('click', onMusicClick); }
   paintMusicMine(); paintMusicRes(); paintMusicPlayer();
+  bindDancer();
 }
 
 async function musicSearch() {
@@ -6448,6 +6454,435 @@ function onMusicClick(e) {
   if (t.closest('[data-mu-prev]')) return musicNext(-1);
   if (t.closest('[data-mu-next]')) return musicNext(1);
   if (t.closest('[data-mu-stop]')) return musicStop();
+}
+/* ───────────── музыка: неоновая танцовщица ─────────────
+   Голограмма в духе неонового нуара: живёт в разделе «Музыка» и танцует
+   под трек, который играет в окне. Звук разбирается Web Audio: по басу
+   ищутся удары, из промежутков между ними — темп, к которому подстраивается
+   «внутренний метроном». Фигура — скелет с прямой кинематикой рук и
+   обратной для ног; движения (покачивание, волна, «качок», вог, вращение)
+   меняются каждые 8 долей и зависят от громкости. Рисуется 30 кадров/с
+   только пока раздел открыт и окно не свёрнуто; если звук не получен,
+   она просто ждёт и покачивается. */
+const dz = { cv: null, ctx: null, fig: null, fctx: null, glow: null, gctx: null, raf: 0, last: 0, w: 0, h: 0, dpr: 1,
+  b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, hi: 0, prevE: 0,
+  move: 'sway', prevMove: 'sway', moveAt: 0, spinAt: -99, glitch: 0, hair: 0, hairV: 0, skirt: 0, lastHead: 0,
+  poseA: null, poseB: null, vogueIx: 0, rain: [], city: [], spec: null, cost: 0 };
+function dancerOn() { return localStorage.getItem('tc_dancer') !== '0'; }
+function dancerHook() {
+  // Подключаемся к звуку один раз: createMediaElementSource можно вызвать
+  // на элементе лишь однажды, и дальше звук идёт через AudioContext.
+  if (mu.an || !mu.audio || !window.AudioContext) return;
+  try {
+    const ac = new AudioContext();
+    const src = ac.createMediaElementSource(mu.audio);
+    const an = ac.createAnalyser(); an.fftSize = 1024; an.smoothingTimeConstant = 0.5;
+    src.connect(an); an.connect(ac.destination);
+    mu.ac = ac; mu.an = an; dz.spec = new Uint8Array(an.frequencyBinCount);
+    mu.audio.addEventListener('play', () => ac.resume().catch(() => {}));
+    if (!mu.audio.paused) ac.resume().catch(() => {});
+  } catch {}
+}
+function dancerHtml() {
+  return html`<aside class="mu-stage${dancerOn() ? '' : ' off'}" id="muStage">
+    <canvas id="muDance"></canvas>
+    <button class="iconbtn mu-stage-x" id="muDanceX" title="${dancerOn() ? 'Убрать танцовщицу' : 'Позвать танцовщицу'}">${dancerOn() ? '×' : '💃'}</button>
+    <div class="mu-stage-cap" id="muDanceCap"></div>
+  </aside>`;
+}
+function bindDancer() {
+  const x = $('#muDanceX'); if (!x) return;
+  x.addEventListener('click', () => {
+    savePref('tc_dancer', dancerOn() ? '0' : '1');
+    const st = $('#muStage'); st.outerHTML = dancerHtml(); bindDancer();
+  });
+  if (dancerOn()) dancerStart();
+}
+function dancerStart() {
+  const cv = $('#muDance'); if (!cv) return;
+  dz.cv = cv; dz.ctx = cv.getContext('2d');
+  dz.fig = document.createElement('canvas'); dz.fctx = dz.fig.getContext('2d');
+  dz.glow = document.createElement('canvas'); dz.gctx = dz.glow.getContext('2d');
+  dz.tmp = document.createElement('canvas'); dz.tctx = dz.tmp.getContext('2d');
+  dancerResize();
+  cancelAnimationFrame(dz.raf); dz.last = 0;
+  dz.raf = requestAnimationFrame(dancerFrame);
+}
+function dancerResize() {
+  const r = dz.cv.getBoundingClientRect();
+  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+  dz.w = Math.max(10, r.width); dz.h = Math.max(10, r.height); dz.dpr = dpr;
+  for (const c of [dz.cv, dz.fig, dz.tmp]) { c.width = Math.round(dz.w * dpr); c.height = Math.round(dz.h * dpr); }
+  dz.glow.width = Math.ceil(dz.w / 4); dz.glow.height = Math.ceil(dz.h / 4);
+  dz.rain = Array.from({ length: 46 }, () => ({ x: Math.random() * dz.w, y: Math.random() * dz.h, l: 8 + Math.random() * 18, v: 260 + Math.random() * 220 }));
+  dz.city = Array.from({ length: 22 }, () => ({ x: Math.random() * dz.w, y: dz.h * (0.18 + Math.random() * 0.5), r: 6 + Math.random() * 22, c: Math.random() < 0.5 ? '255,60,170' : Math.random() < 0.5 ? '60,220,255' : '255,170,60', a: 0.05 + Math.random() * 0.12, f: Math.random() * 6 }));
+}
+
+/* ── слух: удары баса и темп ── */
+function dancerListen(dt, now) {
+  const a = mu.audio, playing = a && !a.paused && !a.ended && mu.an;
+  let bass = 0, all = 0, hi = 0;
+  if (playing) {
+    mu.an.getByteFrequencyData(dz.spec);
+    const s = dz.spec, n = s.length;
+    for (let i = 1; i < 7; i++) bass += s[i];
+    for (let i = 0; i < 160; i++) all += s[i];
+    for (let i = 160; i < 380; i++) hi += s[i];
+    bass /= 6 * 255; all /= 160 * 255; hi /= 220 * 255;
+  }
+  dz.energy += ((playing ? Math.min(1, all * 1.9) : 0) - dz.energy) * Math.min(1, dt * 3);
+  dz.hi += (hi - dz.hi) * Math.min(1, dt * 8);
+  // всплеск баса над скользящим средним — удар
+  const d = bass - dz.eMean;
+  dz.eMean += d * Math.min(1, dt * 2.2); dz.eVar += (d * d - dz.eVar) * Math.min(1, dt * 2.2);
+  const rise = bass - dz.prevE; dz.prevE = bass;
+  if (playing && bass > 0.32 && d > Math.sqrt(dz.eVar) * 1.15 && rise > 0 && now - dz.lastOn > 260) {
+    const gap = now - dz.lastOn; dz.lastOn = now;
+    if (gap < 2000) { dz.onsets.push(gap); if (dz.onsets.length > 24) dz.onsets.shift(); }
+    if (dz.onsets.length >= 4) {
+      const g = dz.onsets.slice().sort((x, y) => x - y)[dz.onsets.length >> 1];
+      let bpm = 60000 / g; while (bpm < 85) bpm *= 2; while (bpm > 170) bpm /= 2;
+      dz.bpm += (bpm - dz.bpm) * 0.25;
+    }
+    // подтягиваем фазу метронома к удару
+    const fr = dz.b - Math.floor(dz.b);
+    dz.b += fr > 0.5 ? (1 - fr) * 0.35 : -fr * 0.35;
+    if (d > Math.sqrt(dz.eVar) * 2.6 && dz.energy > 0.35) dz.glitch = 1;
+  }
+  const tempo = playing ? dz.bpm : 46;
+  dz.b += dt * tempo / 60;
+  return playing;
+}
+
+/* ── хореография ── */
+const DZ_VOGUE = [[2.7, 0.3, 0.4, 2.2], [1.6, 1.6, 1.6, 1.6], [0.3, 2.3, 2.9, 0.2], [2.2, 2.0, 2.2, 2.0], [1.2, 0.2, 2.6, 1.9], [2.9, 0.1, 2.9, 0.1]];
+function dzPose(m, b, e) {
+  const s1 = Math.sin(Math.PI * b), fr = b - Math.floor(b), pulse = Math.pow(1 - fr, 3);
+  const p = { hx: 0, hy: 4 * e * (0.5 - 0.5 * Math.cos(2 * Math.PI * b)), tilt: 0, head: 0,
+    hr: 0, lw: 0.2, rw: 0.2, lt: 0.22, lp: 0.3, rt: 0.22, rp: 0.3, lf: [-6, 99], rf: [6, 99] };
+  const amp = 0.35 + e;
+  if (m === 'idle') {
+    p.hx = 4 * s1; p.tilt = -0.04 * s1; p.head = 0.06 * Math.sin(Math.PI * b + 0.6); p.hy = 1.5 * (0.5 - 0.5 * Math.cos(2 * Math.PI * b));
+    p.lt = 0.16 + 0.04 * s1; p.rt = 0.16 - 0.04 * s1; p.lp = 0.22; p.rp = 0.22; p.hr = -0.08 * s1;
+  } else if (m === 'sway') {
+    p.hx = 9 * amp * s1; p.tilt = -0.09 * amp * s1; p.head = 0.12 * Math.sin(Math.PI * b + 0.5);
+    p.lt = 0.35 + 0.35 * amp * Math.max(0, Math.sin(Math.PI * b * 0.5)); p.lp = 0.5 + 0.6 * Math.max(0, s1);
+    p.rt = 0.35 + 0.35 * amp * Math.max(0, -Math.sin(Math.PI * b * 0.5)); p.rp = 0.5 + 0.6 * Math.max(0, -s1);
+    p.hr = -0.16 * amp * s1; p.lw = 0.5 * Math.max(0, s1); p.rw = 0.5 * Math.max(0, -s1);
+    p.lf = [-6 - 3 * Math.max(0, -s1), 99]; p.rf = [6 + 3 * Math.max(0, s1), 99];
+  } else if (m === 'wave') {
+    p.hx = 7 * amp * s1; p.tilt = -0.06 * s1; p.head = -0.15 * s1;
+    p.lt = 2.65 + 0.22 * Math.sin(Math.PI * b * 0.5); p.lp = -0.55 * Math.sin(Math.PI * b);
+    p.rt = 2.65 - 0.22 * Math.sin(Math.PI * b * 0.5 + 1); p.rp = 0.55 * Math.sin(Math.PI * b + 1.2);
+    p.hr = -0.12 * s1; p.lw = 0.8 * Math.sin(Math.PI * b + 0.8); p.rw = -0.8 * Math.sin(Math.PI * b + 2);
+    p.lf = [-8, 99]; p.rf = [8, 99];
+  } else if (m === 'pump') {
+    const odd = Math.floor(b) % 2;
+    p.hy += 3 * pulse * amp; p.hx = 5 * s1; p.head = 0.18 * pulse * (odd ? 1 : -1);
+    p.lt = odd ? 0.9 + 1.3 * pulse * amp : 0.7; p.lp = odd ? 1.9 - 0.6 * pulse : 1.9;
+    p.rt = odd ? 0.7 : 0.9 + 1.3 * pulse * amp; p.rp = odd ? 1.9 : 1.9 - 0.6 * pulse;
+    const st = Math.max(0, Math.sin(Math.PI * b)) * 7 * amp;
+    p.hr = (odd ? -0.1 : 0.1) * pulse; p.lw = p.rw = -0.4;
+    p.lf = odd ? [-6, 99] : [-6 - st, 99 - st * 0.7]; p.rf = odd ? [6 + st, 99 - st * 0.7] : [6, 99];
+  } else if (m === 'vogue') {
+    const A = DZ_VOGUE[Math.floor(b) % DZ_VOGUE.length], B = DZ_VOGUE[(Math.floor(b) + DZ_VOGUE.length - 1) % DZ_VOGUE.length];
+    const k = Math.min(1, fr * 5), q = k * k * (3 - 2 * k);
+    p.lt = B[0] + (A[0] - B[0]) * q; p.lp = B[1] + (A[1] - B[1]) * q; p.rt = B[2] + (A[2] - B[2]) * q; p.rp = B[3] + (A[3] - B[3]) * q;
+    p.hx = (Math.floor(b) % 2 ? 8 : -8) * q * amp; p.tilt = (Math.floor(b) % 2 ? -0.1 : 0.1) * q; p.head = (Math.floor(b) % 2 ? 0.2 : -0.2) * q;
+    p.hr = (Math.floor(b) % 2 ? -0.14 : 0.14) * q; p.lw = 0.5 * q; p.rw = 0.5 * q;
+    p.lf = [-9, 99]; p.rf = [9, 99];
+  }
+  return p;
+}
+function dzLerp(a, b, t) {
+  const o = {};
+  for (const k in a) o[k] = Array.isArray(a[k]) ? [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t] : a[k] + (b[k] - a[k]) * t;
+  return o;
+}
+function dzChoreo(playing) {
+  const beat = Math.floor(dz.b);
+  if (!playing) { if (dz.move !== 'idle') { dz.prevMove = dz.move; dz.move = 'idle'; dz.moveAt = dz.b; } return; }
+  if (dz.move === 'idle' || beat - Math.floor(dz.moveAt) >= 8 && beat % 4 === 0 && dz.b - beat < 0.2) {
+    const e = dz.energy, pool = e < 0.3 ? ['sway', 'sway', 'wave'] : e < 0.55 ? ['sway', 'wave', 'pump', 'vogue'] : ['pump', 'vogue', 'wave', 'pump'];
+    let n = pool[Math.floor(Math.random() * pool.length)];
+    if (n === dz.move) n = pool[(pool.indexOf(n) + 1) % pool.length];
+    dz.prevMove = dz.move; dz.move = n; dz.moveAt = dz.b;
+    if (e > 0.5 && dz.b - dz.spinAt > 24 && Math.random() < 0.45) dz.spinAt = dz.b;
+  }
+}
+
+/* ── тело ──
+   Пропорции «модельные»: голова маленькая, ноги длинные, песочные часы в
+   корпусе. Конечности — сужающиеся формы с изгибом икры и бедра, на ногах
+   ботфорты на каблуке, длинные волосы — две цепочки с инерцией. */
+function dzRot(p, o, an) { const c = Math.cos(an), s = Math.sin(an), x = p[0] - o[0], y = p[1] - o[1]; return [o[0] + x * c - y * s, o[1] + x * s + y * c]; }
+function dzIK(h, f, l1, l2, side) {
+  let dx = f[0] - h[0], dy = f[1] - h[1], d = Math.hypot(dx, dy);
+  const m = l1 + l2 - 0.4; if (d > m) { dx *= m / d; dy *= m / d; d = m; f = [h[0] + dx, h[1] + dy]; }
+  const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
+  const base = Math.atan2(dy, dx) + side * a;
+  return [[h[0] + Math.cos(base) * l1, h[1] + Math.sin(base) * l1], f];
+}
+function dzArm(sh, side, t, ph, wr) {
+  const el = [sh[0] + side * Math.sin(t) * 27, sh[1] + Math.cos(t) * 27];
+  const wa = [el[0] + side * Math.sin(t + ph) * 25, el[1] + Math.cos(t + ph) * 25];
+  const ha = [wa[0] + side * Math.sin(t + ph + wr) * 8, wa[1] + Math.cos(t + ph + wr) * 8];
+  return [el, wa, ha];
+}
+// сужающаяся конечность a→b: ширина w0→w1, «мышца» bw на доле at длины
+function dzTaper(c, a, b, w0, w1, bw, at) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  const mx = a[0] + dx * at, my = a[1] + dy * at, an = Math.atan2(ny, nx);
+  c.moveTo(a[0] + nx * w0, a[1] + ny * w0);
+  c.quadraticCurveTo(mx + nx * bw * 1.15, my + ny * bw * 1.15, b[0] + nx * w1, b[1] + ny * w1);
+  c.arc(b[0], b[1], w1, an, an + Math.PI, true);
+  c.quadraticCurveTo(mx - nx * bw * 1.15, my - ny * bw * 1.15, a[0] - nx * w0, a[1] - ny * w0);
+  c.arc(a[0], a[1], w0, an + Math.PI, an, true);
+  c.closePath();
+}
+function dzHair(g, dt) {
+  // две пряди-цепочки, привязанные к затылку; Верле с гравитацией
+  const N = 8, seg = 6.4;
+  if (!dz.hc) dz.hc = [-1, 1].map(sd => Array.from({ length: N }, (_, i) => { const q = [g.H[0] + sd * 7, g.H[1] - 75 + i * seg]; return { p: q, o: q.slice() }; }));
+  const k = Math.min(2, dt * 30);
+  dz.hc.forEach((ch, si) => {
+    const sd = si ? 1 : -1, an = g.toHead([sd * 6.8, -2]);
+    ch[0].p = an; ch[0].o = an;
+    for (let i = 1; i < N; i++) {
+      const q = ch[i], vx = (q.p[0] - q.o[0]) * 0.9, vy = (q.p[1] - q.o[1]) * 0.9;
+      q.o = q.p.slice(); q.p = [q.p[0] + vx + sd * 0.05 * k, q.p[1] + vy + 0.55 * k];
+    }
+    for (let it = 0; it < 3; it++) for (let i = 1; i < N; i++) {
+      const A = ch[i - 1].p, B = ch[i].p, dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy) || 1, f = seg / d;
+      ch[i].p = [A[0] + dx * f, A[1] + dy * f];
+      // волосы не проходят сквозь плечи: держатся снаружи шеи
+      const o = ch[i].p, cx0 = g.neck[0], minX = 6 + i * 0.9;
+      if (sd < 0 && o[0] > cx0 - minX) o[0] = cx0 - minX; if (sd > 0 && o[0] < cx0 + minX) o[0] = cx0 + minX;
+    }
+  });
+}
+function dzGeom(p, e, dt) {
+  const H = [p.hx, p.hy];
+  const up = (x, y) => dzRot([H[0] + x, H[1] + y], H, p.tilt);
+  const lo = (x, y) => dzRot([H[0] + x, H[1] + y], H, p.hr);
+  const g = { H, up, lo, tilt: p.tilt, head: p.head, e };
+  g.shL = up(-12.5, -52); g.shR = up(12.5, -52); g.neck = up(0, -58);
+  g.headC = dzRot(up(0, -73), g.neck, p.head); g.neckTop = dzRot(up(0, -65), g.neck, p.head);
+  g.toHead = q => { const r = dzRot(q, [0, 0], p.tilt + p.head); return [g.headC[0] + r[0], g.headC[1] + r[1]]; };
+  const vx = g.headC[0] - (dz.lastHead == null ? g.headC[0] : dz.lastHead); dz.lastHead = g.headC[0];
+  dz.skirt += (-vx * 0.6 - dz.skirt) * 0.2;
+  g.hipL = lo(-7.5, 3); g.hipR = lo(7.5, 3);
+  [g.knL, g.ftL] = dzIK(g.hipL, p.lf, 49, 48, 1); [g.knR, g.ftR] = dzIK(g.hipR, p.rf, 49, 48, -1);
+  [g.elL, g.waL, g.haL] = dzArm(g.shL, -1, p.lt, p.lp, p.lw); [g.elR, g.waR, g.haR] = dzArm(g.shR, 1, p.rt, p.rp, p.rw);
+  dzHair(g, dt);
+  return g;
+}
+function dzTorso(c, g) {
+  const u = g.up, l = g.lo;
+  const P = [u(-3.2, -60), u(-9, -57), u(-12.5, -53), u(-11.6, -45), u(-11.8, -37), l(-7.6, -24), l(-13.8, -8), l(-14, -1), l(-10.5, 8), l(0, 10)];
+  c.moveTo(P[0][0], P[0][1]);
+  const side = (pts) => {
+    c.quadraticCurveTo(pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
+    c.lineTo(pts[3][0], pts[3][1]);
+    c.quadraticCurveTo(pts[4][0], pts[4][1], pts[4][0] + (pts[5][0] - pts[4][0]) * 0.5, pts[4][1] + (pts[5][1] - pts[4][1]) * 0.5);
+    c.quadraticCurveTo(pts[5][0], pts[5][1], pts[5][0] + (pts[6][0] - pts[5][0]) * 0.4, pts[5][1] + (pts[6][1] - pts[5][1]) * 0.4);
+    c.quadraticCurveTo(pts[6][0], pts[6][1], pts[7][0], pts[7][1]);
+    c.quadraticCurveTo(pts[8][0], pts[8][1], pts[9][0], pts[9][1]);
+  };
+  side(P);
+  const Q = [u(3.2, -60), u(9, -57), u(12.5, -53), u(11.6, -45), u(11.8, -37), l(7.6, -24), l(13.8, -8), l(14, -1), l(10.5, 8), l(0, 10)].reverse();
+  c.quadraticCurveTo(Q[1][0], Q[1][1], Q[2][0], Q[2][1]);
+  c.quadraticCurveTo(Q[3][0], Q[3][1], Q[3][0] + (Q[4][0] - Q[3][0]) * 0.6, Q[3][1] + (Q[4][1] - Q[3][1]) * 0.6);
+  c.quadraticCurveTo(Q[4][0], Q[4][1], Q[4][0] + (Q[5][0] - Q[4][0]) * 0.5, Q[4][1] + (Q[5][1] - Q[4][1]) * 0.5);
+  c.quadraticCurveTo(Q[5][0], Q[5][1], Q[6][0], Q[6][1]);
+  c.lineTo(Q[7][0], Q[7][1]);
+  c.quadraticCurveTo(Q[8][0], Q[8][1], Q[9][0], Q[9][1]);
+  c.closePath();
+}
+function dzHeadPath(c, g) {
+  c.save(); c.translate(g.headC[0], g.headC[1]); c.rotate(g.tilt + g.head);
+  c.moveTo(0, -9.6); c.bezierCurveTo(7.8, -9.6, 7.6, 3, 0, 9.4); c.bezierCurveTo(-7.6, 3, -7.8, -9.6, 0, -9.6);
+  c.restore();
+}
+function dzBodyPass(c, g, grow) {
+  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
+  c.beginPath();
+  dzTaper(c, g.hipL, g.knL, 7.2, 3.9, 7.4, 0.28); dzTaper(c, g.knL, g.ftL, 3.9, 2.1, 4.4, 0.3);
+  dzTaper(c, g.hipR, g.knR, 7.2, 3.9, 7.4, 0.28); dzTaper(c, g.knR, g.ftR, 3.9, 2.1, 4.4, 0.3);
+  dzTaper(c, g.shL, g.elL, 3.7, 2.5, 3.6, 0.3); dzTaper(c, g.elL, g.waL, 2.5, 1.7, 2.6, 0.25); dzTaper(c, g.waL, g.haL, 1.8, 1, 2.1, 0.45);
+  dzTaper(c, g.shR, g.elR, 3.7, 2.5, 3.6, 0.3); dzTaper(c, g.elR, g.waR, 2.5, 1.7, 2.6, 0.25); dzTaper(c, g.waR, g.haR, 1.8, 1, 2.1, 0.45);
+  dzTaper(c, g.neck, g.neckTop, 2.8, 2.5, 2.5, 0.5);
+  dzTorso(c, g); dzHeadPath(c, g);
+  fill();
+}
+function dzOutfitPass(c, g, grow) {
+  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
+  // ботфорты выше колена, каблук-шпилька
+  c.beginPath();
+  for (const [hp, kn, ft, sd] of [[g.hipL, g.knL, g.ftL, -1], [g.hipR, g.knR, g.ftR, 1]]) {
+    const top = [kn[0] + (hp[0] - kn[0]) * 0.22, kn[1] + (hp[1] - kn[1]) * 0.22];
+    dzTaper(c, top, kn, 4.6, 4.1, 4.4, 0.5); dzTaper(c, kn, ft, 4.1, 2.4, 4.6, 0.3);
+    c.moveTo(ft[0] - sd * 2.4, ft[1] - 1); c.lineTo(ft[0] + sd * 4.5, ft[1] + 7.5); c.lineTo(ft[0] + sd * 3, ft[1] + 8); c.lineTo(ft[0] - sd * 0.5, ft[1] + 3.2); c.lineTo(ft[0] - sd * 2.2, ft[1] + 8); c.lineTo(ft[0] - sd * 2.9, ft[1] + 7.8); c.closePath();
+  }
+  fill();
+  // бюстье: по силуэту корпуса, низ — дугой под грудью
+  c.save(); c.beginPath(); dzTorso(c, g); c.clip();
+  const u = g.up, l = g.lo;
+  c.beginPath();
+  c.moveTo(...u(-16, -50)); c.quadraticCurveTo(...u(-6, -53), ...u(0, -46)); c.quadraticCurveTo(...u(6, -53), ...u(16, -50));
+  c.lineTo(...u(16, -34)); c.quadraticCurveTo(...u(0, -30), ...u(-16, -34)); c.closePath(); fill();
+  c.restore();
+  // юбка-клёш от талии, подол летит за движением
+  const sk = dz.skirt, fl = 3 + 5 * g.e;
+  c.beginPath();
+  c.moveTo(...l(-9.5, -19)); c.quadraticCurveTo(...l(0, -17.5), ...l(9.5, -19));
+  c.quadraticCurveTo(...l(15, -6), ...l(19 + fl + sk, 17));
+  c.quadraticCurveTo(...l(sk * 0.5, 21), ...l(-19 - fl + sk, 17));
+  c.quadraticCurveTo(...l(-15, -6), ...l(-9.5, -19)); c.closePath(); fill();
+  // чокер
+  c.beginPath(); const n1 = dzRot(g.up(0, -60.6), g.neck, g.head); c.ellipse(n1[0], n1[1], 2.9, 0.55, g.tilt, 0, Math.PI * 2); fill();
+}
+function dzHairBackPass(c, g, grow) {
+  const [L, R] = dz.hc, fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
+  c.beginPath();
+  c.moveTo(L[0].p[0], L[0].p[1]);
+  for (let i = 1; i < L.length; i++) { const m = [(L[i - 1].p[0] + L[i].p[0]) / 2 - 2.2, (L[i - 1].p[1] + L[i].p[1]) / 2]; c.quadraticCurveTo(L[i - 1].p[0] - 2.4, L[i - 1].p[1], m[0], m[1]); }
+  const lt = L[L.length - 1].p, rt = R[R.length - 1].p;
+  c.quadraticCurveTo((lt[0] + rt[0]) / 2, Math.max(lt[1], rt[1]) + 4, rt[0] + 2, rt[1]);
+  for (let i = R.length - 1; i > 0; i--) { const m = [(R[i - 1].p[0] + R[i].p[0]) / 2 + 2.2, (R[i - 1].p[1] + R[i].p[1]) / 2]; c.quadraticCurveTo(R[i].p[0] + 2.4, R[i].p[1], m[0], m[1]); }
+  c.lineTo(R[0].p[0], R[0].p[1]);
+  const h = g.toHead; c.bezierCurveTo(...h([10, -9]), ...h([6, -12.5]), ...h([0, -12])); c.bezierCurveTo(...h([-6, -12.5]), ...h([-10, -9]), L[0].p[0], L[0].p[1]);
+  c.closePath(); fill();
+}
+function dzHairFrontPass(c, g, grow) {
+  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
+  c.save(); c.translate(g.headC[0], g.headC[1]); c.rotate(g.tilt + g.head);
+  // косая чёлка и пряди у лица
+  c.beginPath();
+  c.moveTo(-8.4, 4); c.bezierCurveTo(-11, -14, 9, -16, 8.4, 1);
+  c.quadraticCurveTo(8.8, 7, 7.6, 12); c.quadraticCurveTo(6.4, 4, 6.2, -2.5);
+  c.quadraticCurveTo(1, -2.4, -4.5, -6.2); c.quadraticCurveTo(-6.3, -1, -6.4, 6);
+  c.quadraticCurveTo(-7, 9, -7.8, 12); c.quadraticCurveTo(-8.6, 8, -8.4, 4); c.closePath(); fill();
+  c.restore();
+}
+function dzGroup(tc, setT, g, pass, col, inner) {
+  tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalCompositeOperation = 'source-over'; const [bx, by, bw, bh] = dz.bb; tc.clearRect(bx, by, bw, bh);
+  setT(tc); tc.lineCap = 'round'; tc.lineJoin = 'round';
+  tc.fillStyle = tc.strokeStyle = col; pass(tc, g, 2.2);
+  tc.globalCompositeOperation = 'destination-out'; tc.fillStyle = tc.strokeStyle = `rgba(0,0,0,${1 - inner})`; pass(tc, g, 0);
+  tc.globalCompositeOperation = 'source-over';
+}
+function dzBodyGrad(c) { const gr = c.createLinearGradient(0, -85, 0, 100); gr.addColorStop(0, '#a8f7ff'); gr.addColorStop(0.45, '#7fd8ff'); gr.addColorStop(1, '#a98bff'); return gr; }
+function dzPinkGrad(c) { const gr = c.createLinearGradient(0, -85, 0, 100); gr.addColorStop(0, '#ff5fcf'); gr.addColorStop(1, '#ff3d8b'); return gr; }
+function dzDrawFigure(f, setT, p, e, dt) {
+  const g = dzGeom(p, e, dt), tc = dz.tctx;
+  const [bx, by, bw, bh] = dz.bb;
+  const put = () => { f.setTransform(1, 0, 0, 1, 0, 0); f.drawImage(dz.tmp, bx, by, bw, bh, bx, by, bw, bh); };
+  setT(tc); const hairG = (() => { const gr = tc.createLinearGradient(0, -85, 0, -20); gr.addColorStop(0, '#ff5fd2'); gr.addColorStop(1, '#8f6bff'); return gr; })();
+  dzGroup(tc, setT, g, dzHairBackPass, hairG, 0.42); put();
+  dzGroup(tc, setT, g, dzBodyPass, dzBodyGrad(tc), 0.22); put();
+  dzGroup(tc, setT, g, dzOutfitPass, dzPinkGrad(tc), 0.3); put();
+  dzGroup(tc, setT, g, dzHairFrontPass, hairG, 0.55); put();
+  // лицо: миндалевидные глаза с ресницами, брови, губы
+  setT(f); f.save(); f.translate(g.headC[0], g.headC[1]); f.rotate(g.tilt + g.head);
+  f.lineCap = 'round';
+  const blink = (dz.b % 7) > 6.85 ? 0.15 : 1;
+  for (const sd of [-1, 1]) {
+    f.save(); f.scale(sd, 1);
+    f.beginPath(); f.moveTo(1.3, 0.6); f.quadraticCurveTo(3, -1.3 * blink, 5, 0.1); f.quadraticCurveTo(3.1, 1.3 * blink, 1.3, 0.6);
+    f.fillStyle = 'rgba(235,255,255,.95)'; f.fill();
+    f.strokeStyle = 'rgba(255,255,255,.9)'; f.lineWidth = 0.55; f.beginPath(); f.moveTo(4.8, 0); f.lineTo(6, -1.1); f.stroke();
+    f.strokeStyle = 'rgba(200,240,255,.55)'; f.lineWidth = 0.5; f.beginPath(); f.moveTo(1.4, -2.2); f.quadraticCurveTo(3.4, -3.3, 5.2, -2); f.stroke();
+    f.restore();
+  }
+  f.strokeStyle = 'rgba(200,240,255,.35)'; f.lineWidth = 0.5; f.beginPath(); f.moveTo(0.2, 1.5); f.quadraticCurveTo(0.9, 3.4, 0, 3.9); f.stroke();
+  f.fillStyle = 'rgba(255,90,180,.95)'; f.beginPath(); f.moveTo(-2.3, 5.7); f.quadraticCurveTo(-1, 4.7, 0, 5.2); f.quadraticCurveTo(1, 4.7, 2.3, 5.7); f.quadraticCurveTo(0, 7.4, -2.3, 5.7); f.fill();
+  f.restore();
+}
+
+/* ── кадр ── */
+function dancerFrame(now) {
+  if (!dz.cv || !dz.cv.isConnected) { dz.raf = 0; return; }
+  dz.raf = requestAnimationFrame(dancerFrame);
+  if (document.hidden || now - dz.last < 32) return;
+  const dt = dz.last ? Math.min(0.1, (now - dz.last) / 1000) : 0.033; dz.last = now;
+  const t0 = performance.now();
+  const r = dz.cv.getBoundingClientRect();
+  if (Math.abs(r.width - dz.w) > 1 || Math.abs(r.height - dz.h) > 1) dancerResize();
+  dancerHook();
+  const playing = dancerListen(dt, now);
+  dzChoreo(playing);
+  const e = dz.energy, t = now / 1000, W = dz.w, Hh = dz.h, c = dz.ctx, dpr = dz.dpr;
+  const cap = $('#muDanceCap');
+  if (cap) cap.textContent = playing ? Math.round(dz.bpm) + ' BPM' : mu.audio && !mu.audio.paused ? '' : 'включите трек — потанцую';
+  // фон: ночной город под дождём
+  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  const bg = c.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#05030f'); bg.addColorStop(0.6, '#0a0b22'); bg.addColorStop(1, '#030308');
+  c.fillStyle = bg; c.fillRect(0, 0, W, Hh);
+  c.globalCompositeOperation = 'lighter';
+  for (const o of dz.city) { c.fillStyle = `rgba(${o.c},${o.a * (0.75 + 0.25 * Math.sin(t * 0.7 + o.f))})`; c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill(); }
+  // спектр полукругом за спиной
+  const S = Math.min(W / 175, Hh / 290), cx = W / 2, floorY = Hh * 0.88, hipY = floorY - 106 * S;
+  if (playing && dz.spec) {
+    const n = 48, R = 62 * S;
+    for (let i = 0; i < n; i++) {
+      const v = dz.spec[2 + i * 3] / 255, an = Math.PI + (i + 0.5) / n * Math.PI;
+      const x1 = cx + Math.cos(an) * R, y1 = hipY - 20 * S + Math.sin(an) * R, L = 4 + v * 34 * S;
+      c.strokeStyle = `hsla(${300 - i * 2.5},100%,60%,${0.15 + v * 0.5})`; c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(x1, y1); c.lineTo(x1 + Math.cos(an) * L, y1 + Math.sin(an) * L); c.stroke();
+    }
+  }
+  c.strokeStyle = 'rgba(150,190,255,.22)'; c.lineWidth = 1;
+  c.beginPath();
+  for (const d of dz.rain) { d.y += d.v * dt; if (d.y > Hh) { d.y = -d.l; d.x = Math.random() * W; } c.moveTo(d.x, d.y); c.lineTo(d.x - d.l * 0.12, d.y + d.l); }
+  c.stroke();
+  // пол: светящийся круг, пульсирует на долю
+  const fr = dz.b - Math.floor(dz.b), pulse = playing ? Math.pow(1 - fr, 2) : 0.2;
+  c.save(); c.translate(cx, floorY); c.scale(1, 0.22);
+  const ring = c.createRadialGradient(0, 0, 10, 0, 0, 70 * S);
+  ring.addColorStop(0, `rgba(0,240,255,${0.18 + 0.25 * pulse})`); ring.addColorStop(0.7, `rgba(255,43,214,${0.08 + 0.14 * pulse})`); ring.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = ring; c.beginPath(); c.arc(0, 0, 70 * S, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = `rgba(0,240,255,${0.35 + 0.4 * pulse})`; c.lineWidth = 2 / 0.22 * 0.6; c.beginPath(); c.arc(0, 0, (46 + 8 * pulse) * S, 0, Math.PI * 2); c.stroke();
+  c.restore();
+  // фигура — на отдельном холсте, чтобы наложить развёртку и свечение
+  const f = dz.fctx;
+  // рамка фигуры: всё тяжёлое делается только внутри неё
+  { const x0 = Math.max(0, Math.floor((cx - 95 * S) * dpr)), y0 = Math.max(0, Math.floor((hipY - 110 * S) * dpr));
+    dz.bb = [x0, y0, Math.min(dz.fig.width - x0, Math.ceil(190 * S * dpr)), Math.min(dz.fig.height - y0, Math.ceil(225 * S * dpr))]; }
+  const [bx, by, bw, bh] = dz.bb;
+  f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(bx, by, bw, bh);
+  // смена движения — плавно, за одну долю
+  const k = Math.min(1, (dz.b - dz.moveAt) / 1);
+  let pose = dzPose(dz.move, dz.b, e);
+  if (k < 1) pose = dzLerp(dzPose(dz.prevMove, dz.b, e), pose, k * k * (3 - 2 * k));
+  // сглаживание: тело догоняет цель, а не прыгает за ней
+  dz.pose = dz.pose ? dzLerp(dz.pose, pose, 1 - Math.exp(-dt * 16)) : pose; pose = dz.pose;
+  const sp = dz.b - dz.spinAt, spin = sp >= 0 && sp < 2 ? Math.cos(Math.PI * sp) : 1;
+  const sx = dpr * S * (Math.abs(spin) < 0.08 ? 0.08 * Math.sign(spin || 1) : spin);
+  dzDrawFigure(f, c2 => c2.setTransform(sx, 0, 0, dpr * S, cx * dpr, hipY * dpr), pose, e, dt);
+  // развёртка голограммы
+  f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'destination-out'; f.fillStyle = 'rgba(0,0,0,.35)';
+  const step = 3 * dpr, off = (t * 30 * dpr) % step;
+  for (let y = by + off; y < by + bh; y += step) f.fillRect(bx, y, bw, dpr);
+  f.globalCompositeOperation = 'source-over';
+  dz.glitch *= Math.pow(0.04, dt);
+  const flick = 0.82 + 0.18 * Math.sin(t * 37) * Math.sin(t * 13.3) + (Math.random() < 0.015 ? -0.4 : 0);
+  // свечение: уменьшенная копия, растянутая обратно
+  const g = dz.gctx; g.clearRect(0, 0, dz.glow.width, dz.glow.height); g.drawImage(dz.fig, bx, by, bw, bh, bx / 4 / dpr, by / 4 / dpr, bw / 4 / dpr, bh / 4 / dpr);
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter';
+  c.globalAlpha = 0.9 * flick * (0.7 + e * 0.6); c.drawImage(dz.glow, 0, 0, dz.cv.width, dz.cv.height);
+  c.globalAlpha = Math.max(0.3, flick);
+  if (dz.glitch > 0.25) {
+    const bands = 6, bh = dz.cv.height / bands;
+    for (let i = 0; i < bands; i++) { const dx = (Math.random() - 0.5) * 18 * dpr * dz.glitch; c.drawImage(dz.fig, 0, i * bh, dz.fig.width, bh, dx, i * bh, dz.fig.width, bh); }
+    c.globalAlpha = 0.35 * dz.glitch; c.drawImage(dz.fig, 5 * dpr * dz.glitch, 0);
+  } else c.drawImage(dz.fig, bx, by, bw, bh, bx, by, bw, bh);
+  // отражение в мокром полу
+  c.globalAlpha = 0.16 * flick; c.save(); c.translate(0, floorY * dpr * 2); c.scale(1, -1); c.drawImage(dz.fig, bx, by, bw, bh, bx, by, bw, bh); c.restore();
+  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  const fade = c.createLinearGradient(0, floorY * dpr, 0, dz.cv.height); fade.addColorStop(0, 'rgba(3,3,8,0)'); fade.addColorStop(1, 'rgba(3,3,8,.9)');
+  c.fillStyle = fade; c.fillRect(0, floorY * dpr, dz.cv.width, dz.cv.height);
+  dz.cost = dz.cost * 0.95 + (performance.now() - t0) * 0.05;
 }
 /* ================= PLAYERS PAGE ================= */
 function renderPlayers(root) {
@@ -7297,145 +7732,386 @@ function extrasBoot() {
   setTimeout(() => { if (Array.isArray(state.lib) && state.lib.length) autoFollowSeries(); else loadLibrary().then(() => autoFollowSeries()).catch(() => {}); }, 20000);
   fxBoot();
 }
-/* ================= ЭФФЕКТЫ: ЗВЕЗДОПАД, ВАРП, РЕТРО =================
-   Фон рисуется одним <canvas> под содержимым. Для «Графита» это тихое
-   звёздное небо с редкими падающими звёздами, для «Денди» — пиксельные звёзды,
-   плывущие вниз, как в космической стрелялке на приставке. Варп-прыжок —
-   полноэкранная вспышка звёздных лучей при запуске просмотра и фон окна
-   подготовки, пока раздача ищет раздающих.
-   Всё выключается одной галочкой в Настройках и само молчит при «уменьшить
-   движение» в системе и в свёрнутом окне — анимация не должна есть батарею. */
+/* ================= ЭФФЕКТЫ: ФОН ТЕМЫ И АНИМАЦИЯ ЗАПУСКА =================
+   Фон рисуется одним <canvas> под содержимым, у каждой темы свой:
+   «Графит» — звёздное небо со звездопадом, «Денди» — пиксельные звёзды,
+   «Матрица» — зелёный дождь символов, «Кибер-неон» — сетка до горизонта,
+   «Японский сад» — лепестки сакуры, «Девятый вал» — небо мазками Ван Гога
+   над морем Айвазовского.
+   Анимация запуска — отдельно: у темы есть своя, но в Настройках можно
+   поставить любую или случайную. Она играет за окном ожидания, пока раздача
+   ищет раздающих, и коротким разгоном при запуске плеера.
+   Расход: фон — 20–30 кадров в секунду, на кадр уходит доли миллисекунды
+   (fx.cost — скользящее среднее). Свёрнутое окно не рисуется вовсе, а при
+   «уменьшить движение» в системе и по галочке в Настройках фон выключается. */
 
 const FX_KEY = 'tc_fx';
+const FXL_KEY = 'tc_fxl';
 function fxOn() {
   if (localStorage.getItem(FX_KEY) === '0') return false;
   try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch {}
   return true;
 }
-const fx = { cv: null, ctx: null, stars: [], shoot: [], raf: 0, mode: '', last: 0, w: 0, h: 0, dpr: 1 };
-function fxMode() {
-  const th = document.documentElement.dataset.theme;
-  if (th === 'retro') return 'pixel';
-  if (th === 'dark' || th === 'oled') return 'sky';
-  return '';
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const RETRO_PAL = ['#fcfcfc', '#3cbcfc', '#f8b800', '#f83800', '#58d854', '#fc74b4'];
+const MATRIX_CH = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン0123456789';
+
+/* ---------- фоны ---------- */
+const BG = {};
+// Звёздное небо. Падающая звезда появляется в случайный момент (между
+// звёздами — случайная пауза, в среднем 7 с), в случайном месте и летит в
+// случайную сторону вниз; иногда — две-три подряд.
+BG.sky = {
+  fps: 30,
+  seed(s) {
+    s.stars = Array.from({ length: Math.round(Math.min(220, s.w * s.h / 9000)) }, () => ({ x: Math.random() * s.w, y: Math.random() * s.h, z: Math.random(), tw: Math.random() * 6.28 }));
+    s.shoot = []; s.next = rnd(1.5, 8);
+  },
+  draw(s, c, dt, t) {
+    c.clearRect(0, 0, s.w, s.h);
+    for (const p of s.stars) {
+      p.tw += dt * (0.6 + p.z * 1.8);
+      c.fillStyle = 'rgba(200,220,255,' + (0.18 + 0.5 * p.z * (0.6 + 0.4 * Math.sin(p.tw))).toFixed(3) + ')';
+      c.beginPath(); c.arc(p.x, p.y, 0.4 + p.z * 1.1, 0, 6.283); c.fill();
+    }
+    if ((s.next -= dt) <= 0) {
+      const n = Math.random() < 0.15 ? 2 + (Math.random() < 0.4 ? 1 : 0) : 1;
+      for (let i = 0; i < n; i++) {
+        const ang = rnd(0.08, 0.92) * Math.PI; // любая сторона вниз
+        const sp = rnd(320, 900);
+        s.shoot.push({ x: rnd(0, s.w), y: rnd(-20, s.h * 0.75), vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, len: rnd(0.08, 0.22), w: rnd(0.8, 2.2), a: rnd(0.5, 1), life: -i * rnd(0.15, 0.5), max: rnd(0.45, 1.4) });
+      }
+      // Экспоненциальная пауза: моменты непредсказуемы, но в среднем ~7 с.
+      s.next = Math.min(25, Math.max(0.8, -Math.log(1 - Math.random()) * 7));
+    }
+    s.shoot = s.shoot.filter(p => (p.life += dt) < p.max);
+    for (const p of s.shoot) {
+      if (p.life < 0) continue;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      const k = Math.min(1, p.life / 0.12) * (1 - p.life / p.max);
+      const tx = p.x - p.vx * p.len, ty = p.y - p.vy * p.len;
+      const g = c.createLinearGradient(p.x, p.y, tx, ty);
+      g.addColorStop(0, 'rgba(255,255,255,' + (p.a * k).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(124,176,255,0)');
+      c.strokeStyle = g; c.lineWidth = p.w; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(tx, ty); c.stroke();
+    }
+  },
+};
+BG.pixel = {
+  fps: 30,
+  seed(s) { s.stars = Array.from({ length: Math.round(Math.min(200, s.w * s.h / 9000)) }, () => ({ x: Math.random() * s.w, y: Math.random() * s.h, z: Math.random(), tw: Math.random() * 6 })); },
+  draw(s, c, dt) {
+    c.clearRect(0, 0, s.w, s.h);
+    for (const p of s.stars) {
+      p.y += dt * (12 + p.z * 70);
+      if (p.y > s.h) { p.y = -4; p.x = Math.random() * s.w; }
+      const sz = p.z > 0.85 ? 3 : p.z > 0.5 ? 2 : 1;
+      p.tw += dt * 3;
+      c.globalAlpha = p.z > 0.85 && Math.sin(p.tw) < -0.6 ? 0.25 : 0.35 + p.z * 0.5;
+      c.fillStyle = RETRO_PAL[Math.floor(p.z * 97) % RETRO_PAL.length];
+      c.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+    }
+    c.globalAlpha = 1;
+  },
+};
+// Дождь символов. След не перерисовывается: старые символы гаснут сами
+// (destination-out), а на кадр рисуется только голова каждой колонки.
+BG.rain = {
+  fps: 20,
+  seed(s) { const n = Math.ceil(s.w / 18); s.cols = Array.from({ length: n }, () => ({ y: rnd(-s.h, s.h), v: rnd(40, 140), on: Math.random() < 0.55 })); },
+  draw(s, c, dt) {
+    c.globalCompositeOperation = 'destination-out';
+    c.fillStyle = 'rgba(0,0,0,.09)'; c.fillRect(0, 0, s.w, s.h);
+    c.globalCompositeOperation = 'source-over';
+    c.font = '15px "MS Gothic","Lucida Console",monospace';
+    s.cols.forEach((col, i) => {
+      if (!col.on) { if (Math.random() < dt * 0.05) col.on = true; return; }
+      const prev = col.y; col.y += col.v * dt;
+      if (Math.floor(prev / 18) !== Math.floor(col.y / 18)) {
+        c.fillStyle = 'rgba(57,255,122,.32)'; c.fillText(pick(MATRIX_CH), i * 18, prev);
+        c.fillStyle = 'rgba(210,255,225,.55)'; c.fillText(pick(MATRIX_CH), i * 18, col.y);
+      }
+      if (col.y > s.h + 40) { col.y = rnd(-200, 0); col.v = rnd(40, 140); col.on = Math.random() < 0.6; }
+    });
+  },
+};
+// Синтвейв: солнце в полосах и сетка, бегущая к зрителю.
+function drawNeonScene(s, c, t, speed, alpha) {
+  const hz = s.h * 0.64, cx = s.w / 2;
+  const sun = c.createLinearGradient(0, hz - s.h * 0.34, 0, hz);
+  sun.addColorStop(0, 'rgba(255,214,63,' + alpha + ')'); sun.addColorStop(1, 'rgba(255,43,214,' + alpha + ')');
+  c.save(); c.beginPath(); c.arc(cx, hz, s.h * 0.2, Math.PI, 0); c.closePath(); c.clip();
+  c.fillStyle = sun; c.fillRect(cx - s.h * 0.2, hz - s.h * 0.2, s.h * 0.4, s.h * 0.2);
+  c.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 6; i++) { const y = hz - s.h * 0.012 - i * s.h * 0.028; c.fillRect(0, y, s.w, 2 + i * 0.9); }
+  c.restore();
+  c.strokeStyle = 'rgba(255,43,214,' + (alpha * 0.9) + ')'; c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(0, hz); c.lineTo(s.w, hz); c.stroke();
+  c.strokeStyle = 'rgba(0,240,255,' + (alpha * 0.7) + ')';
+  for (let i = -14; i <= 14; i++) { c.beginPath(); c.moveTo(cx + i * 22, hz); c.lineTo(cx + i * s.w * 0.16, s.h); c.stroke(); }
+  const off = (t * speed) % 1;
+  for (let k = 0; k < 14; k++) { const z = (k + off) / 14; const y = hz + (s.h - hz) * z * z; c.globalAlpha = Math.min(1, z * 2); c.beginPath(); c.moveTo(0, y); c.lineTo(s.w, y); c.stroke(); }
+  c.globalAlpha = 1;
 }
+BG.grid = {
+  fps: 30,
+  seed(s) { s.stars = Array.from({ length: 70 }, () => ({ x: Math.random() * s.w, y: Math.random() * s.h * 0.6, z: Math.random() })); },
+  draw(s, c, dt, t) {
+    c.clearRect(0, 0, s.w, s.h);
+    for (const p of s.stars) { c.fillStyle = 'rgba(255,200,255,' + (0.15 + p.z * 0.4 * (0.6 + 0.4 * Math.sin(t * 2 + p.x))).toFixed(3) + ')'; c.fillRect(p.x, p.y, 1.4, 1.4); }
+    drawNeonScene(s, c, t, 0.35, 0.22);
+  },
+};
+// Лепестки сакуры: падают, кружатся и покачиваются на ветру.
+function petal(c, x, y, r, rot, a) {
+  c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = a;
+  c.beginPath(); c.moveTo(0, -r); c.quadraticCurveTo(r * 0.9, -r * 0.2, 0, r); c.quadraticCurveTo(-r * 0.9, -r * 0.2, 0, -r); c.fill();
+  c.restore();
+}
+const PETAL_COL = ['#f6b6c8', '#f2a2b9', '#fbd0dc', '#eb8fab'];
+BG.petals = {
+  fps: 30,
+  seed(s) { s.p = Array.from({ length: Math.round(Math.min(42, s.w / 34)) }, () => ({ x: rnd(0, s.w), y: rnd(-s.h, s.h), r: rnd(4, 9), rot: rnd(0, 6), vr: rnd(-1.5, 1.5), vy: rnd(18, 45), ph: rnd(0, 6), col: pick(PETAL_COL) })); },
+  draw(s, c, dt, t) {
+    c.clearRect(0, 0, s.w, s.h);
+    const wind = Math.sin(t * 0.17) * 22;
+    for (const p of s.p) {
+      p.y += p.vy * dt; p.x += (wind + Math.sin(t * 1.1 + p.ph) * 18) * dt; p.rot += p.vr * dt;
+      if (p.y > s.h + 20) { p.y = -20; p.x = rnd(-40, s.w); }
+      if (p.x > s.w + 30) p.x = -20; if (p.x < -40) p.x = s.w + 10;
+      c.fillStyle = p.col; petal(c, p.x, p.y, p.r, p.rot, 0.55);
+    }
+    c.globalAlpha = 1;
+  },
+};
+// «Девятый вал»: вихри неба мазками (Ван Гог), луна в кольцах, а внизу —
+// тяжёлые волны с пеной и лунной дорожкой (Айвазовский).
+const SEA_STROKE = ['#1d4e89', '#2f6fb3', '#5b93cf', '#8fb8de', '#f2c14e', '#f7e3a1'];
+function seaField(s, x, y, t) {
+  let a = Math.sin(x * 0.0042 + t * 0.07) * Math.cos(y * 0.006 - t * 0.05) * 1.6;
+  for (const v of s.vort) { const dx = x - v.x, dy = y - v.y, d2 = dx * dx + dy * dy; const k = Math.exp(-d2 / (v.r * v.r)); a = a * (1 - k) + (Math.atan2(dy, dx) + Math.PI / 2 * v.dir) * k; }
+  return a;
+}
+function drawSea(s, c, t, top, amp, alpha) {
+  const layers = 4;
+  for (let L = 0; L < layers; L++) {
+    const base = top + (s.h - top) * (L / layers) * 0.85;
+    const A = amp * (0.5 + L * 0.35), k = 0.006 + L * 0.0018, sp = 0.5 + L * 0.25;
+    const yAt = x => base + A * Math.sin(x * k - t * sp + L * 1.7) + A * 0.35 * Math.sin(x * k * 2.3 + t * sp * 1.4 + L);
+    const g = c.createLinearGradient(0, base - A, 0, s.h);
+    g.addColorStop(0, 'rgba(' + (28 + L * 6) + ',' + (70 + L * 10) + ',' + (96 + L * 8) + ',' + alpha + ')');
+    g.addColorStop(1, 'rgba(4,16,28,' + Math.min(1, alpha + 0.2) + ')');
+    c.fillStyle = g; c.beginPath(); c.moveTo(0, s.h);
+    for (let x = 0; x <= s.w + 12; x += 12) c.lineTo(x, yAt(x));
+    c.lineTo(s.w, s.h); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(235,245,240,' + (alpha * 0.55) + ')'; c.lineWidth = 1.4; c.beginPath();
+    for (let x = 0; x <= s.w; x += 12) { const y = yAt(x), y2 = yAt(x + 12); if (y2 < y - 1.5) { c.moveTo(x, y); c.lineTo(x + 12, y2); } }
+    c.stroke();
+  }
+  const mx = s.w * 0.78;
+  c.fillStyle = 'rgba(247,227,161,' + (alpha * 0.7) + ')';
+  for (let i = 0; i < 26; i++) { const y = top + 6 + i * (s.h - top) / 26, w = 6 + i * 2.2; const x = mx + Math.sin(t * 1.3 + i * 1.7) * w * 0.8; c.fillRect(x - w / 2, y, w, 1.6); }
+}
+BG.sea = {
+  fps: 24,
+  seed(s) {
+    s.top = s.h * 0.66;
+    s.vort = [{ x: s.w * 0.32, y: s.h * 0.24, r: s.h * 0.16, dir: 1 }, { x: s.w * 0.58, y: s.h * 0.4, r: s.h * 0.12, dir: -1 }];
+    s.p = Array.from({ length: 240 }, () => ({ x: rnd(0, s.w), y: rnd(0, s.top), life: rnd(0, 4), col: pick(SEA_STROKE) }));
+  },
+  draw(s, c, dt, t) {
+    c.globalCompositeOperation = 'destination-out';
+    c.fillStyle = 'rgba(0,0,0,.05)'; c.fillRect(0, 0, s.w, s.top);
+    c.globalCompositeOperation = 'source-over';
+    c.lineCap = 'round'; c.lineWidth = 2.2;
+    for (const p of s.p) {
+      const a = seaField(s, p.x, p.y, t);
+      const nx = p.x + Math.cos(a) * 26 * dt, ny = p.y + Math.sin(a) * 26 * dt;
+      c.strokeStyle = p.col; c.globalAlpha = 0.28;
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(nx, ny); c.stroke();
+      p.x = nx; p.y = ny;
+      if ((p.life -= dt) < 0 || p.x < 0 || p.x > s.w || p.y < 0 || p.y > s.top) { p.x = rnd(0, s.w); p.y = rnd(0, s.top); p.life = rnd(2, 5); }
+    }
+    c.globalAlpha = 1;
+    // Луна в кольцах — как на «Звёздной ночи».
+    const mx = s.w * 0.78, my = s.h * 0.17;
+    c.clearRect(mx - 70, my - 70, 140, 140);
+    for (let i = 4; i >= 1; i--) { c.strokeStyle = 'rgba(247,227,161,' + (0.07 * i) + ')'; c.lineWidth = 3; c.beginPath(); c.arc(mx, my, 18 + i * 11 + Math.sin(t + i) * 1.5, 0, 6.283); c.stroke(); }
+    c.fillStyle = 'rgba(247,227,161,.85)'; c.beginPath(); c.arc(mx, my, 16, 0, 6.283); c.fill();
+    c.clearRect(0, s.top - 40, s.w, s.h - s.top + 40);
+    drawSea(s, c, t, s.top, 9, 0.5);
+  },
+};
+const THEME_BG = { dark: 'sky', oled: 'sky', retro: 'pixel', matrix: 'rain', neon: 'grid', sakura: 'petals', sea: 'sea' };
+
+const fx = { cv: null, ctx: null, raf: 0, mode: '', last: 0, t: 0, s: null, cost: 0 };
+function fxMode() { return THEME_BG[document.documentElement.dataset.theme] || ''; }
 function fxResize() {
   if (!fx.cv) return;
-  fx.dpr = Math.min(2, window.devicePixelRatio || 1);
-  fx.w = window.innerWidth; fx.h = window.innerHeight;
-  fx.cv.width = Math.round(fx.w * fx.dpr); fx.cv.height = Math.round(fx.h * fx.dpr);
-  fx.ctx.setTransform(fx.dpr, 0, 0, fx.dpr, 0, 0);
-  fxSeed();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = window.innerWidth, h = window.innerHeight;
+  fx.cv.width = Math.round(w * dpr); fx.cv.height = Math.round(h * dpr);
+  fx.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fx.s = { w, h };
+  BG[fx.mode].seed(fx.s);
 }
-function fxSeed() {
-  const n = Math.round(Math.min(220, fx.w * fx.h / 9000));
-  fx.stars = Array.from({ length: n }, () => ({ x: Math.random() * fx.w, y: Math.random() * fx.h, z: Math.random(), tw: Math.random() * Math.PI * 2 }));
-  fx.shoot = [];
-}
-const RETRO_PAL = ['#fcfcfc', '#3cbcfc', '#f8b800', '#f83800', '#58d854', '#fc74b4'];
 function fxFrame(ts) {
   fx.raf = 0;
   if (!fx.cv || !fx.mode || document.hidden) return;
-  // 30 кадров в секунду достаточно для неба и вдвое дешевле.
-  if (ts - fx.last < 32) { fx.raf = requestAnimationFrame(fxFrame); return; }
-  const dt = Math.min(0.1, (ts - (fx.last || ts)) / 1000); fx.last = ts;
-  const c = fx.ctx; c.clearRect(0, 0, fx.w, fx.h);
-  if (fx.mode === 'sky') {
-    for (const s of fx.stars) {
-      s.tw += dt * (0.6 + s.z * 1.8);
-      const a = 0.18 + 0.5 * s.z * (0.6 + 0.4 * Math.sin(s.tw));
-      c.fillStyle = 'rgba(200,220,255,' + a.toFixed(3) + ')';
-      const r = 0.4 + s.z * 1.1;
-      c.beginPath(); c.arc(s.x, s.y, r, 0, 6.283); c.fill();
-    }
-    // Звездопад: падающая звезда раз в несколько секунд, иногда — две.
-    if (Math.random() < dt * 0.35) {
-      const ang = Math.PI * (0.18 + Math.random() * 0.14);
-      fx.shoot.push({ x: Math.random() * fx.w * 1.1, y: -20 + Math.random() * fx.h * 0.4, vx: -Math.cos(ang) * 620, vy: Math.sin(ang) * 620, life: 0, max: 0.9 + Math.random() * 0.7 });
-    }
-    fx.shoot = fx.shoot.filter(s => (s.life += dt) < s.max);
-    for (const s of fx.shoot) {
-      s.x += s.vx * dt; s.y += s.vy * dt;
-      const k = 1 - s.life / s.max;
-      const g = c.createLinearGradient(s.x, s.y, s.x - s.vx * 0.16, s.y - s.vy * 0.16);
-      g.addColorStop(0, 'rgba(255,255,255,' + (0.9 * k).toFixed(3) + ')');
-      g.addColorStop(1, 'rgba(124,176,255,0)');
-      c.strokeStyle = g; c.lineWidth = 1.6; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(s.x, s.y); c.lineTo(s.x - s.vx * 0.16, s.y - s.vy * 0.16); c.stroke();
-    }
-  } else if (fx.mode === 'pixel') {
-    for (const s of fx.stars) {
-      s.y += dt * (12 + s.z * 70);
-      if (s.y > fx.h) { s.y = -4; s.x = Math.random() * fx.w; }
-      const sz = s.z > 0.85 ? 3 : s.z > 0.5 ? 2 : 1;
-      s.tw += dt * 3;
-      c.globalAlpha = s.z > 0.85 && Math.sin(s.tw) < -0.6 ? 0.25 : 0.35 + s.z * 0.5;
-      c.fillStyle = RETRO_PAL[Math.floor(s.z * 97) % RETRO_PAL.length];
-      c.fillRect(Math.round(s.x), Math.round(s.y), sz, sz);
-    }
-    c.globalAlpha = 1;
-  }
+  const bg = BG[fx.mode];
+  if (ts - fx.last < 1000 / bg.fps - 2) { fx.raf = requestAnimationFrame(fxFrame); return; }
+  const dt = Math.min(0.1, (ts - (fx.last || ts)) / 1000); fx.last = ts; fx.t += dt;
+  const t0 = performance.now();
+  bg.draw(fx.s, fx.ctx, dt, fx.t);
+  fx.cost = fx.cost * 0.95 + (performance.now() - t0) * 0.05;
   fx.raf = requestAnimationFrame(fxFrame);
 }
 function fxApply() {
   const mode = fxOn() ? fxMode() : '';
+  if (mode !== fx.mode && fx.cv) { fx.cv.remove(); fx.cv = null; }
   fx.mode = mode;
-  if (!mode) { if (fx.cv) { fx.cv.remove(); fx.cv = null; } return; }
+  if (!mode) return;
   if (!fx.cv) {
     fx.cv = document.createElement('canvas'); fx.cv.id = 'fxSky'; fx.cv.setAttribute('aria-hidden', 'true');
     document.body.prepend(fx.cv);
     fx.ctx = fx.cv.getContext('2d');
     fxResize();
   }
-  if (!fx.raf) fx.raf = requestAnimationFrame(fxFrame);
+  if (!fx.raf) { fx.last = 0; fx.raf = requestAnimationFrame(fxFrame); }
 }
 
-/* ---- варп-прыжок ----
-   fxWarp(ms) — короткий прыжок: лучи из центра разгоняются и гаснут вспышкой.
-   fxWarpCruise() — фон окна подготовки, пока раздача ищет раздающих: лучи
-   идут ровно, а на выходе — тот же разгон. Возвращает функцию остановки. */
-function fxWarpCanvas() {
-  const cv = document.createElement('canvas'); cv.className = 'fx-warp';
+/* ---------- анимации запуска ----------
+   Каждая — draw(o, c, dt, t, v): v — «скорость», в ожидании ровная, при
+   запуске разгоняется. burst — длительность разгона, flash — цвет вспышки. */
+const LAUNCH = {};
+LAUNCH.warp = {
+  name: 'Варп-прыжок', burst: 1.1, flash: '',
+  init(o) { o.st = Array.from({ length: o.retro ? 160 : 340 }, () => ({ a: Math.random() * 6.283, d: Math.random() * 0.9 + 0.02, s: Math.random() * 0.7 + 0.3, col: pick(RETRO_PAL) })); },
+  draw(o, c, dt, t, v) {
+    const { w, h, retro } = o, cx = w / 2, cy = h / 2, R = Math.hypot(cx, cy);
+    c.fillStyle = retro ? 'rgba(0,0,0,.5)' : 'rgba(2,4,12,' + (v > 2 ? 0.28 : 0.45) + ')'; c.fillRect(0, 0, w, h);
+    for (const s of o.st) {
+      const d0 = s.d; s.d += (0.004 + s.d * 0.9) * v * s.s * 0.05;
+      if (s.d > 1.15) { s.d = 0.02 + Math.random() * 0.05; s.a = Math.random() * 6.283; continue; }
+      const x0 = cx + Math.cos(s.a) * d0 * R, y0 = cy + Math.sin(s.a) * d0 * R, x1 = cx + Math.cos(s.a) * s.d * R, y1 = cy + Math.sin(s.a) * s.d * R;
+      if (retro) { c.fillStyle = s.col; const n = Math.max(1, Math.round((s.d - d0) * R / 6)); for (let i = 0; i <= n; i++) { const k = i / n; c.fillRect(Math.round((x0 + (x1 - x0) * k) / 3) * 3, Math.round((y0 + (y1 - y0) * k) / 3) * 3, 3, 3); } }
+      else { c.strokeStyle = 'rgba(' + (190 + Math.round(65 * s.s)) + ',' + (215 + Math.round(40 * s.s)) + ',255,' + Math.min(1, 0.25 + s.d).toFixed(2) + ')'; c.lineWidth = 0.6 + s.d * 2.2; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
+    }
+  },
+};
+LAUNCH.matrix = {
+  name: 'Матрица', burst: 1.3, flash: 'matrix',
+  init(o) { o.cols = Array.from({ length: Math.ceil(o.w / 16) }, () => ({ y: rnd(-o.h, 0), v: rnd(0.6, 1.4) })); o.c.fillStyle = '#000'; o.c.fillRect(0, 0, o.w, o.h); },
+  draw(o, c, dt, t, v) {
+    c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(0, 0, o.w, o.h);
+    c.font = 'bold 16px "MS Gothic","Lucida Console",monospace';
+    o.cols.forEach((col, i) => {
+      const step = col.v * (120 + v * 90) * dt;
+      for (let y = col.y; y < col.y + step; y += 16) { c.fillStyle = 'rgba(57,255,122,.85)'; c.fillText(pick(MATRIX_CH), i * 16, y); }
+      col.y += step; c.fillStyle = '#e6ffe9'; c.fillText(pick(MATRIX_CH), i * 16, col.y);
+      if (col.y > o.h + 20) { col.y = rnd(-120, 0); col.v = rnd(0.6, 1.4); }
+    });
+  },
+};
+// Ракорд старой плёнки: круг, перекрестье, бегущий сектор и цифра 3-2-1.
+LAUNCH.film = {
+  name: 'Киноплёнка', burst: 2.1, flash: 'film',
+  init() {},
+  draw(o, c, dt, t, v, burst) {
+    const { w, h } = o, cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.3;
+    const fl = 0.92 + Math.random() * 0.08;
+    c.fillStyle = 'rgb(' + Math.round(214 * fl) + ',' + Math.round(192 * fl) + ',' + Math.round(150 * fl) + ')'; c.fillRect(0, 0, w, h);
+    const per = burst ? burst / 3 : 1;
+    const ph = (t % per) / per;
+    const num = burst ? Math.max(1, 3 - Math.floor(t / per)) : 3 - Math.floor(t / per) % 3;
+    c.fillStyle = 'rgba(70,52,30,.33)'; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, R * 1.6, -Math.PI / 2, -Math.PI / 2 + ph * 6.283); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(40,28,14,.85)'; c.lineWidth = 3;
+    c.beginPath(); c.arc(cx, cy, R, 0, 6.283); c.stroke();
+    c.beginPath(); c.arc(cx, cy, R * 0.82, 0, 6.283); c.stroke();
+    c.lineWidth = 2; c.beginPath(); c.moveTo(0, cy); c.lineTo(w, cy); c.moveTo(cx, 0); c.lineTo(cx, h); c.stroke();
+    c.fillStyle = 'rgba(30,20,10,.9)'; c.font = 'bold ' + Math.round(R * 1.1) + 'px Georgia,"Times New Roman",serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(String(num), cx, cy + R * 0.05); c.textAlign = 'start'; c.textBaseline = 'alphabetic';
+    // зерно и царапины
+    c.fillStyle = 'rgba(40,28,14,.35)';
+    for (let i = 0; i < 260; i++) c.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5);
+    c.fillStyle = 'rgba(255,248,230,.25)';
+    for (let i = 0; i < 90; i++) c.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5);
+    if (Math.random() < 0.7) { c.strokeStyle = 'rgba(40,28,14,.4)'; c.lineWidth = 1; const x = Math.random() * w; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + rnd(-8, 8), h); c.stroke(); }
+    const vg = c.createRadialGradient(cx, cy, R * 0.8, cx, cy, Math.hypot(cx, cy));
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(40,24,8,.7)'); c.fillStyle = vg; c.fillRect(0, 0, w, h);
+  },
+};
+LAUNCH.sakura = {
+  name: 'Вихрь лепестков', burst: 1.4, flash: 'sakura',
+  init(o) { const m = Math.hypot(o.w, o.h) / 2; o.p = Array.from({ length: 180 }, () => ({ a: rnd(0, 6.283), r: rnd(40, m), r0: 0, rot: rnd(0, 6), sz: rnd(5, 12), col: pick(PETAL_COL) })); o.p.forEach(p => { p.r0 = p.r; }); },
+  draw(o, c, dt, t, v) {
+    c.fillStyle = 'rgba(246,240,228,.38)'; c.fillRect(0, 0, o.w, o.h);
+    const cx = o.w / 2, cy = o.h / 2;
+    for (const p of o.p) {
+      p.a += dt * (0.5 + v * 0.22) * (220 / (p.r + 60));
+      p.r = v > 3 ? p.r + dt * v * 40 : p.r0 * (0.75 + 0.25 * Math.sin(t * 0.8 + p.a));
+      p.rot += dt * 3;
+      c.fillStyle = p.col; petal(c, cx + Math.cos(p.a) * p.r, cy + Math.sin(p.a) * p.r * 0.8, p.sz, p.rot + p.a, 0.85);
+    }
+    c.globalAlpha = 1;
+  },
+};
+LAUNCH.neon = {
+  name: 'Неоновый горизонт', burst: 1.2, flash: 'neon',
+  init() {},
+  draw(o, c, dt, t, v) {
+    c.fillStyle = 'rgba(13,2,33,.55)'; c.fillRect(0, 0, o.w, o.h);
+    o.tt = (o.tt || 0) + dt * (0.5 + v * 0.35);
+    drawNeonScene(o, c, o.tt, 1, Math.min(1, 0.55 + v * 0.03));
+  },
+};
+LAUNCH.wave = {
+  name: 'Девятый вал', burst: 1.5, flash: 'sea',
+  init() {},
+  draw(o, c, dt, t, v, burst) {
+    const g = c.createLinearGradient(0, 0, 0, o.h);
+    g.addColorStop(0, '#08182a'); g.addColorStop(1, '#0f3049'); c.fillStyle = g; c.fillRect(0, 0, o.w, o.h);
+    o.tt = (o.tt || 0) + dt * (1 + v * 0.15);
+    const k = burst ? Math.min(1, t / burst) : 0;
+    // Вал поднимается и накрывает экран к концу разгона.
+    drawSea(o, c, o.tt, o.h * (0.62 - 0.75 * k * k), 14 + v * 2.5, 0.95);
+  },
+};
+const LAUNCH_THEME = { matrix: 'matrix', neon: 'neon', sakura: 'sakura', sea: 'wave' };
+function launchPref() { const v = localStorage.getItem(FXL_KEY) || 'auto'; return v === 'auto' || v === 'random' || v === 'off' || LAUNCH[v] ? v : 'auto'; }
+let launchPick = { k: '', at: 0 };
+function launchKind() {
+  const p = launchPref();
+  if (p === 'off') return '';
+  if (p !== 'random' && p !== 'auto') return p;
+  // Ожидание и запуск идут подряд — случайный выбор держится десять секунд,
+  // чтобы ожидание и разгон были одной анимацией.
+  if (launchPick.k && Date.now() - launchPick.at < 10000) return launchPick.k;
+  const k = p === 'random' ? pick(Object.keys(LAUNCH)) : LAUNCH_THEME[document.documentElement.dataset.theme] || 'warp';
+  launchPick = { k, at: Date.now() };
+  return k;
+}
+function fxLaunchCanvas(kind) {
+  const cv = document.createElement('canvas'); cv.className = 'fx-warp fx-' + kind;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = window.innerWidth, h = window.innerHeight;
   cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
   const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
   document.body.appendChild(cv);
-  const retro = document.documentElement.dataset.theme === 'retro';
-  const N = retro ? 160 : 340;
-  const st = Array.from({ length: N }, () => ({ a: Math.random() * 6.283, d: Math.random() * 0.9 + 0.02, s: Math.random() * 0.7 + 0.3, col: RETRO_PAL[Math.floor(Math.random() * RETRO_PAL.length)] }));
-  return { cv, c, w, h, st, retro };
+  const o = { cv, c, w, h, kind, retro: document.documentElement.dataset.theme === 'retro' };
+  LAUNCH[kind].init(o);
+  return o;
 }
-function fxWarpRun(o, speedAt, total, onEnd) {
-  const { c, w, h, st, retro } = o;
-  const cx = w / 2, cy = h / 2, R = Math.hypot(cx, cy);
-  let t0 = 0, raf = 0, stopped = false;
+function fxLaunchRun(o, speedAt, total, onEnd) {
+  const an = LAUNCH[o.kind];
+  let t0 = 0, last = 0, raf = 0, stopped = false;
   const frame = ts => {
     if (stopped) return;
-    if (!t0) t0 = ts;
-    const t = (ts - t0) / 1000;
-    const v = speedAt(t);
-    // Хвост от прошлых кадров: лучи тянутся, а не мигают.
-    c.fillStyle = retro ? 'rgba(0,0,0,.5)' : 'rgba(2,4,12,' + (v > 2 ? 0.28 : 0.45) + ')';
-    c.fillRect(0, 0, w, h);
-    for (const s of st) {
-      const d0 = s.d;
-      s.d += (0.004 + s.d * 0.9) * v * s.s * 0.05;
-      if (s.d > 1.15) { s.d = 0.02 + Math.random() * 0.05; s.a = Math.random() * 6.283; continue; }
-      const r0 = d0 * R, r1 = s.d * R;
-      const x0 = cx + Math.cos(s.a) * r0, y0 = cy + Math.sin(s.a) * r0;
-      const x1 = cx + Math.cos(s.a) * r1, y1 = cy + Math.sin(s.a) * r1;
-      if (retro) {
-        c.fillStyle = s.col;
-        const n = Math.max(1, Math.round((r1 - r0) / 6));
-        for (let i = 0; i <= n; i++) { const k = i / n; c.fillRect(Math.round((x0 + (x1 - x0) * k) / 3) * 3, Math.round((y0 + (y1 - y0) * k) / 3) * 3, 3, 3); }
-      } else {
-        const a = Math.min(1, 0.25 + s.d);
-        c.strokeStyle = 'rgba(' + (190 + Math.round(65 * s.s)) + ',' + (215 + Math.round(40 * s.s)) + ',255,' + a.toFixed(2) + ')';
-        c.lineWidth = 0.6 + s.d * 2.2;
-        c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
-      }
-    }
+    if (!t0) t0 = last = ts;
+    const t = (ts - t0) / 1000, dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+    an.draw(o, o.c, dt, t, speedAt(t), total);
     if (total && t >= total) { stop(); if (onEnd) onEnd(); return; }
     raf = requestAnimationFrame(frame);
   };
@@ -7443,36 +8119,49 @@ function fxWarpRun(o, speedAt, total, onEnd) {
   raf = requestAnimationFrame(frame);
   return stop;
 }
-function fxFlash(retro) {
-  const f = document.createElement('div'); f.className = 'fx-flash' + (retro ? ' retro' : '');
+function fxFlash(kind, retro) {
+  const f = document.createElement('div'); f.className = 'fx-flash' + (retro ? ' retro' : '') + (kind ? ' ' + kind : '');
   document.body.appendChild(f);
   setTimeout(() => f.remove(), 700);
 }
+function fxFinish(o) { fxFlash(LAUNCH[o.kind].flash, o.retro); o.cv.classList.add('out'); setTimeout(() => o.cv.remove(), 380); }
 let warpBusy = false;
-function fxWarp(ms) {
-  if (!fxOn() || warpBusy) return;
+// fxWarp — короткий разгон при запуске плеера (имя прежнее: так его зовёт код).
+function fxWarp(kindForce) {
+  const kind = kindForce || launchKind();
+  if (!kind || !fxLaunchOn() || warpBusy) return;
   warpBusy = true;
-  const o = fxWarpCanvas();
-  const T = (ms || 1100) / 1000;
-  // Разгон: сначала звёзды стоят, потом рывок — как переход в гиперпространство.
-  fxWarpRun(o, t => 0.4 + Math.pow(t / T, 3) * 28, T, () => {
-    fxFlash(o.retro);
-    o.cv.classList.add('out');
-    setTimeout(() => { o.cv.remove(); warpBusy = false; }, 380);
-  });
+  const o = fxLaunchCanvas(kind), T = LAUNCH[kind].burst;
+  fxLaunchRun(o, t => 0.4 + Math.pow(t / T, 3) * 28, T, () => { fxFinish(o); setTimeout(() => { warpBusy = false; }, 380); });
 }
+// fxWarpCruise — фон окна ожидания; возвращает остановку (ok — с разгоном).
 function fxWarpCruise(host) {
-  if (!fxOn()) return () => {};
-  const o = fxWarpCanvas();
+  const kind = launchKind();
+  if (!kind || !fxLaunchOn()) return () => {};
+  const o = fxLaunchCanvas(kind);
   o.cv.classList.add('cruise');
   if (host) host.classList.add('warp-host');
-  let boost = 0;
-  let stop = fxWarpRun(o, () => 2.2 + boost, 0);
+  let stop = fxLaunchRun(o, () => 2.2, 0);
   return ok => {
     stop();
     if (!ok) { o.cv.classList.add('out'); setTimeout(() => o.cv.remove(), 380); return; }
-    stop = fxWarpRun(o, t => 2.2 + Math.pow(t / 0.6, 3) * 26, 0.6, () => { fxFlash(o.retro); o.cv.classList.add('out'); setTimeout(() => o.cv.remove(), 380); });
+    stop = fxLaunchRun(o, t => 2.2 + Math.pow(t / 0.6, 3) * 26, 0.6, () => fxFinish(o));
   };
+}
+// Анимацию запуска можно оставить и при выключенном фоне — это разные галочки.
+function fxLaunchOn() {
+  try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch {}
+  return launchPref() !== 'off';
+}
+function launchSelectHtml() {
+  const v = launchPref();
+  const opt = (k, l) => `<option value="${k}"${v === k ? ' selected' : ''}>${l}</option>`;
+  return `<select id="fxLaunch" style="width:auto">${opt('auto', 'Как у темы')}${opt('random', 'Случайная')}${Object.entries(LAUNCH).map(([k, a]) => opt(k, a.name)).join('')}${opt('off', 'Без анимации')}</select> <button id="fxTry" type="button">Показать</button>`;
+}
+function bindLaunchSelect() {
+  const s = $('#fxLaunch'); if (!s) return;
+  s.addEventListener('change', () => { savePref(FXL_KEY, s.value); launchPick = { k: '', at: 0 }; });
+  const b = $('#fxTry'); if (b) b.addEventListener('click', () => { launchPick = { k: '', at: 0 }; const k = launchKind() || 'warp'; warpBusy = false; fxWarp(k); });
 }
 
 /* ---- ретро: включение ЭЛТ при выборе темы ---- */
@@ -7487,7 +8176,6 @@ function fxBoot() {
   fxApply();
   window.addEventListener('resize', () => { if (fx.cv) fxResize(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && fx.mode && !fx.raf) { fx.last = 0; fx.raf = requestAnimationFrame(fxFrame); } });
-  // Тема меняется в одном месте — applyTheme; небо следует за ней.
   new MutationObserver(() => fxApply()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
 /* Онлайн-экземпляры JacRed: агрегатор русских трекеров с ручками Jackett.
@@ -7612,7 +8300,8 @@ function renderSettings(root) {
     <div class="card"><h3>Оформление</h3>
       ${raw(themePickerHtml())}
       <p class="page-sub">Кнопка 🌓 в шапке и клавиша T перебирают темы по кругу.</p>
-      <label class="check" title="Звездопад на фоне «Графита», пиксельные звёзды «Денди», варп-прыжок при запуске просмотра"><input type="checkbox" id="fxToggle" ${localStorage.getItem('tc_fx') === '0' ? '' : 'checked'}> Анимации: звёздное небо и варп-прыжок при запуске</label>
+      <label class="check" title="Звездопад на фоне «Графита», пиксельные звёзды «Денди», варп-прыжок при запуске просмотра"><input type="checkbox" id="fxToggle" ${localStorage.getItem('tc_fx') === '0' ? '' : 'checked'}> Живой фон темы (звёзды, дождь символов, лепестки, море)</label>
+      <div class="row wrap" style="margin-top:8px; align-items:center; gap:8px"><span>Анимация запуска просмотра:</span>${raw(launchSelectHtml())}</div>
     </div>
     <div class="card" id="remoteCard"><h3>Доступ с телефона</h3>
       <p class="page-sub">Откройте TorrClient на телефоне в той же Wi-Fi-сети: наведите камеру на QR-код или введите адрес и PIN. С телефона можно искать, добавлять раздачи и запускать просмотр на компьютере.</p>
@@ -7659,6 +8348,7 @@ function renderSettings(root) {
   });
   $('#npAdd').addEventListener('click', addProfile);
   { const fxt = $('#fxToggle'); if (fxt) fxt.addEventListener('change', () => { savePref('tc_fx', fxt.checked ? '1' : '0'); fxApply(); }); }
+  bindLaunchSelect();
   $('#wfReg').addEventListener('click', async () => {
     try { await api('/api/reg?action=install', { method: 'POST' }); toast('Протокол magnet:// зарегистрирован. Проверьте, что TorrClient — браузер по умолчанию для magnet.'); renderServerStatus(); } catch (e) { toast(e.message, true); }
   });

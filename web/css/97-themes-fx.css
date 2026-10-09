@@ -1,0 +1,47 @@
+/* ───────────── темы с живым фоном: Матрица, Кибер-неон, Японский сад, Девятый вал ─────────────
+   Фон рисует 78-fx.js на холсте #fxSky; здесь — токены и характер темы.
+   Панели полупрозрачные, чтобы фон просвечивал, но текст оставался читаемым. */
+:root[data-theme=matrix]{
+  --bg:#000; --bg2:#04110a; --bg3:#072014; --bg4:#0c2e1c; --side:#020a05;
+  --line:#0f3a22; --line2:#17562f; --fg:#c8ffd9; --mut:#6fd896; --faint:#3f9a62;
+  --acc:#39ff7a; --acc-bg:#11a64a; --acc-fg:#001a08; --acc2:#a6ff3c; --gold:#d6ff5a; --red:#ff5a4f; --blue:#5affc8; --pink:#9dffb0; --chip:#072014;
+  --sh-1:0 0 0 1px rgba(57,255,122,.08),0 6px 18px rgba(0,0,0,.6); --sh-2:0 0 0 1px rgba(57,255,122,.25),0 0 40px rgba(57,255,122,.12);
+  --font:"Cascadia Mono",Consolas,"Lucida Console","Courier New",monospace; --r-sm:2px; --r:3px; --r-lg:4px;
+  color-scheme:dark}
+:root[data-theme=matrix] body{font-size:13px}
+:root[data-theme=matrix] .page-title,:root[data-theme=matrix] h1,:root[data-theme=matrix] .mv-title{color:var(--acc); text-shadow:0 0 8px rgba(57,255,122,.7),0 0 22px rgba(57,255,122,.35); letter-spacing:.04em}
+:root[data-theme=matrix] .page-title::after{content:'_'; margin-left:.15em; animation:mxblink 1s steps(1) infinite}
+:root[data-theme=matrix] .btn.primary,:root[data-theme=matrix] #nav button.on{box-shadow:0 0 12px rgba(57,255,122,.35)}
+@keyframes mxblink{50%{opacity:0}}
+
+:root[data-theme=neon]{
+  --bg:#0d0221; --bg2:#160634; --bg3:#22094a; --bg4:#2e0f60; --side:#0a011a;
+  --line:#33125e; --line2:#4a1d85; --fg:#f6ecff; --mut:#c3a8e8; --faint:#8a6cb8;
+  --acc:#00f0ff; --acc-bg:#ff2bd6; --acc-fg:#fff; --acc2:#3dffa8; --gold:#ffd23f; --red:#ff4d6d; --blue:#00f0ff; --pink:#ff2bd6; --chip:#22094a;
+  --sh-1:0 0 0 1px rgba(255,43,214,.12),0 6px 20px rgba(0,0,0,.5); --sh-2:0 0 0 1px rgba(0,240,255,.35),0 0 46px rgba(255,43,214,.25);
+  color-scheme:dark}
+:root[data-theme=neon] .page-title,:root[data-theme=neon] h1,:root[data-theme=neon] .mv-title{background:linear-gradient(90deg,#ff2bd6,#00f0ff); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 10px rgba(255,43,214,.45))}
+:root[data-theme=neon] .btn.primary{box-shadow:0 0 14px rgba(255,43,214,.55),inset 0 0 0 1px rgba(255,255,255,.2)}
+:root[data-theme=neon] #nav button.on{box-shadow:inset 3px 0 0 #00f0ff,0 0 16px rgba(0,240,255,.2)}
+:root[data-theme=neon] input:focus,:root[data-theme=neon] select:focus{box-shadow:0 0 0 1px #00f0ff,0 0 14px rgba(0,240,255,.4)}
+
+:root[data-theme=sakura]{
+  --bg:#f6f0e4; --bg2:#fbf7ef; --bg3:#efe6d6; --bg4:#e5d9c4; --side:#f2ebdd;
+  --line:#e4d8c3; --line2:#d6c6aa; --fg:#2f2a26; --mut:#6b5f55; --faint:#958a7f;
+  --acc:#c2456e; --acc-bg:#c2456e; --acc-fg:#fff; --acc2:#5d8a4a; --gold:#a9781c; --red:#c0392b; --blue:#3d6f9e; --pink:#d4608a; --chip:#efe6d6;
+  --scrim:rgba(60,40,30,.32); --sh-1:0 1px 2px rgba(90,60,40,.06),0 4px 14px rgba(90,60,40,.07); --sh-2:0 18px 48px rgba(90,60,40,.16);
+  color-scheme:light}
+:root[data-theme=sakura] .page-title,:root[data-theme=sakura] h1,:root[data-theme=sakura] .mv-title{font-family:Georgia,"Times New Roman",serif; font-weight:600; letter-spacing:.01em}
+:root[data-theme=sakura] .page-title::before{content:'❀'; color:var(--acc); margin-right:.35em; font-size:.8em; vertical-align:.08em}
+/* фактура рисовой бумаги */
+:root[data-theme=sakura] body{background-image:radial-gradient(rgba(120,90,60,.05) 1px,transparent 1px); background-size:5px 5px}
+
+:root[data-theme=sea]{
+  --bg:#06131f; --bg2:#0b1f30; --bg3:#122b40; --bg4:#1a3a54; --side:#05101a;
+  --line:#173349; --line2:#22465f; --fg:#eef4f2; --mut:#a8c2c4; --faint:#6f8f96;
+  --acc:#f2c14e; --acc-bg:#c9932a; --acc-fg:#1a1204; --acc2:#5fc9b5; --gold:#f2c14e; --red:#e8705f; --blue:#7fb8e0; --pink:#e59ab0; --chip:#122b40;
+  color-scheme:dark}
+:root[data-theme=sea] .page-title,:root[data-theme=sea] h1,:root[data-theme=sea] .mv-title{font-family:Georgia,"Times New Roman",serif; font-style:italic; color:#f6dca0; text-shadow:0 2px 14px rgba(242,193,78,.25)}
+
+/* фон темы просвечивает сквозь каркас */
+:root[data-theme=matrix] .sidebar,:root[data-theme=neon] .sidebar,:root[data-theme=sakura] .sidebar,:root[data-theme=sea] .sidebar{background:color-mix(in srgb,var(--side) 82%,transparent); backdrop-filter:blur(6px)}
