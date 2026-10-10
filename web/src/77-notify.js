@@ -114,10 +114,11 @@ async function loadNowPlaying() {
 function paintNowPlaying() {
   const b = $('#nowBtn'); if (!b) return;
   let label = '', sub = '', kind = '';
-  if (mu.t && mu.ix >= 0 && mu.audio && mu.audio.src) {
+  const au = auNowInfo();
+  if (au) {
     kind = 'music';
-    label = musicTrackName(mu.queue[mu.ix]);
-    sub = mu.audio.paused ? 'пауза' : 'музыка';
+    label = au.label;
+    sub = au.sub;
   } else if (state.now && state.now.length) {
     const it = state.now[0];
     const t = (state.lib || []).find(x => x.hash === it.hash);
@@ -129,7 +130,7 @@ function paintNowPlaying() {
   b.classList.toggle('hidden', !kind);
   b.dataset.kind = kind;
   if (!kind) { b.innerHTML = ''; return; }
-  b.innerHTML = html`<span class="np-eq${kind === 'music' && mu.audio && mu.audio.paused ? ' paused' : ''}"><i></i><i></i><i></i></span><span class="np-tx"><b>${label}</b><small>Сейчас играет · ${sub}</small></span>`;
+  b.innerHTML = html`<span class="np-eq${kind === 'music' && au && au.paused ? ' paused' : ''}"><i></i><i></i><i></i></span><span class="np-tx"><b>${label}</b><small>Сейчас играет · ${sub}</small></span>`;
   b.title = 'Сейчас играет: ' + label;
 }
 function onNowClick() {

@@ -504,6 +504,8 @@ type playerChannel struct {
 	resumeArgs func(pos float64) []string
 	// seek переводит плеер на позицию текущего файла по каналу управления.
 	seek func(ctx context.Context, pos float64) error
+	// ctl — полное управление для «Смотрим вместе»; nil — плеер не умеет.
+	ctl *playerCtl
 }
 
 // channelFor готовит канал связи с плеером.
@@ -535,6 +537,7 @@ func channelFor(key string) playerChannel {
 			},
 			poll: asker.vlcPoll,
 			seek: asker.vlcSeek,
+			ctl:  vlcCtl(asker),
 		}
 	case "mpv":
 		pipe := `\\.\pipe\torrclient-mpv-` + randomToken()
@@ -543,6 +546,7 @@ func channelFor(key string) playerChannel {
 			args: []string{"--input-ipc-server=" + pipe},
 			poll: asker.poll,
 			seek: asker.seek,
+			ctl:  mpvCtl(pipe),
 		}
 	case "mpc", "mpcbe":
 		// Порт веб-интерфейса у семейства MPC постоянен, но сам интерфейс
@@ -1039,9 +1043,17 @@ func (c *Comp) startPlayer(p *Player, args []string, hash string, fileID int, po
 	done := make(chan struct{})
 	trackPlayer(cmd)
 	nowID := nowStart(hash, fileID, p.Name)
+	var ctl *ctlSession
+	if channel.ctl != nil {
+		ctl = &ctlSession{ctl: channel.ctl, player: p.Key, hash: hash, fileID: fileID, nowID: nowID, since: time.Now()}
+		ctlSet(ctl)
+	}
 	go func() {
 		defer close(done)
 		_ = cmd.Wait()
+		if ctl != nil {
+			ctlClear(ctl)
+		}
 		nowStop(nowID)
 		untrackPlayer(cmd)
 		sleepPlayerExited()

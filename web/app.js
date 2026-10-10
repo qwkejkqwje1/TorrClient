@@ -283,6 +283,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['2.4.0', ['👥 «Смотрим вместе»: комната по коду приглашения, плееры mpv/VLC идут в ногу (пауза, перемотка, отсчёт 3-2-1, ожидание отстающего), чат и реакции поверх видео, голос и показ экрана. Связь — WebRTC напрямую, запасной путь — зашифрованный MQTT', '«Музыка» стала «Аудио»: вкладки Музыка, Аудиокниги и Радио; обложки альбомов, рекомендации, перемешивание, скорость и буфер под плеером, сам переключается на другую раздачу, если трек не играет', 'Аудиокниги: полка, продолжение с места, скорость чтения, закладки с подписью, скачать для офлайна', 'Радио: Nightride FM, Radio Paradise, EVE и тысячи станций Radio Browser, название песни и осциллограф', 'Поиск музыки сам выбирает лучшую раздачу по качеству и скорости', 'Вместо голограммы танцуют Резе и Волк — случайный танец на каждый трек (🎲 на сцене закрепляет танцора); оба умеют «ихвильнихт» из мема с волком, у Резе это любимый танец']],
   ['2.3.0', ['В разделе «Музыка» живёт неоновая танцовщица-голограмма: слышит трек, сама находит темп и танцует под него (× убирает её)', 'Новые темы с живым фоном: «Матрица», «Кибер-неон», светлая «Японский сад» с лепестками сакуры и «Девятый вал» в духе Айвазовского и Ван Гога', 'Анимации запуска просмотра: варп, «Матрица», «Киноплёнка» с отсчётом 3-2-1, «Вихрь сакуры», «Неон», «Девятый вал» — по теме, случайная или своя (Настройки → Оформление)', 'Звездопад у «Графита» стал случайным: звёзды падают в разное время и в разных местах']],
   ['2.2.0', ['Поиск сразу открывает карточку фильма, если название нашлось в TMDB (галочка «сразу карточка»); над раздачами — карточка названия', 'Крестик и Esc в поле поиска очищают запрос', 'В карточке фильма у каждой раздачи «♥» — именно эта раздача уходит в избранное', 'Исправлен размер раздач Кинозала: «37.85 ГБ» показывалось как 38 байт', '«Продолжить просмотр» — от последнего открытого и не больше 6 карточек', 'Оценка качества у аниме и мультсериалов в Библиотеке — по именам файлов', 'Новое «Сейчас играет» в шапке: что открыто в плеере или какой трек звучит', 'Колокольчик уведомлений: новые серии больше не теряются', 'Сериалы из Библиотеки отслеживаются сами — о новых сериях приходит уведомление', 'Раздел «Музыка»: только аудиораздачи и плеер прямо в окне; музыка не попадает в Библиотеку', 'Новая тема «Денди 90-х», звёздное небо у «Графита» и варп-прыжок при запуске просмотра (выключается в Настройках → Оформление)']],
   ['2.1.0', ['Карточка фильма: постер, описание, сезоны и серии с отметками просмотра, все раздачи с оценкой качества и числом раздающих, «Смотреть» и «Следить». Открывается с любой карточки названия и с раздач поиска, кроме ТОПа за 24 часа', 'Лучшая раздача считается по качеству, русской дорожке, раздающим и размеру; для сериала выберите сезон — лишние раздачи уйдут', 'Поиск показывает раздачи по мере ответа каждого источника, а зависший отрезается через 12 секунд', 'Главная настраивается: включить, выключить и переставить ряды, свои ряды (подборка TMDB, ТОП раздела, поиск — например «Новинки аниме»), ряд «Детское»; приветствие убрано', 'Любой раздел можно сделать стартовым: правый клик по нему в панели или «Настроить» на Главной', 'Кнопки мыши «назад» и «вперёд» ходят по разделам и карточкам', 'Удаление без окна подтверждения: «Удалено · Вернуть»', 'В библиотеке у раздач — оценка качества и источник/кодек/звук', 'Исправлена кнопка «Смотреть» на постере (вместо значка был синий круг); сердечки — по центру сверху']],
@@ -444,6 +445,7 @@ const ICONS = {
   list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   edit: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M13.5 8.5l3 3"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-1a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5v1"/><path d="M15.5 4.7a3.5 3.5 0 0 1 0 6.6M18.5 14.3a5 5 0 0 1 3 4.7v1"/>',
   music: '<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
   prev: '<path d="M6 5v14"/><path d="M19 5.5v13L9 12Z" fill="currentColor"/>',
   next: '<path d="M18 5v14"/><path d="M5 5.5v13L15 12Z" fill="currentColor"/>',
@@ -458,7 +460,7 @@ function ico(name, size) {
 
 /* Разделы по группам. Порядок задаёт и Alt+1…Alt+0 (первые десять). */
 const NAV_GROUPS = [
-  { label: '', items: [['home', 'Главная', 'home'], ['library', 'Библиотека', 'grid'], ['search', 'Поиск', 'search'], ['music', 'Музыка', 'music']] },
+  { label: '', items: [['home', 'Главная', 'home'], ['library', 'Библиотека', 'grid'], ['search', 'Поиск', 'search'], ['music', 'Аудио', 'music'], ['together', 'Вместе', 'users']] },
   { label: 'Моё', items: [['favorites', 'Избранное', 'heart'], ['bookmarks', 'Закладки', 'bookmark'], ['series', 'Сериалы', 'tv'], ['subs', 'Подписки', 'bell']] },
   { label: 'Система', items: [['downloads', 'Загрузки', 'download'], ['players', 'Плееры', 'player'], ['settings', 'Настройки', 'sliders'], ['server', 'Сервер', 'server']] },
 ];
@@ -948,7 +950,7 @@ function route() {
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
   $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
-  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, music: renderMusic, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
+  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, music: renderMusic, together: renderTogether, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderHome;
   const main = $('main'); main.innerHTML = '';
   main.dataset.view = v;
@@ -6243,14 +6245,16 @@ function onMovieClick(e) {
     const rel = $('#mvRel'); if (rel) rel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
-/* ================= МУЗЫКА =================
-   Отдельный маленький раздел: поиск только музыкальных раздач и плеер прямо
-   в окне. Музыка живёт здесь и не расходится по программе: её раздачи не
-   попадают в Библиотеку, «Продолжить просмотр», Сериалы и Главную, а играет
-   она встроенным плеером, без запуска внешнего видеоплеера.
-   Строгость отбора — в два слоя: трекер ищет в разделе «Музыка» (rutor 2), а
-   выдача ещё раз проверяется по названию: нужен признак аудио (FLAC, MP3,
-   kbps, дискография…) и не должно быть признаков видео (1080p, BDRip…). */
+/* ================= АУДИО =================
+   Раздел с тремя вкладками: музыка, аудиокниги и радио. Всё играет прямо в
+   окне одним плеером внизу раздела. Аудиораздачи живут здесь и не расходятся
+   по программе: в Библиотеку, «Продолжить просмотр», Сериалы и Главную они не
+   попадают (категории TorrServer music и audiobook).
+   Строгость отбора — в два слоя: трекер ищет в своём разделе (rutor: 2 —
+   музыка, 11 — книги), а выдача ещё раз проверяется по названию.
+   Здесь — общее ядро: плеер, звук для танцовщицы и осциллографа, скорость и
+   буфер, диагностика зависшей раздачи, перемешивание, обложки, вкладка
+   «Музыка» с рекомендациями. Книги — 66-audiobooks.js, радио — 67-radio.js. */
 
 const MUSIC_KEY = 'tc_music';
 const MUSIC_AUDIO_RE = /\b(flac|mp3|aac|alac|ape|wav|wv|ogg|opus|m4a|dsd|dsf|lossless|hi-?res|\d{2,3}\s?kbps|\d{2}\s?bit|24-?bit|16-?bit|vbr|cbr|cue)\b|дискограф|discograph|альбом|album|сингл|single\b|\bep\b|\blp\b|саундтрек|soundtrack|\bost\b|сборник|compilation|мп3/i;
@@ -6259,62 +6263,117 @@ function isMusicRelease(title) {
   const t = String(title || '');
   return MUSIC_AUDIO_RE.test(t) && !MUSIC_VIDEO_RE.test(t);
 }
-function musicList() { try { const a = JSON.parse(localStorage.getItem(MUSIC_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } }
-function saveMusicList(l) { try { localStorage.setItem(MUSIC_KEY, JSON.stringify(l.slice(0, 300))); } catch {} }
-function musicHashes() { return new Set(musicList().map(x => x.hash).filter(Boolean)); }
-/* isMusicTorrent — раздача принадлежит разделу «Музыка»: её добавили отсюда
-   (категория music у TorrServer или запись в списке). Раздачу со звуком,
-   добавленную через Библиотеку, раздел не забирает: её туда положили руками. */
+function jsonPref(key, def) { try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? def : v; } catch { return def; } }
+function saveJson(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} }
+function musicList() { const a = jsonPref(MUSIC_KEY, []); return Array.isArray(a) ? a : []; }
+function saveMusicList(l) { saveJson(MUSIC_KEY, l.slice(0, 300)); }
+function musicHashes() { const s = new Set(musicList().map(x => x.hash).filter(Boolean)); (typeof bookList === 'function' ? bookList() : []).forEach(b => s.add(b.hash)); return s; }
+/* isMusicTorrent — раздача принадлежит разделу «Аудио»: её добавили отсюда
+   (категория music/audiobook у TorrServer или запись в списке). Раздачу со
+   звуком, добавленную через Библиотеку, раздел не забирает. */
 function isMusicTorrent(t, set) {
   if (!t) return false;
-  if (String(t.category || '').toLowerCase() === 'music') return true;
+  const c = String(t.category || '').toLowerCase();
+  if (c === 'music' || c === 'audiobook') return true;
   return (set || musicHashes()).has(t.hash);
 }
 
-const mu = { q: '', rows: [], busy: false, err: '', queue: [], ix: -1, t: null, audio: null };
+const mu = { tab: savedPref('tc_autab', ['music', 'books', 'radio'], 'music'), q: '', rows: [], busy: false, err: '', queue: [], ix: -1, t: null, audio: null,
+  kind: '', shuffle: localStorage.getItem('tc_mushuf') === '1', order: [], stats: null, statsAt: 0, diag: '', wd: null, switches: 0, alts: [], recs: null, recBusy: false };
 
+/* ── звук: один граф Web Audio на все элементы ──
+   Танцовщице и осциллографу радио нужен анализатор. createMediaElementSource
+   можно вызвать на элементе один раз, и дальше звук идёт только через граф,
+   поэтому подключаются лишь элементы, чей звук разрешено читать: свои потоки
+   (/ts, /api/audio) и радио, ответившее с CORS. Чужой поток без CORS граф
+   превратил бы в тишину. */
+const auGraph = { ac: null, an: null, srcs: new WeakMap(), buf: null, wave: null };
+function auHook(el) {
+  if (!el || !window.AudioContext) return null;
+  try {
+    if (!auGraph.ac) {
+      auGraph.ac = new AudioContext();
+      auGraph.an = auGraph.ac.createAnalyser(); auGraph.an.fftSize = 2048; auGraph.an.smoothingTimeConstant = 0.5;
+      auGraph.an.connect(auGraph.ac.destination);
+      auGraph.buf = new Uint8Array(auGraph.an.frequencyBinCount); auGraph.wave = new Uint8Array(auGraph.an.fftSize);
+    }
+    if (!auGraph.srcs.has(el)) {
+      const s = auGraph.ac.createMediaElementSource(el); s.connect(auGraph.an); auGraph.srcs.set(el, s);
+      el.addEventListener('play', () => auGraph.ac.resume().catch(() => {}));
+    }
+    if (!el.paused) auGraph.ac.resume().catch(() => {});
+    return auGraph.an;
+  } catch { return null; }
+}
+// Что играет сейчас: элемент и можно ли читать его звук.
+function auCurrent() {
+  if (mu.kind === 'radio' && typeof radioEl === 'function') { const r = radioEl(); return r ? { el: r.el, analysable: r.cors } : null; }
+  if (mu.audio && mu.audio.src && mu.ix >= 0) return { el: mu.audio, analysable: true };
+  return null;
+}
+function auPlaying() { const c = auCurrent(); return !!(c && !c.el.paused && !c.el.ended); }
+function auAnalyser() { const c = auCurrent(); if (!c || !c.analysable) return null; return auHook(c.el); }
+
+/* ── вкладки ── */
 async function renderMusic(root) {
   root.innerHTML = html`<div class="mu-wrap"><div class="mu">
-    <div class="mu-head"><h1 class="page-title">Музыка</h1><span class="page-sub">только аудиораздачи · играет здесь же</span></div>
-    <div class="mu-search">
+    <div class="mu-head"><h1 class="page-title">Аудио</h1>
+      <div class="au-tabs" role="tablist">${raw([['music', 'Музыка', 'music'], ['books', 'Аудиокниги', 'bookmark'], ['radio', 'Радио', 'sparkles']].map(([k, l, i]) => html`<button role="tab" class="${mu.tab === k ? 'on' : ''}" data-au-tab="${k}">${raw(ico(i, 15))}${l}</button>`).join(''))}</div></div>
+    <div id="auBody"></div>
+    <div id="muPlayer"></div>
+  </div>${raw(dancerHtml())}</div>`;
+  if (!root._muBound) { root._muBound = true; root.addEventListener('click', onMusicClick); }
+  paintAudioTab();
+  paintMusicPlayer();
+  bindDancer();
+}
+function paintAudioTab() {
+  const b = $('#auBody'); if (!b) return;
+  document.querySelectorAll('[data-au-tab]').forEach(x => x.classList.toggle('on', x.dataset.auTab === mu.tab));
+  if (mu.tab === 'books') return renderBooks(b);
+  if (mu.tab === 'radio') return renderRadio(b);
+  b.innerHTML = html`<div class="mu-search">
       <span class="sb-ico">${raw(ico('search', 18))}</span>
       <input id="muQ" placeholder="Исполнитель, альбом, саундтрек…" value="${mu.q}" autocomplete="off">
       <button id="muX" class="sb-clear${mu.q ? '' : ' hidden'}" type="button" title="Очистить (Esc)" aria-label="Очистить">${raw(ico('x', 15))}</button>
       <button id="muGo" class="primary">Найти</button>
     </div>
-    <div id="muMine"></div>
     <div id="muRes"></div>
-    <div id="muPlayer"></div>
-  </div>${raw(dancerHtml())}</div>`;
+    <div id="muMine"></div>
+    <div id="muRecs"></div>`;
   const q = $('#muQ');
-  q.addEventListener('keydown', e => { if (e.key === 'Enter') musicSearch(); else if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); } });
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') musicSearch(); else if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); paintMusicRes(); } });
   q.addEventListener('input', () => $('#muX').classList.toggle('hidden', !q.value));
-  $('#muX').addEventListener('click', () => { q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); q.focus(); });
-  $('#muGo').addEventListener('click', musicSearch);
-  if (!root._muBound) { root._muBound = true; root.addEventListener('click', onMusicClick); }
-  paintMusicMine(); paintMusicRes(); paintMusicPlayer();
-  bindDancer();
+  $('#muX').addEventListener('click', () => { q.value = ''; mu.q = ''; $('#muX').classList.add('hidden'); paintMusicRes(); q.focus(); });
+  $('#muGo').addEventListener('click', () => musicSearch());
+  paintMusicMine(); paintMusicRes(); paintRecs();
 }
 
-async function musicSearch() {
-  const q = ($('#muQ') && $('#muQ').value || '').trim();
-  if (!q) return toast('Введите исполнителя или альбом', true);
-  mu.q = q; mu.busy = true; mu.err = ''; mu.rows = [];
-  paintMusicRes();
-  const got = [];
-  const jobs = [];
-  if (!state.rutorOff) jobs.push(withTimeout(searchRutor(q, 0, 2), SEARCH_TIMEOUT, 'rutor не ответил').then(r => got.push(...r)).catch(e => { mu.err = e.message; }));
-  // Кинозал ищет по всем разделам — строгий фильтр по названию отсекает лишнее.
-  jobs.push(withTimeout(searchKinozal(q, 0), SEARCH_TIMEOUT, 'Кинозал не ответил').then(r => got.push(...r)).catch(() => {}));
-  await Promise.all(jobs);
-  if (mu.q !== q) return;
-  const seen = new Set();
-  mu.rows = mergeResults([], got).filter(r => isMusicRelease(r.title || r.name)).filter(r => { const k = r.hash || r.title; if (seen.has(k)) return false; seen.add(k); return true; })
-    .sort((a, b) => (b.seed || 0) - (a.seed || 0)).slice(0, 60);
-  mu.busy = false;
-  paintMusicRes();
+/* ── лучшая раздача: качество × скорость ──
+   Качество — по формату и битрейту, и только то, что окно умеет играть: APE,
+   WMA, DSD и ALAC встроенный плеер не откроет, такие раздачи идут вниз.
+   Скорость — по числу раздающих (логарифм: разница 1 и 10 важнее, чем 100 и
+   110). Раздача без раздающих почти обнуляется. */
+function audioQuality(t) {
+  t = String(t || '');
+  const br = +(t.match(/\b(\d{2,3})\s?kbps\b/i) || [])[1] || 0;
+  if (/\b(ape|wma|dsd|dsf|wv|wavpack)\b/i.test(t) && !/\b(flac|mp3)\b/i.test(t)) return 0.2;
+  if (/\balac\b/i.test(t)) return 0.35;
+  if (/\bflac\b|lossless|\bwav\b/i.test(t)) return /\b24\s?-?bit|hi-?res|96\s?khz|192\s?khz/i.test(t) ? 1 : 0.9;
+  if (br >= 320) return 0.78; if (br >= 256) return 0.66; if (br >= 192) return 0.5; if (br >= 128) return 0.32;
+  if (/\b(aac|m4a|opus|ogg)\b/i.test(t)) return 0.62;
+  if (/\bmp3\b|мп3/i.test(t)) return 0.55;
+  return 0.5;
 }
-
+function audioScore(r, speedW = 0.45) {
+  const s = Number(r.seed) || 0;
+  const sp = Math.min(1, Math.log10(1 + s) / Math.log10(51));
+  let v = audioQuality(r.title || r.name) * (1 - speedW) + sp * speedW;
+  if (s === 0) v *= 0.1;
+  const sz = Number(r.size_bytes) || 0;
+  if (sz > 8 * 2 ** 30) v *= 0.85; // огромные дискографии: первый трек дольше ищется
+  return v;
+}
 function musicFmt(r) {
   const t = r.title || r.name || '';
   const fmt = (t.match(/\b(flac|alac|ape|wav|dsd|mp3|aac|ogg|opus|m4a)\b/i) || [])[1];
@@ -6322,50 +6381,95 @@ function musicFmt(r) {
   const bit = (t.match(/\b(24|16)\s?-?bit\b/i) || [])[1];
   return [fmt && fmt.toUpperCase(), br && br + ' kbps', bit && bit + ' bit'].filter(Boolean).join(' · ');
 }
+
+async function audioTrackerSearch(q, cat, filter, speedW) {
+  const got = [], jobs = [];
+  let err = '';
+  if (!state.rutorOff) jobs.push(withTimeout(searchRutor(q, 0, cat), SEARCH_TIMEOUT, 'rutor не ответил').then(r => got.push(...r)).catch(e => { err = e.message; }));
+  jobs.push(withTimeout(searchKinozal(q, 0), SEARCH_TIMEOUT, 'Кинозал не ответил').then(r => got.push(...r)).catch(() => {}));
+  await Promise.all(jobs);
+  const seen = new Set();
+  const rows = mergeResults([], got).filter(r => filter(r.title || r.name))
+    .filter(r => { const k = r.hash || r.title; if (seen.has(k)) return false; seen.add(k); return true; });
+  rows.forEach(r => { r._score = audioScore(r, speedW); });
+  rows.sort((a, b) => b._score - a._score);
+  return { rows: rows.slice(0, 60), err };
+}
+async function musicSearch(text, autoplay) {
+  const q = (text != null ? text : ($('#muQ') && $('#muQ').value) || '').trim();
+  if (!q) return toast('Введите исполнителя или альбом', true);
+  if (mu.tab !== 'music') { mu.tab = 'music'; savePref('tc_autab', 'music'); paintAudioTab(); }
+  const inp = $('#muQ'); if (inp && inp.value !== q) { inp.value = q; $('#muX').classList.remove('hidden'); }
+  mu.q = q; mu.busy = true; mu.err = ''; mu.rows = [];
+  paintMusicRes();
+  const res = await audioTrackerSearch(q, 2, isMusicRelease, 0.45);
+  if (mu.q !== q) return;
+  mu.rows = res.rows; mu.err = res.err; mu.busy = false;
+  paintMusicRes();
+  if (autoplay && mu.rows.length) musicOpen(mu.rows[0], false, mu.rows.slice(1));
+}
 function paintMusicRes() {
   const el = $('#muRes'); if (!el) return;
-  if (mu.busy) { el.innerHTML = skeleton('Ищу музыку…', 3); return; }
+  if (mu.busy) { el.innerHTML = skeleton('Ищу музыку и выбираю лучшую раздачу…', 3); return; }
   if (!mu.q) { el.innerHTML = ''; return; }
   if (!mu.rows.length) { el.innerHTML = html`<div class="empty">Музыкальных раздач не нашлось.${mu.err ? ' ' + mu.err : ''}</div>`; return; }
   const mine = musicHashes();
-  el.innerHTML = html`<div class="mu-h">Найдено ${mu.rows.length}</div><div class="mu-list">${raw(mu.rows.map((r, i) => html`
-    <div class="mu-row">
+  el.innerHTML = html`<div class="mu-h">Найдено ${mu.rows.length} · сверху лучшая по качеству и скорости
+      <button class="btn sm primary mu-best" data-mu-play="0">${raw(ico('play', 13))} Слушать лучшую</button></div>
+    <div class="mu-list">${raw(mu.rows.map((r, i) => html`
+    <div class="mu-row${i === 0 ? ' best' : ''}">
       <button class="mu-play" data-mu-play="${i}" title="Слушать">${raw(ico('play', 14))}</button>
-      <div class="mu-main"><div class="mu-t" title="${r.title || r.name}">${r.title || r.name}</div>
-        <div class="mu-s">${[musicFmt(r), r.size_bytes ? fmtSize(r.size_bytes) : r.size || '', '⬆ ' + (r.seed || 0)].filter(Boolean).join(' · ')}</div></div>
+      <div class="mu-main"><div class="mu-t" title="${r.title || r.name}">${i === 0 ? raw('<span class="mu-badge">лучшая</span>') : ''}${r.title || r.name}</div>
+        <div class="mu-s">${[musicFmt(r), r.size_bytes ? fmtSize(r.size_bytes) : r.size || '', '⬆ ' + (r.seed || 0), audioQuality(r.title) <= 0.35 ? 'не играет в окне' : ''].filter(Boolean).join(' · ')}</div></div>
+      <span class="mu-score" title="Оценка: качество и скорость">${Math.round((r._score || 0) * 100)}</span>
       <button class="iconbtn${r.hash && mine.has(r.hash) ? ' on' : ''}" data-mu-save="${i}" title="В мою музыку">${raw(ico('plus', 15))}</button>
     </div>`).join(''))}</div>`;
+  hydrateCovers(el);
 }
+
+/* ── моя музыка: сетка обложек ── */
 function paintMusicMine() {
   const el = $('#muMine'); if (!el) return;
   const l = musicList();
   if (!l.length) { el.innerHTML = ''; return; }
-  el.innerHTML = html`<div class="mu-h">Моя музыка</div><div class="mu-chips">${raw(l.map((x, i) => html`<span class="mu-chip${mu.t && mu.t.hash === x.hash ? ' on' : ''}"><button data-mu-mine="${i}" title="${x.title}">${raw(ico('play', 12))}${x.title}</button><button class="mu-chip-x" data-mu-drop="${i}" title="Убрать из моей музыки">×</button></span>`).join(''))}</div>`;
+  el.innerHTML = html`<div class="mu-h">Моя музыка</div><div class="au-grid">${raw(l.map((x, i) => html`
+    <div class="au-card${mu.t && mu.t.hash === x.hash ? ' on' : ''}">
+      <button class="au-cover" data-mu-mine="${i}" title="Слушать: ${x.title}">${raw(coverImg(x.title, x.hash))}<span class="au-cover-play">${raw(ico(mu.t && mu.t.hash === x.hash && auPlaying() ? 'pause' : 'play', 22))}</span></button>
+      <div class="au-card-t" title="${x.title}">${x.title}</div>
+      <button class="au-card-x" data-mu-drop="${i}" title="Убрать из моей музыки">×</button>
+    </div>`).join(''))}</div>`;
+  hydrateCovers(el);
 }
 
-/* Раздача добавляется в TorrServer с категорией music: так её узнают и
-   после перезапуска, и с другого окна, где нет записи в localStorage. */
-async function musicOpen(r, keep) {
+/* Раздача добавляется в TorrServer с категорией: так её узнают и после
+   перезапуска, и с другого окна, где нет записи в localStorage. */
+async function audioAddRelease(r, category) {
+  let hash = r.hash || ((r.magnet || '').match(/btih:([0-9a-fA-F]{40})/i) || [])[1] || '';
+  if (!hash && (r.get || r.link)) {
+    toast('Забираю раздачу с Кинозала…');
+    const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link) + '&title=' + encodeURIComponent(r.title || '') + '&size=' + encodeURIComponent(r.size || ''), { method: 'POST' });
+    const j = await rr.json().catch(() => null);
+    if (!rr.ok || !j || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
+    if (j.magnet) await torrentAction('add', { link: j.magnet, save_to_db: true, category }).catch(() => {});
+    hash = ((j.hash || j.magnet || '').match(/([0-9a-fA-F]{40})/) || [])[1] || '';
+  }
+  hash = String(hash).toLowerCase();
+  if (!hash) throw new Error('не удалось узнать хеш раздачи');
+  const title = cleanMusicTitle(r.title || r.name || hash);
+  await torrentAction('add', { link: r.magnet || magnetFromHash(hash, title), title, category, save_to_db: true }).catch(() => {});
+  await torrentAction('set', { hash, title, category }).catch(() => {});
+  return { hash, title };
+}
+async function musicOpen(r, keep, alts) {
   try {
-    let hash = r.hash || ((r.magnet || '').match(/btih:([0-9a-fA-F]{40})/i) || [])[1] || '';
-    if (!hash && (r.get || r.link)) {
-      toast('Забираю раздачу с Кинозала…');
-      const rr = await fetch('/api/kinozal/add?url=' + encodeURIComponent(r.get || r.link) + '&title=' + encodeURIComponent(r.title || '') + '&size=' + encodeURIComponent(r.size || ''), { method: 'POST' });
-      const j = await rr.json().catch(() => null);
-      if (!rr.ok || !j || !j.ok) throw new Error((j && j.error) || 'HTTP ' + rr.status);
-      if (j.magnet) await torrentAction('add', { link: j.magnet, save_to_db: true, category: 'music' }).catch(() => {});
-      hash = ((j.hash || j.magnet || '').match(/([0-9a-fA-F]{40})/) || [])[1] || '';
-    }
-    hash = String(hash).toLowerCase();
-    if (!hash) throw new Error('не удалось узнать хеш раздачи');
-    const title = cleanMusicTitle(r.title || r.name || hash);
-    await torrentAction('add', { link: r.magnet || magnetFromHash(hash, title), title, category: 'music', save_to_db: true }).catch(() => {});
-    await torrentAction('set', { hash, title, category: 'music' }).catch(() => {});
+    const { hash, title } = await audioAddRelease(r, 'music');
     const l = musicList();
     if (!l.some(x => x.hash === hash)) { l.unshift({ hash, title, added: Date.now() }); saveMusicList(l); }
     else if (keep) toast('Уже в вашей музыке');
     paintMusicMine(); paintMusicRes();
     if (keep) { toast('Добавлено в музыку'); return; }
+    // Запасные раздачи того же запроса — для переключения, если эта не отдаёт.
+    mu.alts = alts || mu.rows.filter(x => x !== r);
     await musicPlayHash(hash, title);
   } catch (e) { toast('Музыка: ' + e.message, true); }
 }
@@ -6373,15 +6477,23 @@ function cleanMusicTitle(t) {
   const s = String(t || '').replace(/\s*[\[(](?:flac|mp3|aac|alac|ape|\d{2,3}\s?kbps|lossless|24.?bit|16.?bit|web|cd)[^\])]*[\])]/gi, '').replace(/\s*\|\s*.*$/, '').replace(/\s{2,}/g, ' ').trim();
   return s.length > 2 ? s.slice(0, 120) : String(t || '').slice(0, 120);
 }
-async function musicPlayHash(hash, title) {
-  const st = await waitForFiles({ hash, title });
-  if (!st) return;
+const COVER_FILE_RE = /(^|\/)(cover|folder|front|albumart[^/]*|обложка)\.(jpe?g|png|webp)$/i;
+async function musicPlayHash(hash, title, kind, known) {
+  // known — список файлов, сохранённый заранее: книге, скачанной для
+  // офлайна, TorrServer и сеть для старта не нужны.
+  const st = known ? { file_stats: known } : await waitForFiles({ hash, title });
+  if (!st) { audioDiag('Раздача не отдала список файлов — нет раздающих или TorrServer не ответил', true); return musicFallback('нет списка файлов'); }
   const files = (st.file_stats || []).filter(f => isAudio(f.path))
     .sort((a, b) => a.path.localeCompare(b.path, 'ru', { numeric: true }));
-  if (!files.length) return toast('В раздаче нет аудиофайлов', true);
-  mu.t = { hash, title: title || st.title || hash };
-  mu.queue = files; mu.ix = 0;
-  musicPlayIx(0);
+  if (!files.length) { toast('В раздаче нет аудиофайлов, которые играют в окне', true); return musicFallback('нет аудио'); }
+  if (kind === 'book' && typeof bookKeepFiles === 'function') bookKeepFiles(hash, files);
+  const cov = (st.file_stats || []).find(f => COVER_FILE_RE.test(f.path));
+  if (cov) coverRemember(title, hash, ts(`/stream/${encodeURIComponent(basename(cov.path))}?link=${encodeURIComponent(hash)}&index=${cov.id}&play`));
+  if (typeof radioStop === 'function' && rd.station) radioStop();
+  mu.kind = kind || 'track';
+  mu.t = { hash, title }; mu.queue = files; mu.order = [];
+  const start = kind === 'book' && typeof bookResumeIx === 'function' ? bookResumeIx(hash, files) : (mu.shuffle ? Math.floor(Math.random() * files.length) : 0);
+  musicPlayIx(start);
   paintMusicMine();
 }
 function musicAudio() {
@@ -6390,120 +6502,422 @@ function musicAudio() {
   const a = document.createElement('audio');
   a.preload = 'auto'; a.id = 'muAudio';
   a.volume = Math.min(1, Math.max(0, Number(localStorage.getItem('tc_muvol') || 0.8)));
-  a.addEventListener('ended', () => musicNext(1));
-  a.addEventListener('timeupdate', paintMusicProgress);
-  a.addEventListener('play', () => { paintMusicPlayer(); paintNowPlaying(); });
-  a.addEventListener('pause', () => { paintMusicPlayer(); paintNowPlaying(); });
-  a.addEventListener('error', () => { if (mu.ix >= 0) toast('Трек не играет в окне — формат не поддерживается браузером', true); });
+  a.addEventListener('ended', () => { if (mu.kind === 'book') bookSavePos(true); musicNext(1, true); });
+  a.addEventListener('timeupdate', () => { paintMusicProgress(); auNoteListen(); if (mu.kind === 'book') bookSavePos(); });
+  a.addEventListener('playing', () => { if (mu.wd) { mu.wd.playing = true; mu.wd.stall = 0; } mu.switches = 0; audioDiag(''); });
+  a.addEventListener('waiting', () => { if (mu.wd) mu.wd.stall = mu.wd.stall || Date.now(); });
+  a.addEventListener('stalled', () => { if (mu.wd) mu.wd.stall = mu.wd.stall || Date.now(); });
+  a.addEventListener('play', () => { paintMusicPlayer(); paintNowPlaying(); paintMusicMine(); });
+  a.addEventListener('pause', () => { paintMusicPlayer(); paintNowPlaying(); paintMusicMine(); if (mu.kind === 'book') bookSavePos(true); });
+  a.addEventListener('error', () => { if (mu.ix >= 0 && mu.kind !== 'radio') audioOnError(); });
   document.body.appendChild(a);
   mu.audio = a;
   return a;
 }
-function musicPlayIx(i) {
+function musicSrcFor(f) {
+  const off = mu.kind === 'book' && typeof bookOfflinePath === 'function' ? bookOfflinePath(mu.t.hash, f.id) : '';
+  if (off) return '/api/audio/local?p=' + encodeURIComponent(off);
+  return ts(`/stream/${encodeURIComponent(basename(f.path))}?link=${encodeURIComponent(mu.t.hash)}&index=${f.id}&play`);
+}
+function musicPlayIx(i, at) {
   if (i < 0 || i >= mu.queue.length) return;
   mu.ix = i;
   const f = mu.queue[i];
   const a = musicAudio();
-  a.src = ts(`/stream/${encodeURIComponent(basename(f.path))}?link=${encodeURIComponent(mu.t.hash)}&index=${f.id}&play`);
+  a.src = musicSrcFor(f);
+  a.playbackRate = mu.kind === 'book' ? bookSpeed() : 1;
+  const resume = at != null ? at : (mu.kind === 'book' && typeof bookResumeAt === 'function' ? bookResumeAt(mu.t.hash, i) : 0);
+  if (resume > 1) a.addEventListener('loadedmetadata', () => { try { a.currentTime = resume; } catch {} }, { once: true });
   a.play().catch(() => {});
+  mu.wd = { ix: i, start: Date.now(), playing: false, stall: 0, src: a.src, noted: false };
+  mu.diag = '';
+  dancerNewTrack();
   paintMusicPlayer(); paintNowPlaying();
+  statsTick(true);
 }
-function musicNext(d) { if (mu.ix + d >= 0 && mu.ix + d < mu.queue.length) musicPlayIx(mu.ix + d); else { paintMusicPlayer(); paintNowPlaying(); } }
-function musicToggle() { const a = musicAudio(); if (!a.src) return; if (a.paused) a.play().catch(() => {}); else a.pause(); }
-function musicStop() { if (mu.audio) { mu.audio.pause(); mu.audio.removeAttribute('src'); mu.audio.load(); } mu.ix = -1; mu.t = null; mu.queue = []; paintMusicPlayer(); paintNowPlaying(); paintMusicMine(); }
+/* Перемешивание: порядок — случайная перестановка, без повторов, пока не
+   пройдены все треки; включается и выключается на ходу. */
+function shuffleOrder() {
+  const n = mu.queue.length, rest = [...Array(n).keys()].filter(i => i !== mu.ix);
+  for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  mu.order = rest;
+}
+function musicNext(d, auto) {
+  if (mu.kind === 'radio') return radioNext(d);
+  if (mu.shuffle && mu.kind !== 'book' && d > 0) {
+    if (!mu.order.length) { if (auto && mu.wd && mu.wd.looped) return musicEnd(); shuffleOrder(); if (mu.wd) mu.wd.looped = true; }
+    return musicPlayIx(mu.order.shift());
+  }
+  if (mu.ix + d >= 0 && mu.ix + d < mu.queue.length) musicPlayIx(mu.ix + d); else musicEnd();
+}
+function musicEnd() { paintMusicPlayer(); paintNowPlaying(); }
+function musicToggle() {
+  if (mu.kind === 'radio') return radioToggle();
+  const a = musicAudio(); if (!a.src) return; if (a.paused) a.play().catch(() => {}); else a.pause();
+}
+function musicStop() {
+  if (mu.kind === 'radio') { radioStop(); }
+  if (mu.audio) { if (mu.kind === 'book') bookSavePos(true); mu.audio.pause(); mu.audio.removeAttribute('src'); mu.audio.load(); }
+  mu.ix = -1; mu.t = null; mu.queue = []; mu.kind = ''; mu.wd = null; mu.diag = '';
+  paintMusicPlayer(); paintNowPlaying(); paintMusicMine();
+}
 function musicTrackName(f) { return f ? basename(f.path).replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, '') : ''; }
+// для «Сейчас играет» в шапке
+function auNowInfo() {
+  if (mu.kind === 'radio' && typeof radioNow === 'function') return radioNow();
+  if (mu.t && mu.ix >= 0 && mu.audio && mu.audio.src) return { label: musicTrackName(mu.queue[mu.ix]), sub: mu.audio.paused ? 'пауза' : mu.kind === 'book' ? 'аудиокнига' : 'музыка', paused: mu.audio.paused };
+  return null;
+}
+function toggleShuffle() {
+  mu.shuffle = !mu.shuffle; savePref('tc_mushuf', mu.shuffle ? '1' : '0'); mu.order = [];
+  toast(mu.shuffle ? 'Вперемешку: включено' : 'Вперемешку: выключено');
+  paintMusicPlayer();
+}
+
+/* ── плеер внизу раздела ── */
 function paintMusicPlayer() {
   const el = $('#muPlayer'); if (!el) return;
+  if (mu.kind === 'radio' && typeof radioBarHtml === 'function') { el.innerHTML = radioBarHtml(); bindRadioBar(); return; }
   if (!mu.t || mu.ix < 0) { el.innerHTML = ''; return; }
   const a = mu.audio;
   const f = mu.queue[mu.ix];
+  const book = mu.kind === 'book';
   el.innerHTML = html`<div class="mu-bar">
+    <div class="mu-bar-cov">${raw(coverImg(mu.t.title, mu.t.hash))}</div>
     <div class="mu-bar-t"><b title="${musicTrackName(f)}">${musicTrackName(f)}</b><small>${mu.t.title} · ${mu.ix + 1}/${mu.queue.length}</small></div>
     <div class="mu-ctl">
-      <button class="iconbtn" data-mu-prev title="Предыдущий" ${mu.ix > 0 ? '' : 'disabled'}>${raw(ico('prev', 16))}</button>
+      ${raw(book ? html`<button class="iconbtn" data-bk-back title="Назад на 15 секунд">↺15</button>` : html`<button class="iconbtn${mu.shuffle ? ' on' : ''}" data-mu-shuf title="Вперемешку">🔀</button>`)}
+      <button class="iconbtn" data-mu-prev title="Предыдущий" ${mu.ix > 0 || mu.shuffle ? '' : 'disabled'}>${raw(ico('prev', 16))}</button>
       <button class="iconbtn mu-pp" data-mu-pp title="Пауза / играть">${raw(ico(a && !a.paused ? 'pause' : 'play', 17))}</button>
-      <button class="iconbtn" data-mu-next title="Следующий" ${mu.ix < mu.queue.length - 1 ? '' : 'disabled'}>${raw(ico('next', 16))}</button>
+      <button class="iconbtn" data-mu-next title="Следующий" ${mu.ix < mu.queue.length - 1 || mu.shuffle ? '' : 'disabled'}>${raw(ico('next', 16))}</button>
+      ${raw(book ? html`<button class="iconbtn" data-bk-fwd title="Вперёд на 30 секунд">30↻</button><button class="iconbtn" data-bk-mark title="Закладка здесь">${raw(ico('bookmark', 15))}</button>` : '')}
       <button class="iconbtn" data-mu-stop title="Остановить">${raw(ico('stop', 14))}</button>
     </div>
     <input type="range" class="mu-seek" min="0" max="1000" value="0" id="muSeek" title="Перемотка">
     <span class="mu-time" id="muTime">0:00</span>
+    ${raw(book ? html`<select id="bkSpeed" class="mu-speed" title="Скорость чтения">${raw([0.75, 0.9, 1, 1.15, 1.25, 1.5, 1.75, 2].map(v => `<option value="${v}" ${Math.abs(bookSpeed() - v) < 0.01 ? 'selected' : ''}>${v}×</option>`).join(''))}</select>` : '')}
     <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((a ? a.volume : 0.8) * 100)}" id="muVol" title="Громкость">
     <details class="mu-q"><summary title="Список треков">≡</summary><div>${raw(mu.queue.map((x, i) => html`<button class="${i === mu.ix ? 'on' : ''}" data-mu-ix="${i}">${i + 1}. ${musicTrackName(x)}</button>`).join(''))}</div></details>
+    <div class="mu-stat" id="muStat">${raw(statsHtml())}</div>
   </div>`;
   const sk = $('#muSeek'); sk.addEventListener('input', () => { const au = mu.audio; if (au && isFinite(au.duration)) au.currentTime = au.duration * sk.value / 1000; });
   const vo = $('#muVol'); vo.addEventListener('input', () => { const au = musicAudio(); au.volume = vo.value / 100; savePref('tc_muvol', au.volume); });
+  const sp = $('#bkSpeed'); if (sp) sp.addEventListener('change', () => { bookSetSpeed(+sp.value); if (mu.audio) mu.audio.playbackRate = +sp.value; });
+  hydrateCovers(el);
   paintMusicProgress();
 }
 function paintMusicProgress() {
-  const a = mu.audio; if (!a) return;
+  const a = mu.audio; if (!a || mu.kind === 'radio') return;
   const sk = $('#muSeek'), tm = $('#muTime');
   if (sk && isFinite(a.duration) && a.duration > 0 && document.activeElement !== sk) sk.value = Math.round(a.currentTime / a.duration * 1000);
   if (tm) tm.textContent = fmtPos(a.currentTime || 0) + (isFinite(a.duration) ? ' / ' + fmtPos(a.duration) : '');
 }
+
+/* ── скорость, раздающие, буфер ── */
+function audioBufferedAhead() {
+  const a = mu.audio; if (!a || !a.buffered) return 0;
+  for (let i = 0; i < a.buffered.length; i++) if (a.buffered.start(i) <= a.currentTime + 0.5 && a.buffered.end(i) >= a.currentTime) return Math.max(0, a.buffered.end(i) - a.currentTime);
+  return 0;
+}
+function statsHtml() {
+  if (mu.kind === 'radio') return '';
+  const s = mu.stats, off = mu.kind === 'book' && mu.t && bookOfflinePath(mu.t.hash, (mu.queue[mu.ix] || {}).id);
+  const parts = [];
+  if (off) parts.push('<span class="ok">● офлайн, с диска</span>');
+  else if (s) {
+    parts.push('↓ ' + fmtSpeed(Number(s.download_speed) || 0));
+    parts.push((s.active_peers || 0) + ' из ' + (s.total_peers || 0) + ' пиров' + (s.connected_seeders != null ? ' · ' + s.connected_seeders + ' разд.' : ''));
+  }
+  const ahead = audioBufferedAhead();
+  if (mu.audio && mu.audio.src) parts.push('буфер ' + (ahead >= 600 ? '10+ мин' : Math.round(ahead) + ' с'));
+  if (mu.wd && !mu.wd.playing && !mu.diag) parts.push('подгружаю… ' + Math.round((Date.now() - mu.wd.start) / 1000) + ' с');
+  if (mu.diag) parts.push(`<span class="err">⚠ ${esc(mu.diag)}</span>`);
+  return parts.join('<i>·</i>');
+}
+let statsTimer = 0;
+async function statsTick(now) {
+  clearTimeout(statsTimer);
+  if (!mu.t || mu.ix < 0 || mu.kind === 'radio') return;
+  statsTimer = setTimeout(statsTick, 2000);
+  if (!now && document.hidden) return;
+  if (!(mu.kind === 'book' && bookOfflinePath(mu.t.hash, (mu.queue[mu.ix] || {}).id))) {
+    try { const st = await torrentAction('get', { hash: mu.t.hash }); mu.stats = st; } catch { mu.stats = null; }
+  }
+  audioWatchdog();
+  const el = $('#muStat'); if (el) el.innerHTML = statsHtml();
+}
+
+/* ── диагностика: почему не играет, и что делать ──
+   Трек не начался за 20 с или стоит 25 с: смотрим на раздачу. Нет пиров —
+   раздача мёртвая, переключаемся на следующую лучшую из того же поиска.
+   Пиры есть, но скорость ниже 16 КБ/с — то же самое. Ошибка формата —
+   пропускаем трек. Переключений не больше трёх подряд, чтобы не бегать по
+   кругу. */
+function audioDiag(text, bad) { mu.diag = text || ''; const el = $('#muStat'); if (el) el.innerHTML = statsHtml(); if (text && bad) notifPush({ kind: 'warn', title: 'Аудио', text }); }
+function audioWatchdog() {
+  const w = mu.wd, a = mu.audio; if (!w || !a || mu.kind === 'radio' || a.paused && w.playing) return;
+  const now = Date.now(), s = mu.stats || {};
+  const notStarted = !w.playing && now - w.start > 20000;
+  const stalled = w.playing && w.stall && now - w.stall > 25000;
+  if (!notStarted && !stalled) return;
+  const peers = Number(s.active_peers) || 0, speed = Number(s.download_speed) || 0;
+  let why = '';
+  if (!mu.stats) why = 'TorrServer не отвечает о раздаче';
+  else if (!peers && !Number(s.total_peers)) why = 'нет раздающих — раздача мёртвая';
+  else if (!peers) why = 'пиры известны, но ни один не подключился';
+  else if (speed < 16 * 1024) why = 'раздающие почти не отдают (' + fmtSpeed(speed) + ')';
+  else why = 'данные идут, но плеер не стартует — возможно, формат';
+  w.start = now; w.stall = 0;
+  audioDiag(why);
+  if (/формат/.test(why)) return audioOnError();
+  musicFallback(why);
+}
+function audioOnError() {
+  const f = mu.queue[mu.ix] || {}, ext = ((f.path || '').match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+  const err = mu.audio && mu.audio.error;
+  const why = err && err.code === 4 ? 'формат .' + ext + ' не играет в окне' : 'поток оборвался';
+  audioDiag(why);
+  if (mu.switches++ < 6 && mu.ix < mu.queue.length - 1) { toast('Пропускаю трек: ' + why); setTimeout(() => musicNext(1, true), 600); }
+}
+async function musicFallback(why) {
+  if (mu.kind === 'book') { toast('Аудиокнига: ' + why + '. Попробуйте позже или скачайте для офлайна', true); return; }
+  const alt = (mu.alts || []).find(r => (Number(r.seed) || 0) > 0 && audioQuality(r.title) > 0.35 && r.hash !== (mu.t && mu.t.hash));
+  if (!alt || mu.switches >= 3) { toast('Раздача не отдаёт: ' + why + '. Других живых раздач нет', true); return; }
+  mu.switches++;
+  mu.alts = mu.alts.filter(r => r !== alt);
+  toast('Раздача не отдаёт (' + why + ') — переключаюсь на другую: ' + cleanMusicTitle(alt.title));
+  await musicOpen(alt, false, mu.alts);
+}
+
+/* ── вкус: кого вы слушаете ── */
+function artistOf(title) {
+  const t = cleanMusicTitle(title).replace(/^\s*\(?\d{4}\)?\s*[-–—]?\s*/, '');
+  const m = t.split(/\s+[-–—]\s+/);
+  const a = (m.length > 1 ? m[0] : t.replace(/\s*[\[(].*$/, '')).replace(/\s*\b(дискография|discography)\b.*$/i, '').trim();
+  return a.length > 1 && a.length < 60 ? a : '';
+}
+function albumOf(title) {
+  const t = cleanMusicTitle(title), m = t.split(/\s+[-–—]\s+/);
+  return (m.length > 1 ? m.slice(1).join(' ') : '').replace(/\s*[\[(]\d{4}[\])]/g, '').replace(/\s*[\[(][^\])]*[\])]\s*$/g, '').trim();
+}
+function auNoteListen() {
+  const w = mu.wd, a = mu.audio;
+  if (!w || w.noted || mu.kind !== 'track' || !a || a.currentTime < 30) return;
+  w.noted = true;
+  const name = artistOf(mu.t.title); if (!name) return;
+  const h = jsonPref('tc_muhist', {}), k = name.toLowerCase();
+  h[k] = { name, plays: ((h[k] && h[k].plays) || 0) + 1, last: Date.now() };
+  const keys = Object.keys(h); if (keys.length > 300) keys.sort((x, y) => h[x].last - h[y].last).slice(0, keys.length - 300).forEach(x => delete h[x]);
+  saveJson('tc_muhist', h);
+  mu.recs = null;
+}
+function topArtists(n) {
+  const h = jsonPref('tc_muhist', {});
+  musicList().forEach(x => { const a = artistOf(x.title); if (a && !h[a.toLowerCase()]) h[a.toLowerCase()] = { name: a, plays: 0.5, last: x.added || 0 }; });
+  const now = Date.now();
+  return Object.values(h).map(x => Object.assign({}, x, { w: x.plays * Math.exp(-(now - x.last) / (60 * 864e5)) + 0.1 })).sort((a, b) => b.w - a.w).slice(0, n);
+}
+
+/* ── обложки ──
+   Сначала картинка из самой раздачи (cover.jpg, folder.jpg), потом Deezer,
+   потом iTunes. Найденное запоминается; картинки идут через демон и лежат на
+   диске. Не нашлось — градиент с инициалами. */
+const coverMem = jsonPref('tc_mucover', {});
+let coverSaveT = 0;
+function coverKey(title) { return (artistOf(title) + ' ' + albumOf(title)).toLowerCase().trim() || cleanMusicTitle(title).toLowerCase(); }
+function coverRemember(title, hash, url) {
+  coverMem['h:' + hash] = url; if (title) coverMem[coverKey(title)] = coverMem[coverKey(title)] || url;
+  clearTimeout(coverSaveT); coverSaveT = setTimeout(() => { const k = Object.keys(coverMem); if (k.length > 600) k.slice(0, k.length - 600).forEach(x => delete coverMem[x]); saveJson('tc_mucover', coverMem); }, 800);
+}
+function coverProxy(u) { return /^https:\/\//.test(u) ? '/api/audio/img?u=' + encodeURIComponent(u) : u; }
+function coverFallback(title) {
+  const s = artistOf(title) || cleanMusicTitle(title) || '?';
+  let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const ini = s.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  return `<span class="au-ph" style="--h1:${h % 360};--h2:${(h >> 8) % 360}">${esc(ini)}</span>`;
+}
+function coverImg(title, hash, kind) {
+  const u = (hash && coverMem['h:' + hash]) || coverMem[coverKey(title)];
+  if (u) return `<img src="${esc(coverProxy(u))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'au-ph'}))">`;
+  if (u === '') return coverFallback(title);
+  return `<span class="au-cv" data-cover="${esc(title)}" data-cover-kind="${kind || 'album'}">${coverFallback(title)}</span>`;
+}
+const coverQueue = new Set();
+let coverBusy = 0;
+function hydrateCovers(root) {
+  (root || document).querySelectorAll('[data-cover]').forEach(el => { if (!el._q) { el._q = 1; coverQueue.add(el); } });
+  pumpCovers();
+}
+async function pumpCovers() {
+  while (coverBusy < 3 && coverQueue.size) {
+    const el = coverQueue.values().next().value; coverQueue.delete(el);
+    if (!el.isConnected) continue;
+    coverBusy++;
+    coverFind(el.dataset.cover, el.dataset.coverKind).then(u => {
+      document.querySelectorAll('[data-cover]').forEach(x => { if (x.dataset.cover === el.dataset.cover) x.outerHTML = u ? `<img src="${esc(coverProxy(u))}" alt="" loading="lazy">` : coverFallback(el.dataset.cover); });
+    }).finally(() => { coverBusy--; pumpCovers(); });
+  }
+}
+async function coverFind(title, kind) {
+  const key = coverKey(title);
+  if (coverMem[key] != null) return coverMem[key];
+  const artist = artistOf(title), album = albumOf(title);
+  const q = (artist + ' ' + album).trim() || cleanMusicTitle(title);
+  let url = '';
+  try {
+    if (kind === 'book') {
+      const j = await api('/api/audio/itunes?entity=audiobook&term=' + encodeURIComponent(q));
+      const r = (j.results || [])[0]; if (r && r.artworkUrl100) url = r.artworkUrl100.replace(/100x100bb/, '600x600bb');
+    } else {
+      const j = await api('/api/audio/deezer?p=' + encodeURIComponent('search/album?q=' + encodeURIComponent(q) + '&limit=1'));
+      const r = (j.data || [])[0]; if (r) url = r.cover_xl || r.cover_big || '';
+      if (!url && artist) { const a = await api('/api/audio/deezer?p=' + encodeURIComponent('search/artist?q=' + encodeURIComponent(artist) + '&limit=1')); const x = (a.data || [])[0]; if (x) url = x.picture_xl || x.picture_big || ''; }
+    }
+  } catch {}
+  if (!url) { try { const j = await api('/api/audio/itunes?entity=album&term=' + encodeURIComponent(q)); const r = (j.results || [])[0]; if (r && r.artworkUrl100) url = r.artworkUrl100.replace(/100x100bb/, '600x600bb'); } catch {} }
+  coverMem[key] = url; coverRemember('', '_', ''); delete coverMem['h:_'];
+  return url;
+}
+
+/* ── рекомендации ──
+   Ваши исполнители (что дослушиваете, что в «Моей музыке») → похожие у
+   Deezer, сложенные по всем вашим исполнителям: кто похож на нескольких
+   сразу, тот выше. Плюс свежие альбомы ваших исполнителей. Без истории —
+   чарт. Клик — поиск лучшей раздачи. */
+const deezer = p => api('/api/audio/deezer?p=' + encodeURIComponent(p));
+async function buildRecs() {
+  const seeds = topArtists(5), out = { similar: [], fresh: [], chart: [] };
+  const own = new Set(topArtists(60).map(x => x.name.toLowerCase()));
+  const score = new Map();
+  await Promise.all(seeds.map(async (s, si) => {
+    try {
+      const a = ((await deezer('search/artist?q=' + encodeURIComponent(s.name) + '&limit=1')).data || [])[0]; if (!a) return;
+      const [rel, alb] = await Promise.all([deezer('artist/' + a.id + '/related?limit=12'), deezer('artist/' + a.id + '/albums?limit=8')]);
+      (rel.data || []).forEach((r, i) => {
+        if (own.has(String(r.name).toLowerCase())) return;
+        const cur = score.get(r.id) || { a: r, v: 0, because: [] };
+        cur.v += (12 - i) * (5 - si); if (cur.because.length < 2) cur.because.push(s.name); score.set(r.id, cur);
+      });
+      const half = Date.now() - 200 * 864e5;
+      (alb.data || []).filter(x => x.release_date && Date.parse(x.release_date) > half).forEach(x => out.fresh.push({ artist: a.name, title: x.title, cover: x.cover_xl || x.cover_big, date: x.release_date }));
+    } catch {}
+  }));
+  out.similar = [...score.values()].sort((a, b) => b.v - a.v).slice(0, 14).map(x => ({ name: x.a.name, pic: x.a.picture_xl || x.a.picture_big, fans: x.a.nb_fan, because: x.because, id: x.a.id }));
+  out.fresh.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  if (!out.similar.length) { try { out.chart = ((await deezer('chart/0/albums?limit=14')).data || []).map(x => ({ artist: x.artist && x.artist.name, title: x.title, cover: x.cover_xl || x.cover_big })); } catch {} }
+  return out;
+}
+async function paintRecs(force) {
+  const el = $('#muRecs'); if (!el) return;
+  if (!mu.recs || force) {
+    if (mu.recBusy) return;
+    mu.recBusy = true; el.innerHTML = skeleton('Подбираю музыку под ваш вкус…', 1);
+    try { mu.recs = await buildRecs(); } catch { mu.recs = { similar: [], fresh: [], chart: [], err: true }; }
+    mu.recBusy = false;
+    if (!$('#muRecs')) return;
+  }
+  const r = mu.recs;
+  const card = (q, img, t1, t2, extra) => html`<div class="au-card rec"><button class="au-cover" data-mu-find="${q}" title="Найти лучшую раздачу и слушать">${raw(img ? `<img src="${esc(coverProxy(img))}" alt="" loading="lazy">` : coverFallback(q))}<span class="au-cover-play">${raw(ico('play', 22))}</span></button>
+    <div class="au-card-t" title="${t1}">${t1}</div><div class="au-card-s">${t2}</div>${raw(extra || '')}</div>`;
+  let h = '';
+  if (r.similar.length) h += html`<div class="mu-h">Похоже на ваше <button class="btn sm ghost" data-mu-recs title="Обновить">${raw(ico('refresh', 13))}</button></div><div class="au-grid">${raw(r.similar.map(x => card(x.name, x.pic, x.name, 'как ' + x.because.join(', '), x.id ? html`<button class="au-prev" data-mu-preview="${x.id}" title="Отрывок 30 с">▶ отрывок</button>` : '')).join(''))}</div>`;
+  if (r.fresh.length) h += html`<div class="mu-h">Новинки ваших исполнителей</div><div class="au-grid">${raw(r.fresh.slice(0, 10).map(x => card(x.artist + ' - ' + x.title, x.cover, x.title, x.artist + ' · ' + fmtAirDate(x.date))).join(''))}</div>`;
+  if (r.chart.length) h += html`<div class="mu-h">Чарт — пока мы не знаем ваш вкус</div><div class="au-grid">${raw(r.chart.map(x => card(x.artist + ' - ' + x.title, x.cover, x.title, x.artist || '')).join(''))}</div>`;
+  if (!h) h = html`<div class="empty sm">${r.err ? 'Сервисы рекомендаций сейчас не отвечают.' : 'Послушайте что-нибудь — и здесь появятся похожие исполнители и новинки.'}</div>`;
+  el.innerHTML = h;
+}
+let previewEl = null;
+async function playPreview(artistId, btn) {
+  try {
+    if (previewEl && !previewEl.paused && previewEl._id === artistId) { previewEl.pause(); btn.textContent = '▶ отрывок'; return; }
+    const top = ((await deezer('artist/' + artistId + '/top?limit=3')).data || []).find(x => x.preview);
+    if (!top) return toast('Отрывков нет', true);
+    if (!previewEl) previewEl = new Audio();
+    if (mu.audio && !mu.audio.paused) mu.audio.pause();
+    previewEl.src = top.preview; previewEl._id = artistId; previewEl.volume = mu.audio ? mu.audio.volume : 0.8;
+    await previewEl.play();
+    document.querySelectorAll('[data-mu-preview]').forEach(b => { b.textContent = '▶ отрывок'; });
+    btn.textContent = '❚❚ ' + top.title.slice(0, 18);
+    previewEl.onended = () => { btn.textContent = '▶ отрывок'; };
+  } catch { toast('Отрывок не играет', true); }
+}
+
 function onMusicClick(e) {
   if (state.view !== 'music') return;
   const t = e.target;
   const g = (sel, k) => { const b = t.closest(sel); return b ? b.dataset[k] : null; };
   let v;
-  if ((v = g('[data-mu-play]', 'muPlay')) != null) { const r = mu.rows[+v]; if (r) musicOpen(r, false); return; }
+  if ((v = g('[data-au-tab]', 'auTab')) != null) { mu.tab = v; savePref('tc_autab', v); paintAudioTab(); return; }
+  if ((v = g('[data-mu-play]', 'muPlay')) != null) { const r = mu.rows[+v]; if (r) musicOpen(r, false, mu.rows.filter(x => x !== r)); return; }
   if ((v = g('[data-mu-save]', 'muSave')) != null) { const r = mu.rows[+v]; if (r) musicOpen(r, true); return; }
-  if ((v = g('[data-mu-mine]', 'muMine')) != null) { const x = musicList()[+v]; if (x) musicPlayHash(x.hash, x.title); return; }
+  if ((v = g('[data-mu-mine]', 'muMine')) != null) { const x = musicList()[+v]; if (!x) return; if (mu.t && mu.t.hash === x.hash && mu.kind === 'track') return musicToggle(); mu.alts = []; musicPlayHash(x.hash, x.title); return; }
   if ((v = g('[data-mu-drop]', 'muDrop')) != null) { const l = musicList(); const [gone] = l.splice(+v, 1); saveMusicList(l); paintMusicMine(); if (gone) toastUndo('Убрано из музыки: ' + gone.title, () => { const ll = musicList(); ll.splice(+v, 0, gone); saveMusicList(ll); paintMusicMine(); }); return; }
+  if ((v = g('[data-mu-preview]', 'muPreview')) != null) { playPreview(+v, t.closest('[data-mu-preview]')); return; }
+  if ((v = g('[data-mu-find]', 'muFind')) != null) { musicSearch(v, true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  if (t.closest('[data-mu-recs]')) return paintRecs(true);
   if ((v = g('[data-mu-ix]', 'muIx')) != null) { musicPlayIx(+v); return; }
+  if (t.closest('[data-mu-shuf]')) return toggleShuffle();
   if (t.closest('[data-mu-pp]')) return musicToggle();
   if (t.closest('[data-mu-prev]')) return musicNext(-1);
   if (t.closest('[data-mu-next]')) return musicNext(1);
   if (t.closest('[data-mu-stop]')) return musicStop();
+  if (typeof onBookClick === 'function' && onBookClick(t)) return;
+  if (typeof onRadioClick === 'function' && onRadioClick(t)) return;
 }
-/* ───────────── музыка: неоновая танцовщица ─────────────
-   Голограмма в духе неонового нуара: живёт в разделе «Музыка» и танцует
-   под трек, который играет в окне. Звук разбирается Web Audio: по басу
-   ищутся удары, из промежутков между ними — темп, к которому подстраивается
-   «внутренний метроном». Фигура — скелет с прямой кинематикой рук и
-   обратной для ног; движения (покачивание, волна, «качок», вог, вращение)
-   меняются каждые 8 долей и зависят от громкости. Рисуется 30 кадров/с
-   только пока раздел открыт и окно не свёрнуто; если звук не получен,
-   она просто ждёт и покачивается. */
-const dz = { cv: null, ctx: null, fig: null, fctx: null, glow: null, gctx: null, raf: 0, last: 0, w: 0, h: 0, dpr: 1,
-  b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, hi: 0, prevE: 0,
-  move: 'sway', prevMove: 'sway', moveAt: 0, spinAt: -99, glitch: 0, hair: 0, hairV: 0, skirt: 0, lastHead: 0,
-  poseA: null, poseB: null, vogueIx: 0, rain: [], city: [], spec: null, cost: 0 };
+/* ───────────── аудио: танцоры ─────────────
+   На сцене раздела «Аудио» танцует персонаж, нарисованный в духе аниме
+   (заливка и тёмный контур): Резе — каре, зелёные глаза, белая рубашка и
+   чокер — или серый волк с хвостом. На каждый трек выбирается случайный
+   танцор и танец (или тот, кого закрепили кнопкой). Слух: удары баса из
+   Web Audio дают темп и фазу «метронома»; если звук прочитать нельзя
+   (радио без CORS), танцор держит свой темп ~118 BPM. Руки и ноги — через
+   обратную кинематику к целям кистей и стоп. Рисуется 30 кадров/с, только
+   пока раздел открыт и окно видно. */
+const dz = { cv: null, ctx: null, raf: 0, last: 0, w: 0, h: 0, dpr: 1,
+  who: 'reze', b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, prevE: 0, spec: null, bassIx: [1, 6],
+  move: 'idle', prevMove: 'idle', moveAt: 0, pose: null, hair: 0, hairV: 0, skirt: 0, skirtV: 0, lastHx: 0, lastPx: 0,
+  tail: [], fw: [], stars: [], trees: [], flies: [], lastBurst: -1, flash: 0 };
+// «ихвильнихт» — танец волка из мема, его делают оба; у Резе он любимый
+const DZ_MOVES = { reze: ['ichwill', 'ichwill', 'iris', 'clap', 'point', 'hop'], wolf: ['ichwill', 'howl', 'stomp', 'shuffle', 'shake'] };
+const DZ_LEN = { ichwill: 16 };
+const DZ_NAMES = { iris: 'IRIS OUT', clap: 'хлопки', point: 'указка', hop: 'прыжки', howl: 'вой', ichwill: 'ихвильнихт', stomp: 'топот', shuffle: 'шаффл', shake: 'тряска', idle: '' };
 function dancerOn() { return localStorage.getItem('tc_dancer') !== '0'; }
-function dancerHook() {
-  // Подключаемся к звуку один раз: createMediaElementSource можно вызвать
-  // на элементе лишь однажды, и дальше звук идёт через AudioContext.
-  if (mu.an || !mu.audio || !window.AudioContext) return;
-  try {
-    const ac = new AudioContext();
-    const src = ac.createMediaElementSource(mu.audio);
-    const an = ac.createAnalyser(); an.fftSize = 1024; an.smoothingTimeConstant = 0.5;
-    src.connect(an); an.connect(ac.destination);
-    mu.ac = ac; mu.an = an; dz.spec = new Uint8Array(an.frequencyBinCount);
-    mu.audio.addEventListener('play', () => ac.resume().catch(() => {}));
-    if (!mu.audio.paused) ac.resume().catch(() => {});
-  } catch {}
-}
+function dancerWho() { const v = localStorage.getItem('tc_dancer_who'); return v === 'reze' || v === 'wolf' ? v : 'random'; }
 function dancerHtml() {
-  return html`<aside class="mu-stage${dancerOn() ? '' : ' off'}" id="muStage">
+  const on = dancerOn(), w = dancerWho();
+  return html`<aside class="mu-stage${on ? '' : ' off'}" id="muStage">
     <canvas id="muDance"></canvas>
-    <button class="iconbtn mu-stage-x" id="muDanceX" title="${dancerOn() ? 'Убрать танцовщицу' : 'Позвать танцовщицу'}">${dancerOn() ? '×' : '💃'}</button>
+    ${on ? raw(html`<button class="iconbtn mu-stage-who" id="muDanceWho" title="Кто танцует: ${w === 'random' ? 'случайно на каждый трек' : w === 'reze' ? 'Резе' : 'Волк'}">${w === 'random' ? '🎲' : w === 'reze' ? '💃' : '🐺'}</button>`) : ''}
+    <button class="iconbtn mu-stage-x" id="muDanceX" title="${on ? 'Убрать танцора' : 'Позвать танцора'}">${on ? '×' : '💃'}</button>
     <div class="mu-stage-cap" id="muDanceCap"></div>
   </aside>`;
 }
 function bindDancer() {
   const x = $('#muDanceX'); if (!x) return;
-  x.addEventListener('click', () => {
-    savePref('tc_dancer', dancerOn() ? '0' : '1');
-    const st = $('#muStage'); st.outerHTML = dancerHtml(); bindDancer();
+  const redraw = () => { const st = $('#muStage'); st.outerHTML = dancerHtml(); bindDancer(); };
+  x.addEventListener('click', () => { savePref('tc_dancer', dancerOn() ? '0' : '1'); redraw(); });
+  const w = $('#muDanceWho');
+  if (w) w.addEventListener('click', () => {
+    const order = ['random', 'reze', 'wolf'], next = order[(order.indexOf(dancerWho()) + 1) % 3];
+    savePref('tc_dancer_who', next); dancerNewTrack(); redraw();
+    toast(next === 'random' ? 'Танцор — случайный на каждый трек' : next === 'reze' ? 'Танцует Резе' : 'Танцует волк');
   });
   if (dancerOn()) dancerStart();
 }
+// Новый трек: новый танцор (если не закреплён) и новый танец.
+function dancerNewTrack() {
+  const w = dancerWho();
+  const who = w === 'random' ? (Math.random() < 0.5 ? 'reze' : 'wolf') : w;
+  if (who !== dz.who) { dz.who = who; dz.pose = null; dz.tail = []; dz.fw = []; }
+  const list = DZ_MOVES[dz.who];
+  dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
+  if (dz.move === 'ichwill') dz.ichAt = dz.moveAt;
+  dz.onsets = [];
+}
 function dancerStart() {
   const cv = $('#muDance'); if (!cv) return;
+  if (!dz.who || (dancerWho() !== 'random' && dz.who !== dancerWho())) dz.who = dancerWho() === 'random' ? dz.who : dancerWho();
   dz.cv = cv; dz.ctx = cv.getContext('2d');
-  dz.fig = document.createElement('canvas'); dz.fctx = dz.fig.getContext('2d');
-  dz.glow = document.createElement('canvas'); dz.gctx = dz.glow.getContext('2d');
-  dz.tmp = document.createElement('canvas'); dz.tctx = dz.tmp.getContext('2d');
   dancerResize();
   cancelAnimationFrame(dz.raf); dz.last = 0;
   dz.raf = requestAnimationFrame(dancerFrame);
@@ -6512,31 +6926,38 @@ function dancerResize() {
   const r = dz.cv.getBoundingClientRect();
   const dpr = Math.min(1.5, window.devicePixelRatio || 1);
   dz.w = Math.max(10, r.width); dz.h = Math.max(10, r.height); dz.dpr = dpr;
-  for (const c of [dz.cv, dz.fig, dz.tmp]) { c.width = Math.round(dz.w * dpr); c.height = Math.round(dz.h * dpr); }
-  dz.glow.width = Math.ceil(dz.w / 4); dz.glow.height = Math.ceil(dz.h / 4);
-  dz.rain = Array.from({ length: 46 }, () => ({ x: Math.random() * dz.w, y: Math.random() * dz.h, l: 8 + Math.random() * 18, v: 260 + Math.random() * 220 }));
-  dz.city = Array.from({ length: 22 }, () => ({ x: Math.random() * dz.w, y: dz.h * (0.18 + Math.random() * 0.5), r: 6 + Math.random() * 22, c: Math.random() < 0.5 ? '255,60,170' : Math.random() < 0.5 ? '60,220,255' : '255,170,60', a: 0.05 + Math.random() * 0.12, f: Math.random() * 6 }));
+  dz.cv.width = Math.round(dz.w * dpr); dz.cv.height = Math.round(dz.h * dpr);
+  const W = dz.w, H = dz.h;
+  dz.stars = Array.from({ length: 60 }, () => ({ x: Math.random() * W, y: Math.random() * H * 0.6, r: Math.random() * 1.2 + 0.3, f: Math.random() * 6 }));
+  dz.trees = Array.from({ length: 16 }, (_, i) => ({ x: (i + Math.random() * 0.8) / 16 * W * 1.1 - W * 0.05, h: H * (0.16 + Math.random() * 0.16), far: i % 2 }));
+  dz.trees.sort((a, b) => b.far - a.far);
+  dz.flies = Array.from({ length: 16 }, () => ({ x: Math.random() * W, y: H * (0.45 + Math.random() * 0.45), a: Math.random() * 6, s: 6 + Math.random() * 12, f: Math.random() * 6 }));
 }
 
 /* ── слух: удары баса и темп ── */
 function dancerListen(dt, now) {
-  const a = mu.audio, playing = a && !a.paused && !a.ended && mu.an;
-  let bass = 0, all = 0, hi = 0;
-  if (playing) {
-    mu.an.getByteFrequencyData(dz.spec);
-    const s = dz.spec, n = s.length;
-    for (let i = 1; i < 7; i++) bass += s[i];
-    for (let i = 0; i < 160; i++) all += s[i];
-    for (let i = 160; i < 380; i++) hi += s[i];
-    bass /= 6 * 255; all /= 160 * 255; hi /= 220 * 255;
+  const playing = typeof auPlaying === 'function' && auPlaying();
+  const an = playing && typeof auAnalyser === 'function' ? auAnalyser() : null;
+  let bass = 0, all = 0;
+  if (an) {
+    if (!dz.spec || dz.spec.length !== an.frequencyBinCount) {
+      dz.spec = new Uint8Array(an.frequencyBinCount);
+      const bw = an.context.sampleRate / an.fftSize;
+      dz.bassIx = [Math.max(1, Math.round(40 / bw)), Math.max(2, Math.round(150 / bw))];
+    }
+    an.getByteFrequencyData(dz.spec);
+    const s = dz.spec, [b0, b1] = dz.bassIx, top = Math.min(s.length, Math.round(s.length * 0.3));
+    for (let i = b0; i <= b1; i++) bass += s[i];
+    for (let i = 0; i < top; i++) all += s[i];
+    bass /= (b1 - b0 + 1) * 255; all /= top * 255;
   }
-  dz.energy += ((playing ? Math.min(1, all * 1.9) : 0) - dz.energy) * Math.min(1, dt * 3);
-  dz.hi += (hi - dz.hi) * Math.min(1, dt * 8);
-  // всплеск баса над скользящим средним — удар
+  // без анализа (радио без CORS) — ровная «внутренняя» энергия
+  const target = !playing ? 0 : an ? Math.min(1, all * 2.2) : 0.6;
+  dz.energy += (target - dz.energy) * Math.min(1, dt * 3);
   const d = bass - dz.eMean;
   dz.eMean += d * Math.min(1, dt * 2.2); dz.eVar += (d * d - dz.eVar) * Math.min(1, dt * 2.2);
   const rise = bass - dz.prevE; dz.prevE = bass;
-  if (playing && bass > 0.32 && d > Math.sqrt(dz.eVar) * 1.15 && rise > 0 && now - dz.lastOn > 260) {
+  if (an && bass > 0.3 && d > Math.sqrt(dz.eVar) * 1.15 && rise > 0 && now - dz.lastOn > 260) {
     const gap = now - dz.lastOn; dz.lastOn = now;
     if (gap < 2000) { dz.onsets.push(gap); if (dz.onsets.length > 24) dz.onsets.shift(); }
     if (dz.onsets.length >= 4) {
@@ -6544,260 +6965,359 @@ function dancerListen(dt, now) {
       let bpm = 60000 / g; while (bpm < 85) bpm *= 2; while (bpm > 170) bpm /= 2;
       dz.bpm += (bpm - dz.bpm) * 0.25;
     }
-    // подтягиваем фазу метронома к удару
     const fr = dz.b - Math.floor(dz.b);
     dz.b += fr > 0.5 ? (1 - fr) * 0.35 : -fr * 0.35;
-    if (d > Math.sqrt(dz.eVar) * 2.6 && dz.energy > 0.35) dz.glitch = 1;
   }
-  const tempo = playing ? dz.bpm : 46;
-  dz.b += dt * tempo / 60;
-  return playing;
+  if (playing && !an) dz.bpm += (118 - dz.bpm) * Math.min(1, dt);
+  dz.b += dt * (playing ? dz.bpm : 40) / 60;
+  return { playing, heard: !!an };
 }
 
-/* ── хореография ── */
-const DZ_VOGUE = [[2.7, 0.3, 0.4, 2.2], [1.6, 1.6, 1.6, 1.6], [0.3, 2.3, 2.9, 0.2], [2.2, 2.0, 2.2, 2.0], [1.2, 0.2, 2.6, 1.9], [2.9, 0.1, 2.9, 0.1]];
+/* ── хореография: цели кистей (в осях торса от груди), стоп и таза ── */
+const TAU = Math.PI * 2;
 function dzPose(m, b, e) {
-  const s1 = Math.sin(Math.PI * b), fr = b - Math.floor(b), pulse = Math.pow(1 - fr, 3);
-  const p = { hx: 0, hy: 4 * e * (0.5 - 0.5 * Math.cos(2 * Math.PI * b)), tilt: 0, head: 0,
-    hr: 0, lw: 0.2, rw: 0.2, lt: 0.22, lp: 0.3, rt: 0.22, rp: 0.3, lf: [-6, 99], rf: [6, 99] };
-  const amp = 0.35 + e;
-  if (m === 'idle') {
-    p.hx = 4 * s1; p.tilt = -0.04 * s1; p.head = 0.06 * Math.sin(Math.PI * b + 0.6); p.hy = 1.5 * (0.5 - 0.5 * Math.cos(2 * Math.PI * b));
-    p.lt = 0.16 + 0.04 * s1; p.rt = 0.16 - 0.04 * s1; p.lp = 0.22; p.rp = 0.22; p.hr = -0.08 * s1;
-  } else if (m === 'sway') {
-    p.hx = 9 * amp * s1; p.tilt = -0.09 * amp * s1; p.head = 0.12 * Math.sin(Math.PI * b + 0.5);
-    p.lt = 0.35 + 0.35 * amp * Math.max(0, Math.sin(Math.PI * b * 0.5)); p.lp = 0.5 + 0.6 * Math.max(0, s1);
-    p.rt = 0.35 + 0.35 * amp * Math.max(0, -Math.sin(Math.PI * b * 0.5)); p.rp = 0.5 + 0.6 * Math.max(0, -s1);
-    p.hr = -0.16 * amp * s1; p.lw = 0.5 * Math.max(0, s1); p.rw = 0.5 * Math.max(0, -s1);
-    p.lf = [-6 - 3 * Math.max(0, -s1), 99]; p.rf = [6 + 3 * Math.max(0, s1), 99];
-  } else if (m === 'wave') {
-    p.hx = 7 * amp * s1; p.tilt = -0.06 * s1; p.head = -0.15 * s1;
-    p.lt = 2.65 + 0.22 * Math.sin(Math.PI * b * 0.5); p.lp = -0.55 * Math.sin(Math.PI * b);
-    p.rt = 2.65 - 0.22 * Math.sin(Math.PI * b * 0.5 + 1); p.rp = 0.55 * Math.sin(Math.PI * b + 1.2);
-    p.hr = -0.12 * s1; p.lw = 0.8 * Math.sin(Math.PI * b + 0.8); p.rw = -0.8 * Math.sin(Math.PI * b + 2);
-    p.lf = [-8, 99]; p.rf = [8, 99];
-  } else if (m === 'pump') {
-    const odd = Math.floor(b) % 2;
-    p.hy += 3 * pulse * amp; p.hx = 5 * s1; p.head = 0.18 * pulse * (odd ? 1 : -1);
-    p.lt = odd ? 0.9 + 1.3 * pulse * amp : 0.7; p.lp = odd ? 1.9 - 0.6 * pulse : 1.9;
-    p.rt = odd ? 0.7 : 0.9 + 1.3 * pulse * amp; p.rp = odd ? 1.9 : 1.9 - 0.6 * pulse;
-    const st = Math.max(0, Math.sin(Math.PI * b)) * 7 * amp;
-    p.hr = (odd ? -0.1 : 0.1) * pulse; p.lw = p.rw = -0.4;
-    p.lf = odd ? [-6, 99] : [-6 - st, 99 - st * 0.7]; p.rf = odd ? [6 + st, 99 - st * 0.7] : [6, 99];
-  } else if (m === 'vogue') {
-    const A = DZ_VOGUE[Math.floor(b) % DZ_VOGUE.length], B = DZ_VOGUE[(Math.floor(b) + DZ_VOGUE.length - 1) % DZ_VOGUE.length];
-    const k = Math.min(1, fr * 5), q = k * k * (3 - 2 * k);
-    p.lt = B[0] + (A[0] - B[0]) * q; p.lp = B[1] + (A[1] - B[1]) * q; p.rt = B[2] + (A[2] - B[2]) * q; p.rp = B[3] + (A[3] - B[3]) * q;
-    p.hx = (Math.floor(b) % 2 ? 8 : -8) * q * amp; p.tilt = (Math.floor(b) % 2 ? -0.1 : 0.1) * q; p.head = (Math.floor(b) % 2 ? 0.2 : -0.2) * q;
-    p.hr = (Math.floor(b) % 2 ? -0.14 : 0.14) * q; p.lw = 0.5 * q; p.rw = 0.5 * q;
-    p.lf = [-9, 99]; p.rf = [9, 99];
+  const fr = b - Math.floor(b), beat = Math.floor(b), dn = Math.pow(1 - fr, 3), A = 0.55 + e * 0.6;
+  const p = { px: 0, py: dn * 4 * A, tl: 0, ht: 0, lh: [-17, 40], rh: [17, 40], lf: [-12, 0], rf: [12, 0], muz: 0, ring: 0, spark: 0, kn: 0.4, mo: 0 };
+  const sw = Math.sin(Math.PI * b);
+  switch (m) {
+    case 'idle':
+      p.px = Math.sin(b * Math.PI / 2) * 2; p.py = 1; p.tl = Math.sin(b * Math.PI / 2) * 0.03; p.ht = -p.tl;
+      p.lh = [-16, 41]; p.rh = [16, 41]; break;
+    case 'ichwill': { // по мему: подскоки со скрещенной ногой → лапы-мельница → присед-пружинка
+      const rb = ((b - (dz.ichAt || 0)) % 16 + 16) % 16, s = Math.floor(rb) % 2 ? 1 : -1, flop = Math.sin(TAU * b) * 3;
+      p.mo = 0.6 + 0.4 * Math.abs(Math.sin(Math.PI * b));
+      if (rb < 8) { // стоит на одной ноге, другая согнута и заходит за опорную; лапки висят у груди
+        const hop = Math.sin(Math.PI * fr) * 5 * A;
+        p.py = -hop + 2; p.tl = -s * 0.08; p.ht = s * 0.1 - 0.06; p.px = s * 2;
+        if (s > 0) { p.rf = [5, hop]; p.lf = [9, 20 + hop]; } else { p.lf = [-5, hop]; p.rf = [-9, 20 + hop]; }
+        p.lh = [-8, 6 + flop]; p.rh = [8, 6 - flop];
+      } else if (rb < 12) { // лапы машут в стороны по очереди, корпус крутится
+        const a = Math.PI * b, w = Math.sin(a);
+        p.lh = [-14 - 26 * Math.max(0, w), 2 - 12 * w]; p.rh = [14 + 26 * Math.max(0, -w), 2 + 12 * w];
+        p.px = 4 * w; p.tl = 0.1 * w; p.ht = -0.15 * w;
+        if (Math.floor(rb) % 2) p.lf = [-12, Math.sin(Math.PI * fr) * 7]; else p.rf = [12, Math.sin(Math.PI * fr) * 7];
+      } else { // широкий присед, колени в стороны, пружинит на долю
+        p.lf = [-23, 0]; p.rf = [23, 0]; p.kn = 1; p.py = 9 + dn * 6 * A;
+        p.tl = Math.sin(Math.PI * b) * 0.08; p.ht = -p.tl;
+        p.lh = [-9, 8 + flop]; p.rh = [9, 8 - flop];
+      }
+      break;
+    }
+    case 'iris': { // кисть кольцом у глаза, другая на бедре; стороны меняются каждые 2 доли
+      const s = Math.floor(b / 4) % 2 ? 1 : -1, a = TAU * b;
+      const hand = [s * 8 + Math.cos(a) * 2.5 * A, -25 + Math.sin(a) * 2.5 * A];
+      if (s < 0) { p.lh = hand; p.rh = [16, 39]; } else { p.rh = hand; p.lh = [-16, 39]; }
+      p.px = -s * 5 * A; p.tl = s * 0.07; p.ht = s * 0.16 + Math.sin(a) * 0.03;
+      if (s < 0) p.rf = [12, 3]; else p.lf = [-12, 3];
+      p.ring = 1; break;
+    }
+    case 'clap': {
+      const sep = Math.sin(Math.PI * fr), hi = beat % 4 === 3 ? -22 : 12;
+      p.lh = [-3 - 19 * sep, hi + sep * 6]; p.rh = [3 + 19 * sep, hi + sep * 6];
+      p.px = Math.sin(Math.PI * b) * 4 * A; p.tl = -p.px * 0.012;
+      if (beat % 2) p.lf = [-16, 0]; else p.rf = [16, 0];
+      p.spark = fr < 0.18 ? 1 - fr / 0.18 : 0; break;
+    }
+    case 'point': {
+      const s = Math.floor(b / 2) % 2 ? 1 : -1, pop = Math.pow(1 - (b / 2 - Math.floor(b / 2)), 2);
+      const up = [s * (38 + 3 * pop), -36 - 4 * pop];
+      if (s < 0) { p.lh = up; p.rh = [16, 39]; } else { p.rh = up; p.lh = [-16, 39]; }
+      p.px = s * 5 * A * (0.5 + pop); p.tl = -s * 0.06; p.ht = s * 0.12;
+      if (s < 0) p.lf = [-17, 0]; else p.rf = [17, 0];
+      break;
+    }
+    case 'hop': {
+      const h = Math.sin(Math.PI * fr) * 9 * A;
+      p.py = -h + dn * 3; p.lf = [-10, h]; p.rf = [10, h];
+      p.lh = [-22, 30 - 16 * sw]; p.rh = [22, 30 + 16 * sw];
+      p.tl = sw * 0.04; p.ht = -sw * 0.08; break;
+    }
+    case 'howl': { // 2 доли — вой, задрав морду, 2 доли — покачивание
+      const ph = (b / 4 - Math.floor(b / 4)) * 4, hw = ph < 2 ? Math.sin(Math.min(1, ph / 0.4) * Math.PI / 2) * (ph > 1.7 ? (2 - ph) / 0.3 : 1) : 0;
+      p.muz = hw; p.py = 2 + (1 - hw) * dn * 4 * A;
+      p.lh = [-13 - (1 - hw) * 4, -12 + (1 - hw) * 28]; p.rh = [13 + (1 - hw) * 4, -12 + (1 - hw) * 28];
+      p.px = (1 - hw) * Math.sin(Math.PI * b) * 3; p.lf = [-14, 0]; p.rf = [14, 0]; break;
+    }
+    case 'stomp': {
+      const s = beat % 2 ? 1 : -1, lift = Math.sin(Math.PI * Math.min(1, fr * 1.4)) * 20 * A;
+      if (s < 0) p.lf = [-13, lift]; else p.rf = [13, lift];
+      p.px = -s * 3; p.py = 3 + dn * 5 * A; p.tl = s * 0.04;
+      p.lh = [-18, s < 0 ? 26 : 6 - 6 * A]; p.rh = [18, s > 0 ? 26 : 6 - 6 * A]; break;
+    }
+    case 'shuffle': {
+      const k = Math.sin(TAU * b / 2), l = Math.max(0, Math.sin(TAU * b)) * 8 * A;
+      p.lf = [-12 + 9 * k, beat % 2 ? l : 0]; p.rf = [12 + 9 * k, beat % 2 ? 0 : l];
+      p.px = 5 * k; p.py = 3 + dn * 3; p.tl = -k * 0.04;
+      p.lh = [-17, 18 + 10 * sw]; p.rh = [17, 18 - 10 * sw]; break;
+    }
+    case 'shake': {
+      const q = Math.sin(TAU * b * 2);
+      p.px = q * 6 * A; p.tl = -q * 0.06; p.ht = q * 0.08; p.py = 3;
+      p.lh = [-42, -4 + 6 * q]; p.rh = [42, -4 - 6 * q]; p.lf = [-15, 0]; p.rf = [15, 0]; break;
+    }
   }
   return p;
 }
 function dzLerp(a, b, t) {
   const o = {};
-  for (const k in a) o[k] = Array.isArray(a[k]) ? [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t] : a[k] + (b[k] - a[k]) * t;
+  for (const k in b) o[k] = Array.isArray(b[k]) ? [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t] : a[k] + (b[k] - a[k]) * t;
   return o;
 }
 function dzChoreo(playing) {
-  const beat = Math.floor(dz.b);
   if (!playing) { if (dz.move !== 'idle') { dz.prevMove = dz.move; dz.move = 'idle'; dz.moveAt = dz.b; } return; }
-  if (dz.move === 'idle' || beat - Math.floor(dz.moveAt) >= 8 && beat % 4 === 0 && dz.b - beat < 0.2) {
-    const e = dz.energy, pool = e < 0.3 ? ['sway', 'sway', 'wave'] : e < 0.55 ? ['sway', 'wave', 'pump', 'vogue'] : ['pump', 'vogue', 'wave', 'pump'];
-    let n = pool[Math.floor(Math.random() * pool.length)];
-    if (n === dz.move) n = pool[(pool.indexOf(n) + 1) % pool.length];
-    dz.prevMove = dz.move; dz.move = n; dz.moveAt = dz.b;
-    if (e > 0.5 && dz.b - dz.spinAt > 24 && Math.random() < 0.45) dz.spinAt = dz.b;
+  if (dz.move === 'idle' || dz.b - dz.moveAt >= (DZ_LEN[dz.move] || 8)) {
+    const list = DZ_MOVES[dz.who].filter(m => m !== dz.move);
+    dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
+    if (dz.move === 'ichwill') dz.ichAt = dz.moveAt;
   }
 }
 
-/* ── тело ──
-   Пропорции «модельные»: голова маленькая, ноги длинные, песочные часы в
-   корпусе. Конечности — сужающиеся формы с изгибом икры и бедра, на ногах
-   ботфорты на каблуке, длинные волосы — две цепочки с инерцией. */
-function dzRot(p, o, an) { const c = Math.cos(an), s = Math.sin(an), x = p[0] - o[0], y = p[1] - o[1]; return [o[0] + x * c - y * s, o[1] + x * s + y * c]; }
-function dzIK(h, f, l1, l2, side) {
-  let dx = f[0] - h[0], dy = f[1] - h[1], d = Math.hypot(dx, dy);
-  const m = l1 + l2 - 0.4; if (d > m) { dx *= m / d; dy *= m / d; d = m; f = [h[0] + dx, h[1] + dy]; }
-  const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
-  const base = Math.atan2(dy, dx) + side * a;
-  return [[h[0] + Math.cos(base) * l1, h[1] + Math.sin(base) * l1], f];
+/* ── скелет ── */
+function dzRot(v, a) { const c = Math.cos(a), s = Math.sin(a); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; }
+function dzAdd(a, b) { return [a[0] + b[0], a[1] + b[1]]; }
+// Двухзвенная ОК: сустав выбирается «наружу» (out = −1 влево, +1 вправо).
+function dzIK(root, tgt, l1, l2, out) {
+  let dx = tgt[0] - root[0], dy = tgt[1] - root[1], d = Math.hypot(dx, dy) || 0.001;
+  const dm = Math.min(l1 + l2 - 0.01, Math.max(Math.abs(l1 - l2) + 0.01, d));
+  dx *= dm / d; dy *= dm / d; d = dm;
+  const th = Math.atan2(dy, dx), al = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
+  const j1 = [root[0] + Math.cos(th + al) * l1, root[1] + Math.sin(th + al) * l1], j2 = [root[0] + Math.cos(th - al) * l1, root[1] + Math.sin(th - al) * l1];
+  return { j: (j1[0] - j2[0]) * out > 0 ? j1 : j2, e: [root[0] + dx, root[1] + dy] };
 }
-function dzArm(sh, side, t, ph, wr) {
-  const el = [sh[0] + side * Math.sin(t) * 27, sh[1] + Math.cos(t) * 27];
-  const wa = [el[0] + side * Math.sin(t + ph) * 25, el[1] + Math.cos(t + ph) * 25];
-  const ha = [wa[0] + side * Math.sin(t + ph + wr) * 8, wa[1] + Math.cos(t + ph + wr) * 8];
-  return [el, wa, ha];
-}
-// сужающаяся конечность a→b: ширина w0→w1, «мышца» bw на доле at длины
-function dzTaper(c, a, b, w0, w1, bw, at) {
-  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-  const mx = a[0] + dx * at, my = a[1] + dy * at, an = Math.atan2(ny, nx);
-  c.moveTo(a[0] + nx * w0, a[1] + ny * w0);
-  c.quadraticCurveTo(mx + nx * bw * 1.15, my + ny * bw * 1.15, b[0] + nx * w1, b[1] + ny * w1);
-  c.arc(b[0], b[1], w1, an, an + Math.PI, true);
-  c.quadraticCurveTo(mx - nx * bw * 1.15, my - ny * bw * 1.15, a[0] - nx * w0, a[1] - ny * w0);
-  c.arc(a[0], a[1], w0, an + Math.PI, an, true);
-  c.closePath();
-}
-function dzHair(g, dt) {
-  // две пряди-цепочки, привязанные к затылку; Верле с гравитацией
-  const N = 8, seg = 6.4;
-  if (!dz.hc) dz.hc = [-1, 1].map(sd => Array.from({ length: N }, (_, i) => { const q = [g.H[0] + sd * 7, g.H[1] - 75 + i * seg]; return { p: q, o: q.slice() }; }));
-  const k = Math.min(2, dt * 30);
-  dz.hc.forEach((ch, si) => {
-    const sd = si ? 1 : -1, an = g.toHead([sd * 6.8, -2]);
-    ch[0].p = an; ch[0].o = an;
-    for (let i = 1; i < N; i++) {
-      const q = ch[i], vx = (q.p[0] - q.o[0]) * 0.9, vy = (q.p[1] - q.o[1]) * 0.9;
-      q.o = q.p.slice(); q.p = [q.p[0] + vx + sd * 0.05 * k, q.p[1] + vy + 0.55 * k];
-    }
-    for (let it = 0; it < 3; it++) for (let i = 1; i < N; i++) {
-      const A = ch[i - 1].p, B = ch[i].p, dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy) || 1, f = seg / d;
-      ch[i].p = [A[0] + dx * f, A[1] + dy * f];
-      // волосы не проходят сквозь плечи: держатся снаружи шеи
-      const o = ch[i].p, cx0 = g.neck[0], minX = 6 + i * 0.9;
-      if (sd < 0 && o[0] > cx0 - minX) o[0] = cx0 - minX; if (sd > 0 && o[0] < cx0 + minX) o[0] = cx0 + minX;
-    }
-  });
-}
-function dzGeom(p, e, dt) {
-  const H = [p.hx, p.hy];
-  const up = (x, y) => dzRot([H[0] + x, H[1] + y], H, p.tilt);
-  const lo = (x, y) => dzRot([H[0] + x, H[1] + y], H, p.hr);
-  const g = { H, up, lo, tilt: p.tilt, head: p.head, e };
-  g.shL = up(-12.5, -52); g.shR = up(12.5, -52); g.neck = up(0, -58);
-  g.headC = dzRot(up(0, -73), g.neck, p.head); g.neckTop = dzRot(up(0, -65), g.neck, p.head);
-  g.toHead = q => { const r = dzRot(q, [0, 0], p.tilt + p.head); return [g.headC[0] + r[0], g.headC[1] + r[1]]; };
-  const vx = g.headC[0] - (dz.lastHead == null ? g.headC[0] : dz.lastHead); dz.lastHead = g.headC[0];
-  dz.skirt += (-vx * 0.6 - dz.skirt) * 0.2;
-  g.hipL = lo(-7.5, 3); g.hipR = lo(7.5, 3);
-  [g.knL, g.ftL] = dzIK(g.hipL, p.lf, 49, 48, 1); [g.knR, g.ftR] = dzIK(g.hipR, p.rf, 49, 48, -1);
-  [g.elL, g.waL, g.haL] = dzArm(g.shL, -1, p.lt, p.lp, p.lw); [g.elR, g.waR, g.haR] = dzArm(g.shR, 1, p.rt, p.rp, p.rw);
-  dzHair(g, dt);
+function dzSkeleton(p) {
+  const pel = [p.px, p.py], chest = dzAdd(pel, dzRot([0, -46], p.tl));
+  const loc = v => dzAdd(chest, dzRot(v, p.tl));
+  const g = { pel, chest, tl: p.tl, ht: p.ht, neck: loc([0, -6]) };
+  g.head = dzAdd(g.neck, dzRot([0, -16], p.tl + p.ht));
+  g.ls = loc([-14, 2]); g.rs = loc([14, 2]);
+  const la = dzIK(g.ls, loc(p.lh), 28, 27, -1), ra = dzIK(g.rs, loc(p.rh), 28, 27, 1);
+  g.le = la.j; g.lw = la.e; g.re = ra.j; g.rw = ra.e;
+  g.lhip = dzAdd(pel, dzRot([-9, 4], p.tl * 0.5)); g.rhip = dzAdd(pel, dzRot([9, 4], p.tl * 0.5));
+  const ll = dzIK(g.lhip, [p.lf[0], 92 - p.lf[1]], 47, 46, -1), rl = dzIK(g.rhip, [p.rf[0], 92 - p.rf[1]], 47, 46, 1);
+  // колени гнутся к зрителю, а не в стороны: боковой вынос сильно сжат
+  const knee = (h, k, a) => { const mx = h[0] + (a[0] - h[0]) * 47 / 93; return [mx + (k[0] - mx) * p.kn, k[1]]; };
+  g.lk = knee(g.lhip, ll.j, ll.e); g.la = ll.e; g.rk = knee(g.rhip, rl.j, rl.e); g.ra = rl.e;
   return g;
 }
-function dzTorso(c, g) {
-  const u = g.up, l = g.lo;
-  const P = [u(-3.2, -60), u(-9, -57), u(-12.5, -53), u(-11.6, -45), u(-11.8, -37), l(-7.6, -24), l(-13.8, -8), l(-14, -1), l(-10.5, 8), l(0, 10)];
-  c.moveTo(P[0][0], P[0][1]);
-  const side = (pts) => {
-    c.quadraticCurveTo(pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
-    c.lineTo(pts[3][0], pts[3][1]);
-    c.quadraticCurveTo(pts[4][0], pts[4][1], pts[4][0] + (pts[5][0] - pts[4][0]) * 0.5, pts[4][1] + (pts[5][1] - pts[4][1]) * 0.5);
-    c.quadraticCurveTo(pts[5][0], pts[5][1], pts[5][0] + (pts[6][0] - pts[5][0]) * 0.4, pts[5][1] + (pts[6][1] - pts[5][1]) * 0.4);
-    c.quadraticCurveTo(pts[6][0], pts[6][1], pts[7][0], pts[7][1]);
-    c.quadraticCurveTo(pts[8][0], pts[8][1], pts[9][0], pts[9][1]);
-  };
-  side(P);
-  const Q = [u(3.2, -60), u(9, -57), u(12.5, -53), u(11.6, -45), u(11.8, -37), l(7.6, -24), l(13.8, -8), l(14, -1), l(10.5, 8), l(0, 10)].reverse();
-  c.quadraticCurveTo(Q[1][0], Q[1][1], Q[2][0], Q[2][1]);
-  c.quadraticCurveTo(Q[3][0], Q[3][1], Q[3][0] + (Q[4][0] - Q[3][0]) * 0.6, Q[3][1] + (Q[4][1] - Q[3][1]) * 0.6);
-  c.quadraticCurveTo(Q[4][0], Q[4][1], Q[4][0] + (Q[5][0] - Q[4][0]) * 0.5, Q[4][1] + (Q[5][1] - Q[4][1]) * 0.5);
-  c.quadraticCurveTo(Q[5][0], Q[5][1], Q[6][0], Q[6][1]);
-  c.lineTo(Q[7][0], Q[7][1]);
-  c.quadraticCurveTo(Q[8][0], Q[8][1], Q[9][0], Q[9][1]);
-  c.closePath();
+
+/* ── рисование в cel-стиле ── */
+const OL = '#1b1424';
+function dzLimb(c, pts, w, col, ol = OL) {
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+  c.strokeStyle = ol; c.lineWidth = w + 3; c.stroke();
+  c.strokeStyle = col; c.lineWidth = w; c.stroke();
 }
-function dzHeadPath(c, g) {
-  c.save(); c.translate(g.headC[0], g.headC[1]); c.rotate(g.tilt + g.head);
-  c.moveTo(0, -9.6); c.bezierCurveTo(7.8, -9.6, 7.6, 3, 0, 9.4); c.bezierCurveTo(-7.6, 3, -7.8, -9.6, 0, -9.6);
+function dzFill(c, col, ol = OL, lw = 1.6) { c.fillStyle = col; c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke(); }
+function dzDot(c, p, r, col) { c.beginPath(); c.arc(p[0], p[1], r, 0, TAU); dzFill(c, col); }
+function dzShoe(c, a, col, side) {
+  c.beginPath(); c.ellipse(a[0] + side * 3, a[1] + 1.5, 7, 3.6, 0, 0, TAU); dzFill(c, col);
+}
+// Пружинка для волос, юбки и прочего, что догоняет тело.
+function dzSpring(k, v, tgt, dt, stiff = 70, damp = 7) { const a = (tgt - dz[k]) * stiff - dz[v] * damp; dz[v] += a * dt; dz[k] += dz[v] * dt; }
+
+function dzDrawReze(c, g, p, dt) {
+  const SKIN = '#f6dccd', HAIR = '#3a2346', HAIR2 = '#5b3a6e', SHIRT = '#f5f3ef', SKIRT = '#262a3d', SHOE = '#221c28';
+  const hv = (g.head[0] - dz.lastHx) / Math.max(dt, 0.01); dz.lastHx = g.head[0];
+  dzSpring('hair', 'hairV', Math.max(-0.7, Math.min(0.7, -hv * 0.012)), dt);
+  const pv = (g.pel[0] - dz.lastPx) / Math.max(dt, 0.01); dz.lastPx = g.pel[0];
+  dzSpring('skirt', 'skirtV', Math.max(-0.5, Math.min(0.5, -pv * 0.01)), dt, 55, 6);
+  const H = g.head, ha = g.tl + g.ht;
+  // волосы сзади: каре до подбородка
+  c.save(); c.translate(H[0], H[1]); c.rotate(ha); c.scale(1.25, 1.25);
+  c.beginPath(); c.moveTo(-14, -2); c.quadraticCurveTo(-16, -17, 0, -17); c.quadraticCurveTo(16, -17, 14, -2);
+  c.quadraticCurveTo(15 + dz.hair * 4, 10, 12 + dz.hair * 5, 15); c.lineTo(-12 + dz.hair * 5, 15); c.quadraticCurveTo(-15 + dz.hair * 4, 10, -14, -2); dzFill(c, HAIR);
   c.restore();
-}
-function dzBodyPass(c, g, grow) {
-  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  c.beginPath();
-  dzTaper(c, g.hipL, g.knL, 7.2, 3.9, 7.4, 0.28); dzTaper(c, g.knL, g.ftL, 3.9, 2.1, 4.4, 0.3);
-  dzTaper(c, g.hipR, g.knR, 7.2, 3.9, 7.4, 0.28); dzTaper(c, g.knR, g.ftR, 3.9, 2.1, 4.4, 0.3);
-  dzTaper(c, g.shL, g.elL, 3.7, 2.5, 3.6, 0.3); dzTaper(c, g.elL, g.waL, 2.5, 1.7, 2.6, 0.25); dzTaper(c, g.waL, g.haL, 1.8, 1, 2.1, 0.45);
-  dzTaper(c, g.shR, g.elR, 3.7, 2.5, 3.6, 0.3); dzTaper(c, g.elR, g.waR, 2.5, 1.7, 2.6, 0.25); dzTaper(c, g.waR, g.haR, 1.8, 1, 2.1, 0.45);
-  dzTaper(c, g.neck, g.neckTop, 2.8, 2.5, 2.5, 0.5);
-  dzTorso(c, g); dzHeadPath(c, g);
-  fill();
-}
-function dzOutfitPass(c, g, grow) {
-  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  // ботфорты выше колена, каблук-шпилька
-  c.beginPath();
-  for (const [hp, kn, ft, sd] of [[g.hipL, g.knL, g.ftL, -1], [g.hipR, g.knR, g.ftR, 1]]) {
-    const top = [kn[0] + (hp[0] - kn[0]) * 0.22, kn[1] + (hp[1] - kn[1]) * 0.22];
-    dzTaper(c, top, kn, 4.6, 4.1, 4.4, 0.5); dzTaper(c, kn, ft, 4.1, 2.4, 4.6, 0.3);
-    c.moveTo(ft[0] - sd * 2.4, ft[1] - 1); c.lineTo(ft[0] + sd * 4.5, ft[1] + 7.5); c.lineTo(ft[0] + sd * 3, ft[1] + 8); c.lineTo(ft[0] - sd * 0.5, ft[1] + 3.2); c.lineTo(ft[0] - sd * 2.2, ft[1] + 8); c.lineTo(ft[0] - sd * 2.9, ft[1] + 7.8); c.closePath();
+  // ноги
+  dzLimb(c, [g.lhip, g.lk, g.la], 8, SKIN); dzLimb(c, [g.rhip, g.rk, g.ra], 8, SKIN);
+  dzShoe(c, g.la, SHOE, -1); dzShoe(c, g.ra, SHOE, 1);
+  // юбка
+  c.save(); c.translate(g.pel[0], g.pel[1]); c.rotate(g.tl * 0.5);
+  const sk = dz.skirt * 10, fl = 2 + dz.energy * 3;
+  c.beginPath(); c.moveTo(-11, -6); c.lineTo(11, -6); c.lineTo(17 + fl + sk, 24); c.quadraticCurveTo(sk, 27, -17 - fl + sk, 24); c.closePath(); dzFill(c, SKIRT);
+  c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-4, -4); c.lineTo(-6 + sk * 0.6, 23); c.moveTo(5, -4); c.lineTo(7 + sk * 0.6, 23); c.stroke();
+  c.restore();
+  // рубашка
+  c.save(); c.translate(g.chest[0], g.chest[1]); c.rotate(g.tl);
+  c.beginPath(); c.moveTo(-15, 0); c.quadraticCurveTo(0, -5, 15, 0); c.lineTo(11, 41); c.quadraticCurveTo(0, 43, -11, 41); c.closePath(); dzFill(c, SHIRT);
+  c.strokeStyle = '#c9c4cf'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, 2); c.lineTo(0, 40); c.stroke();
+  for (let y = 9; y < 40; y += 9) { c.fillStyle = '#b8b2c0'; c.beginPath(); c.arc(1.8, y, 0.9, 0, TAU); c.fill(); }
+  c.beginPath(); c.moveTo(-6, -3); c.lineTo(0, 5); c.lineTo(6, -3); dzFill(c, SHIRT, OL, 1.2); // воротник
+  c.restore();
+  // шея с чокером
+  dzLimb(c, [g.chest, g.neck], 6, SKIN);
+  c.save(); c.translate(g.neck[0], g.neck[1]); c.rotate(g.tl); c.fillStyle = '#111'; c.fillRect(-4, -1.5, 8, 2.6); c.restore();
+  // голова и лицо
+  c.save(); c.translate(H[0], H[1]); c.rotate(ha); c.scale(1.25, 1.25);
+  c.beginPath(); c.ellipse(0, 0, 10.5, 12.5, 0, 0, TAU); dzFill(c, SKIN);
+  for (const s of [-1, 1]) {
+    c.fillStyle = '#fff'; c.beginPath(); c.ellipse(s * 4.4, 1, 2.6, 2.9, 0, 0, TAU); c.fill();
+    c.fillStyle = '#2f9e6e'; c.beginPath(); c.ellipse(s * 4.2, 1.4, 1.8, 2.4, 0, 0, TAU); c.fill();
+    c.fillStyle = '#0c2a1e'; c.beginPath(); c.arc(s * 4.2, 1.6, 0.9, 0, TAU); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(s * 4.7, 0.6, 0.6, 0, TAU); c.fill();
+    c.strokeStyle = OL; c.lineWidth = 1.3; c.beginPath(); c.moveTo(s * 1.8, -1.2); c.quadraticCurveTo(s * 4.4, -2.6, s * 7.2, -1); c.stroke();
+    c.fillStyle = 'rgba(255,120,140,.35)'; c.beginPath(); c.ellipse(s * 6, 5, 1.8, 1, 0, 0, TAU); c.fill();
   }
-  fill();
-  // бюстье: по силуэту корпуса, низ — дугой под грудью
-  c.save(); c.beginPath(); dzTorso(c, g); c.clip();
-  const u = g.up, l = g.lo;
-  c.beginPath();
-  c.moveTo(...u(-16, -50)); c.quadraticCurveTo(...u(-6, -53), ...u(0, -46)); c.quadraticCurveTo(...u(6, -53), ...u(16, -50));
-  c.lineTo(...u(16, -34)); c.quadraticCurveTo(...u(0, -30), ...u(-16, -34)); c.closePath(); fill();
-  c.restore();
-  // юбка-клёш от талии, подол летит за движением
-  const sk = dz.skirt, fl = 3 + 5 * g.e;
-  c.beginPath();
-  c.moveTo(...l(-9.5, -19)); c.quadraticCurveTo(...l(0, -17.5), ...l(9.5, -19));
-  c.quadraticCurveTo(...l(15, -6), ...l(19 + fl + sk, 17));
-  c.quadraticCurveTo(...l(sk * 0.5, 21), ...l(-19 - fl + sk, 17));
-  c.quadraticCurveTo(...l(-15, -6), ...l(-9.5, -19)); c.closePath(); fill();
-  // чокер
-  c.beginPath(); const n1 = dzRot(g.up(0, -60.6), g.neck, g.head); c.ellipse(n1[0], n1[1], 2.9, 0.55, g.tilt, 0, Math.PI * 2); fill();
-}
-function dzHairBackPass(c, g, grow) {
-  const [L, R] = dz.hc, fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  c.beginPath();
-  c.moveTo(L[0].p[0], L[0].p[1]);
-  for (let i = 1; i < L.length; i++) { const m = [(L[i - 1].p[0] + L[i].p[0]) / 2 - 2.2, (L[i - 1].p[1] + L[i].p[1]) / 2]; c.quadraticCurveTo(L[i - 1].p[0] - 2.4, L[i - 1].p[1], m[0], m[1]); }
-  const lt = L[L.length - 1].p, rt = R[R.length - 1].p;
-  c.quadraticCurveTo((lt[0] + rt[0]) / 2, Math.max(lt[1], rt[1]) + 4, rt[0] + 2, rt[1]);
-  for (let i = R.length - 1; i > 0; i--) { const m = [(R[i - 1].p[0] + R[i].p[0]) / 2 + 2.2, (R[i - 1].p[1] + R[i].p[1]) / 2]; c.quadraticCurveTo(R[i].p[0] + 2.4, R[i].p[1], m[0], m[1]); }
-  c.lineTo(R[0].p[0], R[0].p[1]);
-  const h = g.toHead; c.bezierCurveTo(...h([10, -9]), ...h([6, -12.5]), ...h([0, -12])); c.bezierCurveTo(...h([-6, -12.5]), ...h([-10, -9]), L[0].p[0], L[0].p[1]);
-  c.closePath(); fill();
-}
-function dzHairFrontPass(c, g, grow) {
-  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  c.save(); c.translate(g.headC[0], g.headC[1]); c.rotate(g.tilt + g.head);
-  // косая чёлка и пряди у лица
-  c.beginPath();
-  c.moveTo(-8.4, 4); c.bezierCurveTo(-11, -14, 9, -16, 8.4, 1);
-  c.quadraticCurveTo(8.8, 7, 7.6, 12); c.quadraticCurveTo(6.4, 4, 6.2, -2.5);
-  c.quadraticCurveTo(1, -2.4, -4.5, -6.2); c.quadraticCurveTo(-6.3, -1, -6.4, 6);
-  c.quadraticCurveTo(-7, 9, -7.8, 12); c.quadraticCurveTo(-8.6, 8, -8.4, 4); c.closePath(); fill();
-  c.restore();
-}
-function dzGroup(tc, setT, g, pass, col, inner) {
-  tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalCompositeOperation = 'source-over'; const [bx, by, bw, bh] = dz.bb; tc.clearRect(bx, by, bw, bh);
-  setT(tc); tc.lineCap = 'round'; tc.lineJoin = 'round';
-  tc.fillStyle = tc.strokeStyle = col; pass(tc, g, 2.2);
-  tc.globalCompositeOperation = 'destination-out'; tc.fillStyle = tc.strokeStyle = `rgba(0,0,0,${1 - inner})`; pass(tc, g, 0);
-  tc.globalCompositeOperation = 'source-over';
-}
-function dzBodyGrad(c) { const gr = c.createLinearGradient(0, -85, 0, 100); gr.addColorStop(0, '#a8f7ff'); gr.addColorStop(0.45, '#7fd8ff'); gr.addColorStop(1, '#a98bff'); return gr; }
-function dzPinkGrad(c) { const gr = c.createLinearGradient(0, -85, 0, 100); gr.addColorStop(0, '#ff5fcf'); gr.addColorStop(1, '#ff3d8b'); return gr; }
-function dzDrawFigure(f, setT, p, e, dt) {
-  const g = dzGeom(p, e, dt), tc = dz.tctx;
-  const [bx, by, bw, bh] = dz.bb;
-  const put = () => { f.setTransform(1, 0, 0, 1, 0, 0); f.drawImage(dz.tmp, bx, by, bw, bh, bx, by, bw, bh); };
-  setT(tc); const hairG = (() => { const gr = tc.createLinearGradient(0, -85, 0, -20); gr.addColorStop(0, '#ff5fd2'); gr.addColorStop(1, '#8f6bff'); return gr; })();
-  dzGroup(tc, setT, g, dzHairBackPass, hairG, 0.42); put();
-  dzGroup(tc, setT, g, dzBodyPass, dzBodyGrad(tc), 0.22); put();
-  dzGroup(tc, setT, g, dzOutfitPass, dzPinkGrad(tc), 0.3); put();
-  dzGroup(tc, setT, g, dzHairFrontPass, hairG, 0.55); put();
-  // лицо: миндалевидные глаза с ресницами, брови, губы
-  setT(f); f.save(); f.translate(g.headC[0], g.headC[1]); f.rotate(g.tilt + g.head);
-  f.lineCap = 'round';
-  const blink = (dz.b % 7) > 6.85 ? 0.15 : 1;
-  for (const sd of [-1, 1]) {
-    f.save(); f.scale(sd, 1);
-    f.beginPath(); f.moveTo(1.3, 0.6); f.quadraticCurveTo(3, -1.3 * blink, 5, 0.1); f.quadraticCurveTo(3.1, 1.3 * blink, 1.3, 0.6);
-    f.fillStyle = 'rgba(235,255,255,.95)'; f.fill();
-    f.strokeStyle = 'rgba(255,255,255,.9)'; f.lineWidth = 0.55; f.beginPath(); f.moveTo(4.8, 0); f.lineTo(6, -1.1); f.stroke();
-    f.strokeStyle = 'rgba(200,240,255,.55)'; f.lineWidth = 0.5; f.beginPath(); f.moveTo(1.4, -2.2); f.quadraticCurveTo(3.4, -3.3, 5.2, -2); f.stroke();
-    f.restore();
+  c.strokeStyle = '#a0505a'; c.lineWidth = 1; c.beginPath();
+  if (p.mo > 0.3) { c.closePath(); c.fillStyle = '#7a2a3a'; c.beginPath(); c.ellipse(0, 7.6, 1.6, 1.1 + p.mo * 1.1, 0, 0, TAU); c.fill(); }
+  else if (dz.energy > 0.5) { c.arc(0, 7, 1.8, 0.1, Math.PI - 0.1); } else { c.moveTo(-1.6, 7.6); c.quadraticCurveTo(0, 8.6, 1.6, 7.6); }
+  c.stroke();
+  // чёлка и боковые пряди на пружинах
+  c.beginPath(); c.moveTo(-11.5, -1); c.quadraticCurveTo(-12, -14, 0, -14.5); c.quadraticCurveTo(12, -14, 11.5, -1);
+  c.lineTo(8, -5); c.lineTo(5.5, -1.5); c.lineTo(3, -6); c.lineTo(0, -2.5); c.lineTo(-3, -6.5); c.lineTo(-5.5, -2); c.lineTo(-8.5, -5.5); c.closePath(); dzFill(c, HAIR);
+  c.strokeStyle = HAIR2; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-6, -11); c.quadraticCurveTo(0, -13, 5, -11); c.stroke();
+  for (const s of [-1, 1]) {
+    const sw = dz.hair * 6;
+    c.beginPath(); c.moveTo(s * 11, -4); c.quadraticCurveTo(s * 13 + sw * 0.5, 6, s * 11 + sw, 15); c.lineTo(s * 8 + sw * 0.8, 12); c.quadraticCurveTo(s * 9, 4, s * 8.5, -3); c.closePath(); dzFill(c, HAIR);
   }
-  f.strokeStyle = 'rgba(200,240,255,.35)'; f.lineWidth = 0.5; f.beginPath(); f.moveTo(0.2, 1.5); f.quadraticCurveTo(0.9, 3.4, 0, 3.9); f.stroke();
-  f.fillStyle = 'rgba(255,90,180,.95)'; f.beginPath(); f.moveTo(-2.3, 5.7); f.quadraticCurveTo(-1, 4.7, 0, 5.2); f.quadraticCurveTo(1, 4.7, 2.3, 5.7); f.quadraticCurveTo(0, 7.4, -2.3, 5.7); f.fill();
-  f.restore();
+  c.restore();
+  // руки: рукав до локтя, дальше кожа
+  for (const [s, e, w] of [[g.ls, g.le, g.lw], [g.rs, g.re, g.rw]]) {
+    dzLimb(c, [s, e], 8, SHIRT); dzLimb(c, [e, w], 6, SKIN);
+    dzDot(c, w, 3.4, SKIN);
+  }
+  // «IRIS OUT»: кольцо из пальцев у глаза
+  if (p.ring > 0.5) {
+    const dl = Math.hypot(g.lw[0] - H[0], g.lw[1] - H[1]), dr = Math.hypot(g.rw[0] - H[0], g.rw[1] - H[1]);
+    const hand = dl < dr ? g.lw : g.rw;
+    if (Math.min(dl, dr) < 18) {
+    c.strokeStyle = OL; c.lineWidth = 2.6; c.beginPath(); c.arc(hand[0], hand[1], 4.2, 0, TAU); c.stroke();
+    c.strokeStyle = SKIN; c.lineWidth = 1.4; c.stroke(); }
+  }
+  if (p.spark > 0) {
+    const m = [(g.lw[0] + g.rw[0]) / 2, (g.lw[1] + g.rw[1]) / 2];
+    c.strokeStyle = `rgba(255,230,140,${p.spark})`; c.lineWidth = 1.4; c.beginPath();
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU, r0 = 6, r1 = 6 + 7 * p.spark; c.moveTo(m[0] + Math.cos(a) * r0, m[1] + Math.sin(a) * r0); c.lineTo(m[0] + Math.cos(a) * r1, m[1] + Math.sin(a) * r1); }
+    c.stroke();
+  }
+}
+
+function dzDrawWolf(c, g, p, dt) {
+  const FUR = '#8e97a8', FUR2 = '#6c7486', BELLY = '#dfe3ea', JEANS = '#34466b', SHOE = '#f2f2f2', OLW = '#1a1d27';
+  // хвост — цепочка звеньев, каждое догоняет предыдущее: так и виляет
+  const wag = Math.sin(TAU * dz.b * (dz.move === 'shake' ? 2 : 1)) * (0.35 + dz.energy * 0.55);
+  if (dz.tail.length !== 8) dz.tail = Array(8).fill(-0.4);
+  dz.tail[0] = -0.3 + wag;
+  for (let i = 1; i < 8; i++) dz.tail[i] += (dz.tail[i - 1] - dz.tail[i]) * Math.min(1, dt * 14);
+  const pts = []; let q = dzAdd(g.pel, [6, 6]);
+  for (let i = 0; i < 8; i++) { pts.push(q); const a = dz.tail[i] - i * 0.12; q = dzAdd(q, [Math.cos(a) * 6.5, -Math.sin(a) * 6.5]); }
+  const rr = i => 8.5 - i * 0.5;
+  c.fillStyle = OLW; pts.forEach((t, i) => { c.beginPath(); c.arc(t[0], t[1], rr(i) + 1.6, 0, TAU); c.fill(); });
+  pts.forEach((t, i) => { c.fillStyle = i > 5 ? BELLY : FUR; c.beginPath(); c.arc(t[0], t[1], rr(i), 0, TAU); c.fill(); });
+  // ноги в джинсах, кроссовки
+  dzLimb(c, [g.lhip, g.lk, g.la], 11, JEANS, OLW); dzLimb(c, [g.rhip, g.rk, g.ra], 11, JEANS, OLW);
+  dzShoe(c, g.la, SHOE, -1); dzShoe(c, g.ra, SHOE, 1);
+  // торс: мех, светлая грудь
+  c.save(); c.translate(g.chest[0], g.chest[1]); c.rotate(g.tl);
+  c.beginPath(); c.moveTo(-17, 0); c.quadraticCurveTo(0, -6, 17, 0); c.quadraticCurveTo(15, 24, 12, 46); c.quadraticCurveTo(0, 49, -12, 46); c.quadraticCurveTo(-15, 24, -17, 0); dzFill(c, FUR, OLW);
+  c.beginPath(); c.moveTo(-8, 1); c.lineTo(-4, 6); c.lineTo(0, 2); c.lineTo(4, 6); c.lineTo(8, 1); c.quadraticCurveTo(9, 26, 0, 34); c.quadraticCurveTo(-9, 26, -8, 1); c.fillStyle = BELLY; c.fill();
+  c.fillStyle = '#26324d'; c.fillRect(-12.5, 40, 25, 6); // пояс джинсов
+  c.restore();
+  // голова
+  const H = g.head, ha = g.tl + g.ht, m = Math.max(p.muz, p.mo * 0.55);
+  c.save(); c.translate(H[0], H[1] - m * 1.5); c.rotate(ha); c.scale(1.2, 1.2);
+  for (const s of [-1, 1]) {
+    const flick = Math.max(0, Math.sin(TAU * dz.b + s)) * 0.12 * dz.energy;
+    c.save(); c.translate(s * 7.5, -8); c.rotate(s * (0.18 + flick));
+    c.beginPath(); c.moveTo(-4.5, 2); c.lineTo(0, -13); c.lineTo(4.5, 2); c.closePath(); dzFill(c, FUR2, OLW);
+    c.beginPath(); c.moveTo(-2.3, 0.5); c.lineTo(0, -8.5); c.lineTo(2.3, 0.5); c.fillStyle = '#d99aa8'; c.fill();
+    c.restore();
+  }
+  c.beginPath(); c.moveTo(-12, -4); c.quadraticCurveTo(-12, -14, 0, -14); c.quadraticCurveTo(12, -14, 12, -4);
+  c.lineTo(15, 3); c.lineTo(11, 4); c.lineTo(13, 9); c.quadraticCurveTo(0, 16, -13, 9); c.lineTo(-11, 4); c.lineTo(-15, 3); c.closePath(); dzFill(c, FUR, OLW);
+  // морда: при вое уходит вверх, глаза закрываются
+  const sy = 5 - m * 5;
+  c.beginPath(); c.ellipse(0, sy, 6.8 + m, 5.4 + m * 1.5, 0, 0, TAU); dzFill(c, BELLY, OLW, 1.3);
+  for (const s of [-1, 1]) {
+    if (p.muz > 0.4) { c.strokeStyle = OLW; c.lineWidth = 1.4; c.beginPath(); c.arc(s * 5, -3, 2, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+    else {
+      c.beginPath(); c.ellipse(s * 5, -3.5, 2.5, 2.2, s * 0.25, 0, TAU); dzFill(c, '#ffc93c', OLW, 1);
+      c.fillStyle = '#111'; c.beginPath(); c.ellipse(s * 5, -3.3, 0.8, 1.6, 0, 0, TAU); c.fill();
+    }
+    c.strokeStyle = OLW; c.lineWidth = 1.3; c.beginPath(); c.moveTo(s * 2.4, -6.6 - m); c.lineTo(s * 7.6, -7.4 + m); c.stroke();
+  }
+  c.fillStyle = '#15161c'; c.beginPath(); c.ellipse(0, sy - 2.6 - m, 2.6, 1.8, 0, 0, TAU); c.fill();
+  if (m > 0.3) { c.fillStyle = '#5b1f2c'; c.beginPath(); c.ellipse(0, sy + 2.2, 2 * m + 0.6, 2.4 * m, 0, 0, TAU); c.fill(); }
+  else { c.strokeStyle = OLW; c.lineWidth = 1; c.beginPath(); c.moveTo(0, sy - 1); c.lineTo(0, sy + 1.5); c.moveTo(-2.5, sy + 2.5); c.quadraticCurveTo(0, sy + 3.6, 2.5, sy + 2.5); c.stroke(); }
+  c.restore();
+  // руки в меху, лапы темнее
+  for (const [s, e, w] of [[g.ls, g.le, g.lw], [g.rs, g.re, g.rw]]) {
+    dzLimb(c, [s, e, w], 8.5, FUR, OLW); dzDot(c, w, 4, FUR2);
+  }
+  if (m > 0.6) {
+    c.save(); c.globalAlpha = (m - 0.6) / 0.4; c.fillStyle = '#e8eefc'; c.font = 'italic 700 9px sans-serif'; c.textAlign = 'center';
+    c.fillText('А-у-у-у!', H[0] + 26, H[1] - 26 - (dz.b % 4) * 3); c.restore();
+  }
+}
+
+/* ── сцены ── */
+function dzSceneReze(c, W, H, dt, pl, t, floorY) {
+  const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0a0f2e'); bg.addColorStop(0.55, '#2b1a4d'); bg.addColorStop(1, '#4a2550');
+  c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  if (dz.flash > 0) { c.fillStyle = `rgba(255,200,230,${dz.flash * 0.12})`; c.fillRect(0, 0, W, H); dz.flash = Math.max(0, dz.flash - dt * 2.5); }
+  for (const s of dz.stars) { c.fillStyle = `rgba(255,255,255,${0.35 + 0.35 * Math.sin(t * 1.3 + s.f)})`; c.fillRect(s.x, s.y, s.r, s.r); }
+  // фейерверк на каждую четвёртую долю (без музыки — изредка)
+  const bar = Math.floor(dz.b / 4);
+  if ((pl && bar !== dz.lastBurst) || (!pl && Math.random() < dt * 0.15)) {
+    dz.lastBurst = bar;
+    const x = W * (0.15 + Math.random() * 0.7), y = H * (0.1 + Math.random() * 0.25), hue = Math.floor(Math.random() * 360);
+    for (let i = 0; i < 46; i++) { const a = i / 46 * TAU, v = 50 + Math.random() * 60; dz.fw.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, hue: hue + Math.random() * 40 }); }
+    if (dz.fw.length > 400) dz.fw.splice(0, dz.fw.length - 400);
+    dz.flash = 1;
+  }
+  c.globalCompositeOperation = 'lighter'; c.lineWidth = 1.6;
+  for (const f of dz.fw) {
+    f.vy += 38 * dt; f.vx *= 1 - dt * 0.9; f.vy *= 1 - dt * 0.9; f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt * 0.65;
+    if (f.life <= 0) continue;
+    c.strokeStyle = `hsla(${f.hue},100%,65%,${f.life})`; c.beginPath(); c.moveTo(f.x, f.y); c.lineTo(f.x - f.vx * 0.06, f.y - f.vy * 0.06); c.stroke();
+  }
+  dz.fw = dz.fw.filter(f => f.life > 0);
+  c.globalCompositeOperation = 'source-over';
+  // гирлянда фонариков
+  c.strokeStyle = 'rgba(30,15,30,.8)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, H * 0.42);
+  c.quadraticCurveTo(W / 2, H * 0.5, W, H * 0.4); c.stroke();
+  for (let i = 1; i < 7; i++) {
+    const u = i / 7, x = W * u, y = (1 - u) * (1 - u) * H * 0.42 + 2 * (1 - u) * u * H * 0.5 + u * u * H * 0.4 + 6, sw = Math.sin(t * 1.5 + i) * 2;
+    const glow = 0.6 + 0.4 * (pl ? Math.pow(1 - (dz.b % 1), 2) : 0.4);
+    c.fillStyle = `rgba(255,120,60,${0.15 * glow})`; c.beginPath(); c.arc(x + sw, y, 13, 0, TAU); c.fill();
+    c.fillStyle = i % 2 ? '#e8463a' : '#f29a3a'; c.beginPath(); c.ellipse(x + sw, y, 5, 6.5, 0, 0, TAU); c.fill();
+  }
+  // холмы и крыши
+  c.fillStyle = '#1b1030'; c.beginPath(); c.moveTo(0, floorY - 40);
+  c.quadraticCurveTo(W * 0.3, floorY - 70, W * 0.55, floorY - 45); c.quadraticCurveTo(W * 0.8, floorY - 25, W, floorY - 55); c.lineTo(W, H); c.lineTo(0, H); c.fill();
+  c.fillStyle = '#130a22'; c.fillRect(0, floorY - 6, W, H - floorY + 6);
+}
+function dzSceneWolf(c, W, H, dt, pl, t, floorY) {
+  const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#050b18'); bg.addColorStop(0.6, '#0f2238'); bg.addColorStop(1, '#0b1a28');
+  c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  for (const s of dz.stars) { c.fillStyle = `rgba(220,235,255,${0.3 + 0.3 * Math.sin(t + s.f)})`; c.fillRect(s.x, s.y, s.r, s.r); }
+  const mx = W * 0.27, my = H * 0.16, mr = Math.min(W, H) * 0.09, howl = dz.move === 'howl' && dz.pose ? dz.pose.muz : 0;
+  const gl = c.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * (3.2 + howl));
+  gl.addColorStop(0, `rgba(220,230,255,${0.25 + howl * 0.2})`); gl.addColorStop(1, 'rgba(220,230,255,0)');
+  c.fillStyle = gl; c.fillRect(0, 0, W, H * 0.6);
+  c.fillStyle = '#eef1f8'; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill();
+  c.fillStyle = 'rgba(160,170,195,.35)'; for (const [dx, dy, r] of [[-0.3, -0.2, 0.22], [0.25, 0.15, 0.16], [-0.05, 0.35, 0.12]]) { c.beginPath(); c.arc(mx + dx * mr, my + dy * mr, r * mr, 0, TAU); c.fill(); }
+  // ели в два ряда
+  for (const tr of dz.trees) {
+    c.fillStyle = tr.far ? '#0d1d2e' : '#081320';
+    const base = floorY - (tr.far ? 22 : 0), h = tr.h * (tr.far ? 0.8 : 1);
+    for (let k = 0; k < 3; k++) {
+      const y0 = base - h * k * 0.28, w = h * (0.32 - k * 0.07);
+      c.beginPath(); c.moveTo(tr.x - w, y0); c.lineTo(tr.x, y0 - h * 0.48); c.lineTo(tr.x + w, y0); c.fill();
+    }
+  }
+  c.fillStyle = '#0a1622'; c.fillRect(0, floorY - 4, W, H - floorY + 4);
+  // светлячки — вспыхивают на долю
+  const pulse = pl ? Math.pow(1 - (dz.b % 1), 2) : 0.3;
+  c.globalCompositeOperation = 'lighter';
+  for (const f of dz.flies) {
+    f.a += dt * 0.6; f.x += Math.cos(f.a + f.f) * f.s * dt; f.y += Math.sin(f.a * 1.3) * f.s * 0.5 * dt;
+    if (f.x < 0) f.x += W; if (f.x > W) f.x -= W;
+    const al = 0.25 + 0.5 * Math.max(0, Math.sin(t * 2 + f.f)) + 0.3 * pulse;
+    const gr = c.createRadialGradient(f.x, f.y, 0, f.x, f.y, 7); gr.addColorStop(0, `rgba(210,255,120,${al})`); gr.addColorStop(1, 'rgba(210,255,120,0)');
+    c.fillStyle = gr; c.fillRect(f.x - 7, f.y - 7, 14, 14);
+  }
+  c.globalCompositeOperation = 'source-over';
 }
 
 /* ── кадр ── */
@@ -6806,85 +7326,1054 @@ function dancerFrame(now) {
   dz.raf = requestAnimationFrame(dancerFrame);
   if (document.hidden || now - dz.last < 32) return;
   const dt = dz.last ? Math.min(0.1, (now - dz.last) / 1000) : 0.033; dz.last = now;
-  const t0 = performance.now();
   const r = dz.cv.getBoundingClientRect();
   if (Math.abs(r.width - dz.w) > 1 || Math.abs(r.height - dz.h) > 1) dancerResize();
-  dancerHook();
-  const playing = dancerListen(dt, now);
+  const { playing, heard } = dancerListen(dt, now);
   dzChoreo(playing);
-  const e = dz.energy, t = now / 1000, W = dz.w, Hh = dz.h, c = dz.ctx, dpr = dz.dpr;
+  const W = dz.w, H = dz.h, c = dz.ctx, dpr = dz.dpr, t = now / 1000;
   const cap = $('#muDanceCap');
-  if (cap) cap.textContent = playing ? Math.round(dz.bpm) + ' BPM' : mu.audio && !mu.audio.paused ? '' : 'включите трек — потанцую';
-  // фон: ночной город под дождём
-  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-  const bg = c.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#05030f'); bg.addColorStop(0.6, '#0a0b22'); bg.addColorStop(1, '#030308');
-  c.fillStyle = bg; c.fillRect(0, 0, W, Hh);
-  c.globalCompositeOperation = 'lighter';
-  for (const o of dz.city) { c.fillStyle = `rgba(${o.c},${o.a * (0.75 + 0.25 * Math.sin(t * 0.7 + o.f))})`; c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill(); }
-  // спектр полукругом за спиной
-  const S = Math.min(W / 175, Hh / 290), cx = W / 2, floorY = Hh * 0.88, hipY = floorY - 106 * S;
-  if (playing && dz.spec) {
-    const n = 48, R = 62 * S;
-    for (let i = 0; i < n; i++) {
-      const v = dz.spec[2 + i * 3] / 255, an = Math.PI + (i + 0.5) / n * Math.PI;
-      const x1 = cx + Math.cos(an) * R, y1 = hipY - 20 * S + Math.sin(an) * R, L = 4 + v * 34 * S;
-      c.strokeStyle = `hsla(${300 - i * 2.5},100%,60%,${0.15 + v * 0.5})`; c.lineWidth = 2.2;
-      c.beginPath(); c.moveTo(x1, y1); c.lineTo(x1 + Math.cos(an) * L, y1 + Math.sin(an) * L); c.stroke();
+  if (cap) cap.textContent = !playing ? 'включите трек — потанцуем'
+    : `${dz.who === 'reze' ? 'Резе' : 'Волк'} · ${DZ_NAMES[dz.move] || ''} · ${heard ? '' : '≈'}${Math.round(dz.bpm)} BPM`;
+  const S = Math.min(W / 150, H / 255), cx = W / 2, floorY = H * 0.87, hipY = floorY - 92 * S;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (dz.who === 'reze') dzSceneReze(c, W, H, dt, playing, t, floorY); else dzSceneWolf(c, W, H, dt, playing, t, floorY);
+  // поза: смена движения за долю, тело догоняет цель
+  const k = Math.min(1, Math.max(0, dz.b - dz.moveAt));
+  let pose = dzPose(dz.move, dz.b, dz.energy);
+  if (k < 1) pose = dzLerp(dzPose(dz.prevMove, dz.b, dz.energy), pose, k * k * (3 - 2 * k));
+  dz.pose = dz.pose ? dzLerp(dz.pose, pose, 1 - Math.exp(-dt * 16)) : pose;
+  const g = dzSkeleton(dz.pose);
+  // тень: меньше, когда ноги в воздухе
+  const lift = Math.min(dz.pose.lf[1], dz.pose.rf[1]);
+  c.fillStyle = `rgba(0,0,0,${0.4 - Math.min(0.25, lift / 60)})`;
+  c.beginPath(); c.ellipse(cx + dz.pose.px * S * 0.5, floorY + 2, (30 - Math.min(14, lift)) * S, 5 * S, 0, 0, TAU); c.fill();
+  c.setTransform(dpr * S, 0, 0, dpr * S, cx * dpr, hipY * dpr);
+  if (dz.who === 'reze') dzDrawReze(c, g, dz.pose, dt); else dzDrawWolf(c, g, dz.pose, dt);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+}
+/* ================= АУДИО · АУДИОКНИГИ =================
+   Полка книг с прогрессом, продолжение с места, закладки с подписью, скорость
+   чтения и скачивание для офлайна. Позиция пишется каждые 5 секунд и при
+   паузе; при продолжении плеер отступает на 3 секунды назад, чтобы не терять
+   фразу. Офлайн — файлы книги скачиваются в папку загрузок (как обычные
+   загрузки) и дальше играют с диска через демон, без TorrServer и сети. */
+
+const bk = { q: '', rows: [], busy: false, err: '', open: null, files: {}, dlPoll: 0 };
+const BOOK_RE = /аудиокниг|audio\s?book|аудиоспектакл|радиоспектакл|радиопостановк|чита(ет|ют|ла)\b|чтец|исполнител[ья]|\bm4b\b|\bmp3\b|\baac\b|kbps|аудио/i;
+const BOOK_NOT_RE = /\b(pdf|fb2|epub|djvu|mobi|azw3?|docx?|rtf|txt)\b/i;
+function isBookRelease(t) { t = String(t || ''); return BOOK_RE.test(t) && !(BOOK_NOT_RE.test(t) && !/\bmp3\b|аудио/i.test(t)) && !MUSIC_VIDEO_RE.test(t); }
+function bookList() { const a = jsonPref('tc_books', []); return Array.isArray(a) ? a : []; }
+function saveBooks(l) { saveJson('tc_books', l.slice(0, 200)); }
+function bookPosAll() { return jsonPref('tc_bookpos', {}); }
+function bookSpeed() { const v = Number(localStorage.getItem('tc_bkspeed') || 1); return v >= 0.5 && v <= 3 ? v : 1; }
+function bookSetSpeed(v) { savePref('tc_bkspeed', v); }
+function bookMarks(hash) { return (jsonPref('tc_bookmarks', {})[hash] || []); }
+function saveBookMarks(hash, l) { const all = jsonPref('tc_bookmarks', {}); all[hash] = l.slice(0, 200); saveJson('tc_bookmarks', all); }
+function bookOffAll() { return jsonPref('tc_bookoff', {}); }
+function bookOfflinePath(hash, id) { const o = bookOffAll()[hash]; return (o && o.files && o.files[id]) || ''; }
+function bookKeepFiles(hash, files) {
+  bk.files[hash] = files;
+  const meta = jsonPref('tc_bookmeta', {}); meta[hash] = files.map(f => ({ id: f.id, path: f.path, length: f.length })); saveJson('tc_bookmeta', meta);
+}
+function bookFiles(hash) { return bk.files[hash] || jsonPref('tc_bookmeta', {})[hash] || null; }
+function bookResumeIx(hash, files) { const p = bookPosAll()[hash]; return p && p.ix < files.length ? p.ix : 0; }
+function bookResumeAt(hash, i) { const p = bookPosAll()[hash]; return p && p.ix === i ? Math.max(0, p.t - 3) : 0; }
+let bookSaveAt = 0;
+function bookSavePos(force) {
+  const a = mu.audio; if (mu.kind !== 'book' || !mu.t || !a) return;
+  if (!force && Date.now() - bookSaveAt < 5000) return;
+  bookSaveAt = Date.now();
+  const all = bookPosAll();
+  all[mu.t.hash] = { ix: mu.ix, t: a.ended ? 0 : a.currentTime || 0, d: isFinite(a.duration) ? a.duration : 0, n: mu.queue.length, at: Date.now() };
+  if (a.ended && mu.ix + 1 < mu.queue.length) all[mu.t.hash].ix = mu.ix + 1;
+  saveJson('tc_bookpos', all);
+}
+function bookProgress(hash) {
+  const p = bookPosAll()[hash]; if (!p || !p.n) return 0;
+  return Math.min(1, (p.ix + (p.d ? p.t / p.d : 0)) / p.n);
+}
+
+function renderBooks(el) {
+  el.innerHTML = html`<div class="mu-search">
+      <span class="sb-ico">${raw(ico('search', 18))}</span>
+      <input id="bkQ" placeholder="Название книги или автор…" value="${bk.q}" autocomplete="off">
+      <button id="bkGo" class="primary">Найти</button>
+    </div>
+    <div id="bkBody"></div>`;
+  const q = $('#bkQ');
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') bookSearch(); });
+  $('#bkGo').addEventListener('click', bookSearch);
+  paintBooks();
+}
+async function bookSearch() {
+  const q = ($('#bkQ').value || '').trim(); if (!q) return toast('Введите название или автора', true);
+  bk.q = q; bk.busy = true; bk.rows = []; bk.open = null; paintBooks();
+  const res = await audioTrackerSearch(q, 11, isBookRelease, 0.7);
+  if (bk.q !== q) return;
+  bk.rows = res.rows; bk.err = res.err; bk.busy = false; paintBooks();
+}
+function paintBooks() {
+  const el = $('#bkBody'); if (!el) return;
+  if (bk.open) return paintBookOpen(el);
+  let h = '';
+  const shelf = bookList();
+  if (bk.busy) h += skeleton('Ищу аудиокниги и выбираю раздачу побыстрее…', 3);
+  else if (bk.q) {
+    h += bk.rows.length ? html`<div class="mu-h">Найдено ${bk.rows.length} · сверху самая быстрая</div><div class="mu-list">${raw(bk.rows.map((r, i) => html`
+      <div class="mu-row${i === 0 ? ' best' : ''}">
+        <button class="mu-play" data-bk-add="${i}" data-play="1" title="Слушать">${raw(ico('play', 14))}</button>
+        <div class="mu-main"><div class="mu-t" title="${r.title}">${i === 0 ? raw('<span class="mu-badge">быстрее всех</span>') : ''}${r.title}</div>
+          <div class="mu-s">${[musicFmt(r), r.size_bytes ? fmtSize(r.size_bytes) : r.size || '', '⬆ ' + (r.seed || 0)].filter(Boolean).join(' · ')}</div></div>
+        <button class="iconbtn" data-bk-add="${i}" title="На полку">${raw(ico('plus', 15))}</button>
+      </div>`).join(''))}</div>` : html`<div class="empty">Аудиокниг не нашлось.${bk.err ? ' ' + bk.err : ''}</div>`;
+  }
+  if (shelf.length) {
+    const off = bookOffAll();
+    h += html`<div class="mu-h">Моя полка</div><div class="au-grid">${raw(shelf.map((b, i) => { const p = bookProgress(b.hash); return html`
+      <div class="au-card book${mu.t && mu.t.hash === b.hash ? ' on' : ''}">
+        <button class="au-cover" data-bk-open="${i}" title="${b.title}">${raw(coverImg(b.title, b.hash, 'book'))}${raw(off[b.hash] && off[b.hash].done ? '<span class="au-off" title="Доступна офлайн">⤓</span>' : '')}</button>
+        <div class="au-prog"><i style="width:${Math.round(p * 100)}%"></i></div>
+        <div class="au-card-t" title="${b.title}">${b.title}</div>
+        <div class="au-card-s">${p ? Math.round(p * 100) + '% прослушано' : 'не начата'}</div>
+      </div>`; }).join(''))}</div>`;
+  } else if (!bk.q && !bk.busy) h += html`<div class="empty">Найдите книгу — она ляжет на полку, а место, где вы остановились, запомнится.</div>`;
+  el.innerHTML = h;
+  hydrateCovers(el);
+}
+async function paintBookOpen(el) {
+  const b = bookList().find(x => x.hash === bk.open); if (!b) { bk.open = null; return paintBooks(); }
+  let files = bookFiles(b.hash);
+  const pos = bookPosAll()[b.hash], marks = bookMarks(b.hash), off = bookOffAll()[b.hash], p = bookProgress(b.hash);
+  const playingHere = mu.t && mu.t.hash === b.hash && mu.kind === 'book';
+  el.innerHTML = html`<div class="bk-open">
+    <button class="btn sm ghost" data-bk-back-shelf>← Полка</button>
+    <div class="bk-hero">
+      <div class="bk-cov">${raw(coverImg(b.title, b.hash, 'book'))}</div>
+      <div class="bk-info"><h2>${b.title}</h2>
+        <div class="au-prog big"><i style="width:${Math.round(p * 100)}%"></i></div>
+        <div class="mu-s">${p ? Math.round(p * 100) + '% · глава ' + ((pos && pos.ix) + 1) + (files ? ' из ' + files.length : '') + ' · ' + fmtPos((pos && pos.t) || 0) : 'не начата'}</div>
+        <div class="bk-acts">
+          <button class="btn primary" data-bk-play>${raw(ico(playingHere && auPlaying() ? 'pause' : 'play', 15))} ${p ? 'Продолжить' : 'Слушать'}</button>
+          ${raw(off && off.done ? html`<span class="bk-offok">⤓ Доступна офлайн</span>` : off && off.jobs ? html`<span class="bk-offok" id="bkDl">Скачиваю…</span>` : html`<button class="btn" data-bk-dl>${raw(ico('download', 15))} Скачать для офлайна</button>`)}
+          <button class="btn ghost" data-bk-drop>Убрать с полки</button>
+        </div></div></div>
+    <div class="mu-h">Закладки</div>
+    ${raw(marks.length ? html`<div class="mu-list">${raw(marks.map((m, i) => html`<div class="mu-row"><button class="mu-play" data-bk-go="${i}" title="Перейти">${raw(ico('bookmark', 14))}</button><div class="mu-main"><div class="mu-t">${m.note || 'Закладка'}</div><div class="mu-s">глава ${m.ix + 1} · ${fmtPos(m.t)} · ${new Date(m.at).toLocaleDateString('ru-RU')}</div></div><button class="iconbtn" data-bk-unmark="${i}" title="Удалить закладку">×</button></div>`).join(''))}</div>` : html`<div class="empty sm">Пока нет. Во время прослушивания нажмите ${raw(ico('bookmark', 13))} в плеере.</div>`)}
+    <div class="mu-h">Главы</div><div class="mu-list" id="bkCh">${raw(files ? bookChaptersHtml(b.hash, files) : skeleton('Получаю список глав…', 2))}</div>
+  </div>`;
+  hydrateCovers(el);
+  if (off && off.jobs) bookDlWatch();
+  if (!files) {
+    const st = await waitForFiles({ hash: b.hash, title: b.title });
+    if (st && bk.open === b.hash) { files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(b.hash, files); const ch = $('#bkCh'); if (ch) ch.innerHTML = bookChaptersHtml(b.hash, files); }
+  }
+}
+function bookChaptersHtml(hash, files) {
+  const pos = bookPosAll()[hash] || { ix: -1 };
+  return files.map((f, i) => html`<div class="mu-row${i === pos.ix ? ' best' : ''}"><button class="mu-play" data-bk-ch="${i}">${raw(i < pos.ix ? '✓' : ico('play', 13))}</button><div class="mu-main"><div class="mu-t">${musicTrackName(f)}</div><div class="mu-s">${[f.length ? fmtSize(f.length) : '', bookOfflinePath(hash, f.id) ? 'на диске' : '', i === pos.ix ? 'остановились на ' + fmtPos(pos.t) : ''].filter(Boolean).join(' · ')}</div></div></div>`).join('');
+}
+async function bookPlay(hash, ix, at) {
+  const b = bookList().find(x => x.hash === hash); if (!b) return;
+  if (mu.t && mu.t.hash === hash && mu.kind === 'book' && ix == null) return musicToggle();
+  const files = bookFiles(hash);
+  const allOff = files && files.every(f => bookOfflinePath(hash, f.id));
+  if (ix != null) { const all = bookPosAll(); all[hash] = Object.assign(all[hash] || {}, { ix, t: at || 0, n: files ? files.length : 0 }); saveJson('tc_bookpos', all); }
+  await musicPlayHash(hash, b.title, 'book', allOff ? files : null);
+  if (bk.open) paintBooks();
+}
+async function bookAdd(r, play) {
+  try {
+    const { hash, title } = await audioAddRelease(r, 'audiobook');
+    const l = bookList();
+    if (!l.some(x => x.hash === hash)) { l.unshift({ hash, title, added: Date.now() }); saveBooks(l); }
+    bk.open = hash; paintBooks();
+    if (play) bookPlay(hash);
+  } catch (e) { toast('Аудиокнига: ' + e.message, true); }
+}
+function bookMarkHere() {
+  if (mu.kind !== 'book' || !mu.audio) return;
+  const t = mu.audio.currentTime || 0, ix = mu.ix, hash = mu.t.hash;
+  const note = prompt('Подпись к закладке (можно оставить пустой):', '') ;
+  if (note === null) return;
+  const l = bookMarks(hash); l.unshift({ ix, t, note: note.trim().slice(0, 140), at: Date.now() }); saveBookMarks(hash, l);
+  toast('Закладка: глава ' + (ix + 1) + ', ' + fmtPos(t));
+  if (bk.open === hash) paintBooks();
+}
+
+/* офлайн: каждый файл книги — отдельная загрузка в папку загрузок */
+async function bookDownload(hash) {
+  const b = bookList().find(x => x.hash === hash); if (!b) return;
+  let files = bookFiles(hash);
+  if (!files) { const st = await waitForFiles({ hash, title: b.title }); if (!st) return toast('Раздача не отдаёт список файлов', true); files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(hash, files); }
+  const jobs = {};
+  for (const f of files) {
+    if (bookOfflinePath(hash, f.id)) continue;
+    const name = (b.title.slice(0, 60) + ' - ' + basename(f.path)).replace(/[\\/:*?"<>|]/g, '_');
+    try {
+      const r = await fetch('/api/download?action=start&hash=' + encodeURIComponent(hash) + '&index=' + f.id + '&file=' + encodeURIComponent(name) + '&name=' + encodeURIComponent(b.title) + '&size=' + (f.length || 0), { method: 'POST' });
+      const j = await r.json(); if (j.ok) jobs[j.id] = f.id;
+    } catch {}
+  }
+  const all = bookOffAll(); all[hash] = Object.assign(all[hash] || { files: {} }, { jobs, done: false }); saveJson('tc_bookoff', all);
+  toast('Скачиваю «' + b.title + '» для офлайна: ' + Object.keys(jobs).length + ' файлов. Видно и в «Загрузках»');
+  paintBooks(); bookDlWatch();
+}
+function bookDlWatch() {
+  clearTimeout(bk.dlPoll);
+  bk.dlPoll = setTimeout(async () => {
+    const all = bookOffAll(); let pending = false;
+    try {
+      const j = await api('/api/download?action=list');
+      const byId = Object.fromEntries((j.jobs || []).map(x => [x.id, x]));
+      for (const [hash, o] of Object.entries(all)) {
+        if (!o.jobs) continue;
+        let done = 0, total = 0, bytes = 0, size = 0;
+        for (const [id, fid] of Object.entries(o.jobs)) {
+          const x = byId[id]; total++;
+          if (!x) continue;
+          bytes += x.done || 0; size += x.total || 0;
+          if (x.status === 'done') { o.files[fid] = x.path; done++; }
+          else if (x.status === 'error' || x.status === 'cancelled') done++;
+          else pending = true;
+        }
+        if (!pending || done === total) { delete o.jobs; const files = bookFiles(hash) || []; o.done = files.length > 0 && files.every(f => o.files[f.id]); if (o.done) toast('Аудиокнига скачана — слушается без сети'); }
+        const el = $('#bkDl'); if (el && bk.open === hash) el.textContent = 'Скачиваю… ' + done + ' из ' + total + (size ? ' · ' + Math.round(bytes / size * 100) + '%' : '');
+      }
+      saveJson('tc_bookoff', all);
+    } catch { pending = true; }
+    if (pending) bookDlWatch(); else if (bk.open) paintBooks();
+  }, 3000);
+}
+
+function onBookClick(t) {
+  const g = (sel, k) => { const b = t.closest(sel); return b ? b.dataset[k] : null; };
+  let v;
+  if ((v = g('[data-bk-add]', 'bkAdd')) != null) { const r = bk.rows[+v]; if (r) bookAdd(r, !!t.closest('[data-play]')); return true; }
+  if ((v = g('[data-bk-open]', 'bkOpen')) != null) { const b = bookList()[+v]; if (b) { bk.open = b.hash; paintBooks(); } return true; }
+  if (t.closest('[data-bk-back-shelf]')) { bk.open = null; paintBooks(); return true; }
+  if (t.closest('[data-bk-play]')) { bookPlay(bk.open); return true; }
+  if ((v = g('[data-bk-ch]', 'bkCh')) != null) { bookPlay(bk.open, +v, 0); return true; }
+  if ((v = g('[data-bk-go]', 'bkGo')) != null) { const m = bookMarks(bk.open)[+v]; if (m) bookPlay(bk.open, m.ix, m.t); return true; }
+  if ((v = g('[data-bk-unmark]', 'bkUnmark')) != null) { const l = bookMarks(bk.open); l.splice(+v, 1); saveBookMarks(bk.open, l); paintBooks(); return true; }
+  if (t.closest('[data-bk-dl]')) { bookDownload(bk.open); return true; }
+  if (t.closest('[data-bk-drop]')) { const h = bk.open, l = bookList(), i = l.findIndex(x => x.hash === h); if (i >= 0) { const [gone] = l.splice(i, 1); saveBooks(l); bk.open = null; paintBooks(); toastUndo('Убрано с полки: ' + gone.title, () => { const ll = bookList(); ll.splice(i, 0, gone); saveBooks(ll); paintBooks(); }); } return true; }
+  if (t.closest('[data-bk-mark]')) { bookMarkHere(); return true; }
+  if (t.closest('[data-bk-back]')) { if (mu.audio) mu.audio.currentTime = Math.max(0, mu.audio.currentTime - 15); return true; }
+  if (t.closest('[data-bk-fwd]')) { if (mu.audio) mu.audio.currentTime = mu.audio.currentTime + 30; return true; }
+  return false;
+}
+/* ================= АУДИО · РАДИО =================
+   Те же станции, что в радио Hermes Agent: Nightride FM (Chillsynth,
+   Nightride, Darksynth, Spacesynth), Radio Paradise (Main и Mellow Mix) и EVE
+   Radio, плюс поиск по каталогу Radio Browser (50 тысяч станций), жанры и
+   «Россия». Закреплённые станции, громкость, следующая станция, ссылка на
+   сайт вещателя, название песни (где вещатель его отдаёт) и живая форма
+   волны по настоящему звуку.
+   Звук читается, только если станция отвечает с CORS: тогда она подключается
+   к общему графу (осциллограф, танцовщица). Если нет — поток играет мимо
+   графа, а вместо волны показывается индикатор активности, а не выдуманные
+   уровни. Пауза отпускает поток; «играть» возвращает в прямой эфир. */
+
+const NIGHTRIDE = 'https://stream.nightride.fm/';
+const RADIO_PRESETS = [
+  { id: 'chillsynth', name: 'Chillsynth', description: 'Мягкий фокус · тёплые синты', provider: 'Nightride FM', url: NIGHTRIDE + 'chillsynth.mp3', homepage: 'https://nightride.fm/?station=chillsynth' },
+  { id: 'nightride', name: 'Nightride', description: 'Синтвейв · после полуночи', provider: 'Nightride FM', url: NIGHTRIDE + 'nightride.mp3', homepage: 'https://nightride.fm/' },
+  { id: 'darksynth', name: 'Darksynth', description: 'Тёмная электроника · высокая энергия', provider: 'Nightride FM', url: NIGHTRIDE + 'darksynth.mp3', homepage: 'https://nightride.fm/?station=darksynth' },
+  { id: 'spacesynth', name: 'Spacesynth', description: 'Космические синты · ретро-будущее', provider: 'Nightride FM', url: NIGHTRIDE + 'spacesynth.mp3', homepage: 'https://nightride.fm/?station=spacesynth' },
+  { id: 'paradise-main', name: 'Main Mix', description: 'Эклектика · подобрано людьми', provider: 'Radio Paradise', url: 'https://stream.radioparadise.com/aac-128', homepage: 'https://radioparadise.com/' },
+  { id: 'paradise-mellow', name: 'Mellow Mix', description: 'Помедленнее и помягче', provider: 'Radio Paradise', url: 'https://stream.radioparadise.com/mellow-flac', homepage: 'https://radioparadise.com/' },
+  { id: 'eve-radio', name: 'EVE Radio', description: 'GamingNow · радио сообщества EVE', provider: 'GamingNow', url: 'https://media01.gamingnow.net:8010/erweb.mp3', homepage: 'https://gamingnow.net/eve-radio/' },
+];
+const RADIO_META = { 'stream.nightride.fm': NIGHTRIDE + 'status-json.xsl', 'media01.gamingnow.net': 'https://media01.gamingnow.net:8010/status-json.xsl' };
+const RADIO_TAGS = [['', 'Популярные'], ['@RU', 'Россия'], ['synthwave', 'Синтвейв'], ['lofi', 'Lo-fi'], ['chillout', 'Чилаут'], ['electronic', 'Электроника'], ['rock', 'Рок'], ['jazz', 'Джаз'], ['classical', 'Классика'], ['80s', '80-е'], ['news', 'Новости']];
+const rd = { list: null, q: '', busy: false, err: '', station: null, status: 'idle', title: '', a: null, b: null, cors: true, servers: ['https://de1.api.radio-browser.info'], discovered: false, metaT: 0, raf: 0, traces: [] };
+
+function radioPins() { const a = jsonPref('tc_radiopins', null); return Array.isArray(a) ? a : RADIO_PRESETS.slice(0, 3); }
+function saveRadioPins(l) { saveJson('tc_radiopins', l.slice(0, 40)); }
+function sameStation(a, b) { return a && b && (a.id === b.id || a.url === b.url); }
+function radioEl() { if (!rd.station) return null; return { el: rd.cors ? rd.a : rd.b, cors: rd.cors }; }
+function radioElem(cors) {
+  const k = cors ? 'a' : 'b';
+  if (rd[k]) return rd[k];
+  const el = document.createElement('audio');
+  if (cors) el.crossOrigin = 'anonymous';
+  el.preload = 'none';
+  el.volume = Math.min(1, Math.max(0, Number(localStorage.getItem('tc_muvol') || 0.8)));
+  el.addEventListener('playing', () => { rd.status = 'live'; paintRadioStatus(); radioMeta(); });
+  el.addEventListener('waiting', () => { if (rd.status === 'live') { rd.status = 'connecting'; paintRadioStatus(); } });
+  el.addEventListener('pause', () => { paintMusicPlayer(); paintNowPlaying(); });
+  el.addEventListener('error', () => {
+    if (!rd.station || el !== (rd.cors ? rd.a : rd.b) || !el.getAttribute('src')) return;
+    // Станция без CORS: повторяем без анализа, как обычный поток.
+    if (cors) { rd.cors = false; const b = radioElem(false); b.src = rd.station.url; b.play().catch(() => {}); return; }
+    rd.status = 'error'; paintRadioStatus(); toast('Станция не отвечает: ' + rd.station.name, true);
+  });
+  document.body.appendChild(el);
+  rd[k] = el;
+  return el;
+}
+function radioPlay(st) {
+  if (mu.audio && !mu.audio.paused) mu.audio.pause();
+  if (mu.kind === 'book') bookSavePos(true);
+  radioStop(true);
+  rd.station = st; rd.cors = true; rd.status = 'connecting'; rd.title = '';
+  mu.kind = 'radio';
+  savePref('tc_radiolast', JSON.stringify(st));
+  const el = radioElem(true);
+  auHook(el);
+  el.src = st.url; el.play().catch(() => {});
+  dancerNewTrack();
+  paintMusicPlayer(); paintNowPlaying(); paintRadioList();
+}
+function radioStop(keepKind) {
+  for (const el of [rd.a, rd.b]) if (el) { el.pause(); el.removeAttribute('src'); el.load(); }
+  clearTimeout(rd.metaT);
+  if (!keepKind) { rd.station = null; rd.status = 'idle'; if (mu.kind === 'radio') mu.kind = ''; paintMusicPlayer(); paintNowPlaying(); paintRadioList(); }
+}
+function radioToggle() {
+  const r = radioEl(); if (!r) return;
+  // Пауза отпускает поток: вернуться можно только в прямой эфир.
+  if (!r.el.paused) { r.el.pause(); r.el.removeAttribute('src'); r.el.load(); rd.status = 'paused'; paintMusicPlayer(); paintNowPlaying(); return; }
+  radioPlay(rd.station);
+}
+function radioCurrentList() { return rd.list && rd.list.length ? rd.list : radioPins().concat(RADIO_PRESETS.filter(p => !radioPins().some(x => sameStation(x, p)))); }
+function radioNext(d) {
+  const l = radioCurrentList(); if (!l.length) return;
+  const i = l.findIndex(x => sameStation(x, rd.station));
+  radioPlay(l[(i + (d || 1) + l.length) % l.length]);
+}
+function radioNow() {
+  if (!rd.station) return null;
+  const r = radioEl();
+  return { label: rd.title || rd.station.name, sub: (r && r.el.paused ? 'пауза · ' : 'радио · ') + rd.station.name, paused: !r || r.el.paused };
+}
+
+/* ── каталог Radio Browser ── */
+async function rbFetch(path) {
+  if (!rd.discovered) {
+    rd.discovered = true;
+    try {
+      const s = await (await fetch(rd.servers[0] + '/json/servers', { signal: AbortSignal.timeout(8000) })).json();
+      const hosts = [...new Set(s.map(x => x.name).filter(n => /^[a-z0-9-]+\.api\.radio-browser\.info$/.test(n)))];
+      if (hosts.length) rd.servers = hosts.map(n => 'https://' + n).sort(() => Math.random() - 0.5);
+    } catch {}
+  }
+  let last;
+  for (const srv of rd.servers.slice(0, 3)) {
+    try { const r = await fetch(srv + path, { signal: AbortSignal.timeout(10000), credentials: 'omit' }); if (r.ok) return await r.json(); last = new Error('HTTP ' + r.status); } catch (e) { last = e; }
+  }
+  throw last || new Error('каталог не отвечает');
+}
+function rbStations(rows) {
+  const seen = new Set();
+  return (rows || []).flatMap(r => {
+    const url = r.url_resolved || r.url;
+    if (!/^https?:\/\//.test(url || '') || !r.stationuuid || !r.name || r.hls || seen.has(url)) return [];
+    seen.add(url);
+    return [{ id: r.stationuuid, name: r.name.trim().slice(0, 80), url, provider: [r.country, r.codec && r.codec + (r.bitrate ? ' ' + r.bitrate : '')].filter(Boolean).join(' · '), description: (r.tags || '').split(',').filter(Boolean).slice(0, 3).join(' · '), homepage: /^https?:/.test(r.homepage || '') ? r.homepage : '', favicon: /^https:/.test(r.favicon || '') ? r.favicon : '' }];
+  });
+}
+async function radioSearch(q, tag) {
+  rd.busy = true; rd.err = ''; paintRadioList();
+  try {
+    const base = 'limit=60&hidebroken=true&order=votes&reverse=true';
+    let path;
+    if (tag === '@RU') path = '/json/stations/bycountrycodeexact/RU?' + base;
+    else if (tag) path = '/json/stations/bytagexact/' + encodeURIComponent(tag) + '?' + base;
+    else if (q) path = '/json/stations/search?name=' + encodeURIComponent(q) + '&' + base;
+    else path = '/json/stations/topvote/60?hidebroken=true';
+    const local = q ? RADIO_PRESETS.filter(p => (p.name + ' ' + p.provider + ' ' + p.description).toLowerCase().includes(q.toLowerCase())) : [];
+    const found = rbStations(await rbFetch(path));
+    rd.list = local.concat(found.filter(f => !local.some(l => sameStation(l, f))));
+  } catch (e) { rd.err = e.message; rd.list = []; }
+  rd.busy = false; paintRadioList();
+}
+
+/* ── вкладка ── */
+function renderRadio(el) {
+  el.innerHTML = html`<div class="rd-now" id="rdNow"></div>
+    <div class="mu-search">
+      <span class="sb-ico">${raw(ico('search', 18))}</span>
+      <input id="rdQ" placeholder="Станция, город, жанр…" value="${rd.q}" autocomplete="off">
+      <button id="rdGo" class="primary">Найти</button>
+    </div>
+    <div class="rd-tags">${raw(RADIO_TAGS.map(([t, l]) => html`<button class="chip" data-rd-tag="${t}">${l}</button>`).join(''))}</div>
+    <div id="rdList"></div>`;
+  const q = $('#rdQ');
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') { rd.q = q.value.trim(); radioSearch(rd.q); } });
+  $('#rdGo').addEventListener('click', () => { rd.q = q.value.trim(); radioSearch(rd.q); });
+  paintRadioStatus(); paintRadioList();
+}
+function stationRow(s, i, from) {
+  const cur = sameStation(s, rd.station), pinned = radioPins().some(x => sameStation(x, s));
+  const playing = cur && rd.status !== 'paused' && rd.status !== 'idle';
+  return html`<div class="mu-row rd-row${cur ? ' best' : ''}">
+    <button class="mu-play" data-rd-play="${from}:${i}" title="${playing ? 'Пауза' : 'Слушать'}">${raw(ico(playing ? 'pause' : 'play', 14))}</button>
+    ${raw(s.favicon ? `<img class="rd-ico" src="${esc(s.favicon)}" alt="" loading="lazy" onerror="this.remove()">` : '')}
+    <div class="mu-main"><div class="mu-t">${s.name}</div><div class="mu-s">${[s.provider, s.description].filter(Boolean).join(' · ')}</div></div>
+    <button class="iconbtn${pinned ? ' on' : ''}" data-rd-pin="${from}:${i}" title="${pinned ? 'Открепить' : 'Закрепить'}">${raw(ico('star', 15))}</button>
+  </div>`;
+}
+function paintRadioList() {
+  const el = $('#rdList'); if (!el) return;
+  const pins = radioPins();
+  let h = '';
+  if (rd.busy) h += skeleton('Ищу станции…', 3);
+  else if (rd.list) h += rd.list.length ? html`<div class="mu-h">Найдено ${rd.list.length} <button class="btn sm ghost" data-rd-clear>×</button></div><div class="mu-list">${raw(rd.list.map((s, i) => stationRow(s, i, 'l')).join(''))}</div>` : html`<div class="empty">Станций не нашлось.${rd.err ? ' ' + rd.err : ''}</div>`;
+  if (pins.length) h += html`<div class="mu-h">Закреплённые</div><div class="mu-list">${raw(pins.map((s, i) => stationRow(s, i, 'p')).join(''))}</div>`;
+  h += html`<div class="mu-h">Подборка</div><div class="mu-list">${raw(RADIO_PRESETS.map((s, i) => stationRow(s, i, 'r')).join(''))}</div>`;
+  el.innerHTML = h;
+}
+function stationFrom(ref) { const [w, i] = String(ref).split(':'); const l = w === 'l' ? rd.list || [] : w === 'p' ? radioPins() : RADIO_PRESETS; return l[+i]; }
+function paintRadioStatus() {
+  const el = $('#rdNow');
+  if (el) {
+    if (!rd.station) el.innerHTML = '';
+    else {
+      el.innerHTML = html`<canvas id="rdWave"></canvas><div class="rd-now-t"><small>${rd.station.provider || 'Радио'} · ${({ live: '● в эфире', connecting: 'подключаюсь…', paused: 'пауза', error: 'не отвечает' })[rd.status] || ''}${rd.cors ? '' : ' · звук без анализа'}</small><b>${rd.title || rd.station.name}</b>${raw(rd.title ? html`<span>${rd.station.name}</span>` : '')}</div>
+        ${raw(rd.station.homepage ? html`<button class="btn sm ghost" data-rd-site>Сайт станции ↗</button>` : '')}`;
+      radioWaveStart();
     }
   }
-  c.strokeStyle = 'rgba(150,190,255,.22)'; c.lineWidth = 1;
-  c.beginPath();
-  for (const d of dz.rain) { d.y += d.v * dt; if (d.y > Hh) { d.y = -d.l; d.x = Math.random() * W; } c.moveTo(d.x, d.y); c.lineTo(d.x - d.l * 0.12, d.y + d.l); }
-  c.stroke();
-  // пол: светящийся круг, пульсирует на долю
-  const fr = dz.b - Math.floor(dz.b), pulse = playing ? Math.pow(1 - fr, 2) : 0.2;
-  c.save(); c.translate(cx, floorY); c.scale(1, 0.22);
-  const ring = c.createRadialGradient(0, 0, 10, 0, 0, 70 * S);
-  ring.addColorStop(0, `rgba(0,240,255,${0.18 + 0.25 * pulse})`); ring.addColorStop(0.7, `rgba(255,43,214,${0.08 + 0.14 * pulse})`); ring.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = ring; c.beginPath(); c.arc(0, 0, 70 * S, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = `rgba(0,240,255,${0.35 + 0.4 * pulse})`; c.lineWidth = 2 / 0.22 * 0.6; c.beginPath(); c.arc(0, 0, (46 + 8 * pulse) * S, 0, Math.PI * 2); c.stroke();
-  c.restore();
-  // фигура — на отдельном холсте, чтобы наложить развёртку и свечение
-  const f = dz.fctx;
-  // рамка фигуры: всё тяжёлое делается только внутри неё
-  { const x0 = Math.max(0, Math.floor((cx - 95 * S) * dpr)), y0 = Math.max(0, Math.floor((hipY - 110 * S) * dpr));
-    dz.bb = [x0, y0, Math.min(dz.fig.width - x0, Math.ceil(190 * S * dpr)), Math.min(dz.fig.height - y0, Math.ceil(225 * S * dpr))]; }
-  const [bx, by, bw, bh] = dz.bb;
-  f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(bx, by, bw, bh);
-  // смена движения — плавно, за одну долю
-  const k = Math.min(1, (dz.b - dz.moveAt) / 1);
-  let pose = dzPose(dz.move, dz.b, e);
-  if (k < 1) pose = dzLerp(dzPose(dz.prevMove, dz.b, e), pose, k * k * (3 - 2 * k));
-  // сглаживание: тело догоняет цель, а не прыгает за ней
-  dz.pose = dz.pose ? dzLerp(dz.pose, pose, 1 - Math.exp(-dt * 16)) : pose; pose = dz.pose;
-  const sp = dz.b - dz.spinAt, spin = sp >= 0 && sp < 2 ? Math.cos(Math.PI * sp) : 1;
-  const sx = dpr * S * (Math.abs(spin) < 0.08 ? 0.08 * Math.sign(spin || 1) : spin);
-  dzDrawFigure(f, c2 => c2.setTransform(sx, 0, 0, dpr * S, cx * dpr, hipY * dpr), pose, e, dt);
-  // развёртка голограммы
-  f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'destination-out'; f.fillStyle = 'rgba(0,0,0,.35)';
-  const step = 3 * dpr, off = (t * 30 * dpr) % step;
-  for (let y = by + off; y < by + bh; y += step) f.fillRect(bx, y, bw, dpr);
-  f.globalCompositeOperation = 'source-over';
-  dz.glitch *= Math.pow(0.04, dt);
-  const flick = 0.82 + 0.18 * Math.sin(t * 37) * Math.sin(t * 13.3) + (Math.random() < 0.015 ? -0.4 : 0);
-  // свечение: уменьшенная копия, растянутая обратно
-  const g = dz.gctx; g.clearRect(0, 0, dz.glow.width, dz.glow.height); g.drawImage(dz.fig, bx, by, bw, bh, bx / 4 / dpr, by / 4 / dpr, bw / 4 / dpr, bh / 4 / dpr);
-  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter';
-  c.globalAlpha = 0.9 * flick * (0.7 + e * 0.6); c.drawImage(dz.glow, 0, 0, dz.cv.width, dz.cv.height);
-  c.globalAlpha = Math.max(0.3, flick);
-  if (dz.glitch > 0.25) {
-    const bands = 6, bh = dz.cv.height / bands;
-    for (let i = 0; i < bands; i++) { const dx = (Math.random() - 0.5) * 18 * dpr * dz.glitch; c.drawImage(dz.fig, 0, i * bh, dz.fig.width, bh, dx, i * bh, dz.fig.width, bh); }
-    c.globalAlpha = 0.35 * dz.glitch; c.drawImage(dz.fig, 5 * dpr * dz.glitch, 0);
-  } else c.drawImage(dz.fig, bx, by, bw, bh, bx, by, bw, bh);
-  // отражение в мокром полу
-  c.globalAlpha = 0.16 * flick; c.save(); c.translate(0, floorY * dpr * 2); c.scale(1, -1); c.drawImage(dz.fig, bx, by, bw, bh, bx, by, bw, bh); c.restore();
-  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
-  const fade = c.createLinearGradient(0, floorY * dpr, 0, dz.cv.height); fade.addColorStop(0, 'rgba(3,3,8,0)'); fade.addColorStop(1, 'rgba(3,3,8,.9)');
-  c.fillStyle = fade; c.fillRect(0, floorY * dpr, dz.cv.width, dz.cv.height);
-  dz.cost = dz.cost * 0.95 + (performance.now() - t0) * 0.05;
+  const t = $('#rdBarT'); if (t) t.innerHTML = radioBarTitle();
+  paintNowPlaying();
 }
-/* ================= PLAYERS PAGE ================= */
+
+/* название песни: Icecast-статус Nightride и EVE, пока играет */
+async function radioMeta() {
+  clearTimeout(rd.metaT);
+  const st = rd.station; if (!st || rd.status !== 'live') return;
+  let u; try { u = new URL(st.url); } catch { return; }
+  const ep = RADIO_META[u.hostname]; if (!ep) return;
+  try {
+    const j = await (await fetch(ep, { signal: AbortSignal.timeout(8000), credentials: 'omit' })).json();
+    const src = [].concat((j.icestats && j.icestats.source) || []).find(s => String(s.listenurl || '').endsWith(u.pathname));
+    const title = src && typeof src.title === 'string' ? src.title.trim() : '';
+    if (sameStation(st, rd.station) && title !== rd.title) { rd.title = title; paintRadioStatus(); dancerNewTrack(); }
+  } catch {}
+  rd.metaT = setTimeout(radioMeta, 25000);
+}
+
+/* живая волна с двумя тусклыми следами прошлых кадров */
+function radioWaveStart() {
+  cancelAnimationFrame(rd.raf);
+  const cv = $('#rdWave'); if (!cv) return;
+  const draw = () => {
+    if (!cv.isConnected) return;
+    rd.raf = requestAnimationFrame(draw);
+    if (document.hidden) return;
+    const w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+    const acc = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#7cb0ff';
+    const r = radioEl(), an = r && r.cors && !r.el.paused ? auHook(r.el) : null;
+    if (an) {
+      an.getByteTimeDomainData(auGraph.wave);
+      const pts = []; const n = 160, step = Math.floor(auGraph.wave.length / n);
+      for (let i = 0; i < n; i++) pts.push((auGraph.wave[i * step] - 128) / 128);
+      rd.traces.unshift(pts); rd.traces.length = Math.min(rd.traces.length, 3);
+      rd.traces.slice().reverse().forEach((p, k, arr) => {
+        const age = arr.length - 1 - k;
+        c.strokeStyle = acc; c.globalAlpha = age ? 0.18 / age : 0.95; c.lineWidth = age ? 1 : 1.6;
+        c.beginPath(); p.forEach((v, i) => { const x = i / (n - 1) * w, y = h / 2 + v * h * 0.45; i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke();
+      });
+      c.globalAlpha = 1;
+    } else {
+      // без доступа к звуку — честный индикатор активности, а не выдуманная волна
+      const t = performance.now() / 1000, live = r && !r.el.paused;
+      c.fillStyle = acc;
+      for (let i = 0; i < 5; i++) { c.globalAlpha = live ? 0.3 + 0.7 * Math.max(0, Math.sin(t * 4 - i * 0.7)) : 0.2; c.beginPath(); c.arc(w / 2 + (i - 2) * 14, h / 2, 3.5, 0, Math.PI * 2); c.fill(); }
+      c.globalAlpha = 1;
+    }
+  };
+  draw();
+}
+
+function radioBarTitle() {
+  if (!rd.station) return '';
+  return html`<b title="${rd.title || rd.station.name}">${rd.title || rd.station.name}</b><small>${rd.station.name} · ${({ live: 'в эфире', connecting: 'подключаюсь…', paused: 'пауза — «играть» вернёт в эфир', error: 'станция не отвечает' })[rd.status] || ''}</small>`;
+}
+function radioBarHtml() {
+  const r = radioEl(), playing = r && !r.el.paused;
+  const pinned = radioPins().some(x => sameStation(x, rd.station));
+  return html`<div class="mu-bar">
+    <div class="mu-bar-cov rd-cov">${raw(rd.station.favicon ? `<img src="${esc(rd.station.favicon)}" alt="">` : '📻')}</div>
+    <div class="mu-bar-t" id="rdBarT">${raw(radioBarTitle())}</div>
+    <div class="mu-ctl">
+      <button class="iconbtn mu-pp" data-mu-pp title="${playing ? 'Пауза (отпустить поток)' : 'Играть — в прямой эфир'}">${raw(ico(playing ? 'pause' : 'play', 17))}</button>
+      <button class="iconbtn" data-mu-next title="Следующая станция">⏭</button>
+      <button class="iconbtn${pinned ? ' on' : ''}" data-rd-pinnow title="Закрепить станцию">${raw(ico('star', 15))}</button>
+      <button class="iconbtn" data-mu-stop title="Выключить радио">${raw(ico('stop', 14))}</button>
+    </div>
+    <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((r ? r.el.volume : 0.8) * 100)}" id="rdVol" title="Громкость">
+  </div>`;
+}
+function bindRadioBar() {
+  const v = $('#rdVol'); if (v) v.addEventListener('input', () => { for (const el of [rd.a, rd.b, mu.audio]) if (el) el.volume = v.value / 100; savePref('tc_muvol', v.value / 100); });
+}
+function togglePin(s) {
+  const l = radioPins(), i = l.findIndex(x => sameStation(x, s));
+  if (i >= 0) l.splice(i, 1); else l.unshift(s);
+  saveRadioPins(l); paintRadioList(); if (mu.kind === 'radio') paintMusicPlayer();
+}
+function onRadioClick(t) {
+  const g = (sel, k) => { const b = t.closest(sel); return b ? b.dataset[k] : null; };
+  let v;
+  if ((v = g('[data-rd-play]', 'rdPlay')) != null) { const s = stationFrom(v); if (!s) return true; if (sameStation(s, rd.station) && rd.status !== 'paused') radioToggle(); else radioPlay(s); return true; }
+  if ((v = g('[data-rd-pin]', 'rdPin')) != null) { const s = stationFrom(v); if (s) togglePin(s); return true; }
+  if (t.closest('[data-rd-pinnow]')) { if (rd.station) togglePin(rd.station); return true; }
+  if ((v = g('[data-rd-tag]', 'rdTag')) != null) { document.querySelectorAll('[data-rd-tag]').forEach(b => b.classList.toggle('on', b.dataset.rdTag === v)); radioSearch('', v); return true; }
+  if (t.closest('[data-rd-clear]')) { rd.list = null; rd.q = ''; const q = $('#rdQ'); if (q) q.value = ''; document.querySelectorAll('[data-rd-tag]').forEach(b => b.classList.remove('on')); paintRadioList(); return true; }
+  if (t.closest('[data-rd-site]')) { if (rd.station && rd.station.homepage) launchPlayer('browser', rd.station.homepage); return true; }
+  return false;
+}
+/* ───────────── смотрим вместе ─────────────
+   Комната на двоих (и больше): у каждого свой TorrClient и своя раздача,
+   а по сети ходят только команды, чат, голос и показ экрана.
+   • Связь: WebRTC напрямую (STUN Google и Cloudflare, свой TURN — по
+     желанию). Найти друг друга и передать предложения WebRTC помогает
+     публичный MQTT-брокер по WebSocket; он же — запасной путь, если
+     напрямую не вышло. Всё, что идёт через брокер, зашифровано AES-GCM
+     ключом из приглашения: брокер видит только шум.
+   • Синхронизация: ведущий (создатель) — источник правды. Его плеер
+     (mpv или VLC, через /api/together/player) раз в 2 с рассылает позицию;
+     у гостя небольшое расхождение выбирается скоростью ±5 %, большое —
+     перемоткой. Пауза или перемотка у гостя уходит ведущему и дальше всем.
+     Если у кого-то не грузится — пауза у всех и отсчёт 3-2-1. */
+const TG_BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'];
+const TG_REACT = ['😂', '😱', '❤️', '👍', '🔥', '🍿'];
+const tg = { on: false, room: '', key: null, keyB64: '', host: false, me: '', name: '', peers: new Map(), mq: [], seen: new Map(),
+  media: null, chat: [], mic: null, screen: null, hostId: '', off: [], st: null, stAt: 0, mine: null, prev: null, adj: false,
+  cmdAt: 0, hold: 0, stall: 0, waitAt: 0, waitFor: '', timers: [], unread: 0, sync: '', lastSt: '', pingN: 0 };
+const tgRid = (n = 8) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
+const tgB64e = u8 => { let s = ''; for (const b of u8) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const tgB64d = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+
+/* ── MQTT 3.1.1 поверх WebSocket: CONNECT, SUBSCRIBE, PUBLISH (QoS 0), PING ── */
+function mqStr(s) { const b = new TextEncoder().encode(s); return [b.length >> 8, b.length & 255, ...b]; }
+function mqLen(n) { const o = []; do { let d = n % 128; n = Math.floor(n / 128); if (n > 0) d |= 128; o.push(d); } while (n > 0); return o; }
+function mqPkt(h, body) { const head = [h, ...mqLen(body.length)], out = new Uint8Array(head.length + body.length); out.set(head); out.set(body, head.length); return out; }
+class TgMqtt {
+  constructor(url, topic, onMsg, onState) { Object.assign(this, { url, topic, onMsg, onState, ok: false, fail: 0, closed: false }); this.connect(); }
+  connect() {
+    if (this.closed) return;
+    let ws; try { ws = new WebSocket(this.url, 'mqtt'); } catch { this.retry(); return; }
+    ws.binaryType = 'arraybuffer'; this.ws = ws; this.buf = new Uint8Array(0); this.ok = false;
+    ws.onopen = () => ws.send(mqPkt(0x10, [...mqStr('MQTT'), 4, 2, 0, 60, ...mqStr('tc' + tgRid(6))]));
+    ws.onmessage = e => this.feed(new Uint8Array(e.data));
+    ws.onclose = () => { const was = this.ok; this.ok = false; clearInterval(this.ping); if (was) this.onState(); this.retry(); };
+    ws.onerror = () => {};
+  }
+  retry() { if (this.closed) return; this.fail++; clearTimeout(this.rt); this.rt = setTimeout(() => this.connect(), Math.min(30000, 1500 * this.fail)); }
+  feed(chunk) {
+    const b = new Uint8Array(this.buf.length + chunk.length); b.set(this.buf); b.set(chunk, this.buf.length); this.buf = b;
+    for (;;) {
+      const B = this.buf; if (B.length < 2) return;
+      let len = 0, mul = 1, i = 1;
+      for (;; i++) { if (i >= B.length) return; len += (B[i] & 127) * mul; mul *= 128; if (!(B[i] & 128)) break; if (i > 4) { this.ws.close(); return; } }
+      const start = i + 1; if (B.length < start + len) return;
+      this.handle(B[0] >> 4, B[0] & 15, B.subarray(start, start + len));
+      this.buf = B.slice(start + len);
+    }
+  }
+  handle(type, flags, body) {
+    if (type === 2) { // CONNACK
+      if (body[1] !== 0) { this.ws.close(); return; }
+      this.ok = true; this.fail = 0;
+      this.ws.send(mqPkt(0x82, [0, 1, ...mqStr(this.topic), 0]));
+      clearInterval(this.ping); this.ping = setInterval(() => { try { this.ws.send(new Uint8Array([0xC0, 0])); } catch {} }, 30000);
+      this.onState();
+    } else if (type === 3) { // PUBLISH
+      const tl = (body[0] << 8) | body[1]; let i = 2 + tl; if ((flags >> 1) & 3) i += 2;
+      this.onMsg(body.slice(i));
+    }
+  }
+  pub(payload) {
+    if (!this.ok) return false;
+    const t = mqStr(this.topic), p = new Uint8Array(t.length + payload.length); p.set(t); p.set(payload, t.length);
+    try { this.ws.send(mqPkt(0x30, p)); return true; } catch { return false; }
+  }
+  close() { this.closed = true; clearInterval(this.ping); clearTimeout(this.rt); try { this.ws && this.ws.close(); } catch {} }
+}
+
+/* ── шифрование ── */
+async function tgSeal(obj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, tg.key, new TextEncoder().encode(JSON.stringify(obj))));
+  const out = new Uint8Array(12 + ct.length); out.set(iv); out.set(ct, 12); return out;
+}
+async function tgUnseal(bytes) {
+  try { return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, tg.key, bytes.slice(12)))); } catch { return null; }
+}
+
+/* ── приглашение ── */
+function tgCode() {
+  const m = tg.media || {};
+  const o = { r: tg.room, k: tg.keyB64, h: m.h || '', f: m.f, t: m.t || '', b: localStorage.getItem('tc_tg_broker') || '' };
+  return 'TC1.' + tgB64e(new TextEncoder().encode(JSON.stringify(o)));
+}
+function tgParse(code) {
+  const s = String(code || '').trim().replace(/\s+/g, ''), m = s.match(/TC1\.([A-Za-z0-9_-]+)/);
+  if (!m) return null;
+  try { const o = JSON.parse(new TextDecoder().decode(tgB64d(m[1]))); return o && /^[0-9a-f]{16,64}$/.test(o.r) && o.k ? o : null; } catch { return null; }
+}
+
+/* ── вход и выход ── */
+function tgIce() {
+  const s = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }, { urls: 'stun:stun.cloudflare.com:3478' }];
+  const t = (localStorage.getItem('tc_tg_turn') || '').trim();
+  if (t) s.push({ urls: t, username: localStorage.getItem('tc_tg_turnu') || '', credential: localStorage.getItem('tc_tg_turnp') || '' });
+  return s;
+}
+function tgCanRun() { return !!(window.crypto && crypto.subtle && window.RTCPeerConnection && window.isSecureContext); }
+function tgMyName() { return (localStorage.getItem('tc_tg_name') || '').trim() || (typeof devName === 'function' ? devName() : 'Гость'); }
+async function tgStart(o, host) {
+  if (!tgCanRun()) { toast('Браузер разрешает шифрование и звонки только на защищённом адресе — откройте TorrClient на этом компьютере (localhost)', true); return false; }
+  if (tg.on) tgLeave(true);
+  tg.room = o.r; tg.keyB64 = o.k; tg.host = host; tg.me = tgRid(6); tg.name = tgMyName();
+  try { tg.key = await crypto.subtle.importKey('raw', tgB64d(o.k), 'AES-GCM', false, ['encrypt', 'decrypt']); } catch { toast('Код приглашения повреждён', true); return false; }
+  tg.on = true; tg.chat = []; tg.unread = 0; tg.off = []; tg.st = null; tg.mine = null; tg.prev = null; tg.sync = ''; tg.lastSt = '';
+  tg.media = o.h ? { h: o.h, f: o.f, t: o.t } : null;
+  const own = (localStorage.getItem('tc_tg_broker') || o.b || '').trim();
+  const list = own ? [own] : TG_BROKERS;
+  tg.mq = list.map(u => new TgMqtt(u, 'torrclient/v1/' + tg.room, b => tgUnseal(b).then(m => tgRecv(m, 'mqtt')), () => { if (tg.mq.some(c => c.ok)) tgHello(); tgPaint(); }));
+  tg.timers = [setInterval(tgTick, 1000), setInterval(tgHello, 15000)];
+  try { sessionStorage.setItem('tc_tg', JSON.stringify({ o, host })); } catch {}
+  tgNote(host ? 'Комната создана — отправьте другу код приглашения' : 'Подключаюсь к комнате…');
+  tgPaint();
+  return true;
+}
+function tgCreate() { return tgStart({ r: tgRid(12), k: tgB64e(crypto.getRandomValues(new Uint8Array(16))), h: '' }, true).then(ok => { if (ok) tgTick(); }); }
+function tgLeave(quiet) {
+  if (!tg.on) return;
+  try { tgSend({ k: 'bye' }); } catch {}
+  for (const p of [...tg.peers.values()]) tgDropPeer(p, true);
+  tg.peers.clear();
+  const mq = tg.mq; setTimeout(() => mq.forEach(c => c.close()), 300);
+  tg.timers.forEach(clearInterval); tg.timers = [];
+  for (const s of [tg.mic, tg.screen]) if (s) s.getTracks().forEach(t => t.stop());
+  tg.mic = tg.screen = null; tg.on = false; tg.st = null;
+  if (tg.adj && tg.mine && tg.mine.active) tgCmd('rate', 1);
+  tg.adj = false;
+  try { sessionStorage.removeItem('tc_tg'); } catch {}
+  tgHideScreen();
+  if (!quiet) toast('Вы вышли из комнаты');
+  tgPaint();
+}
+
+/* ── отправка и приём ── */
+function tgSeen(id) {
+  if (tg.seen.has(id)) return true;
+  tg.seen.set(id, 1);
+  if (tg.seen.size > 600) [...tg.seen.keys()].slice(0, 200).forEach(k => tg.seen.delete(k));
+  return false;
+}
+async function tgSend(m, viaMqtt) {
+  if (!tg.on) return;
+  m.id = m.id || tgRid(6); m.from = tg.me; m.name = tg.name; if (tg.host) m.host = 1;
+  tgSeen(m.id);
+  const targets = m.to ? [tg.peers.get(m.to)].filter(Boolean) : [...tg.peers.values()];
+  let mq = !!viaMqtt || !targets.length;
+  if (!viaMqtt) for (const p of targets) {
+    if (p.dc && p.dc.readyState === 'open') { try { p.dc.send(JSON.stringify(m)); continue; } catch {} }
+    mq = true;
+  }
+  if (mq) { const b = await tgSeal(m); tg.mq.forEach(c => c.pub(b)); }
+}
+function tgHello() { if (tg.on) tgSend({ k: 'hello', media: tg.host ? tg.media : undefined }, true); }
+function tgRecv(m, via) {
+  if (!tg.on || !m || !m.id || !m.from || m.from === tg.me || tgSeen(m.id)) return;
+  if (m.to && m.to !== tg.me) return;
+  if (m.k === 'bye') { const p = tg.peers.get(m.from); if (p) { tgNote(`${p.name} вышел(а)`); tgDropPeer(p); } return; }
+  const known = tg.peers.has(m.from);
+  const p = tgPeer(m.from, m.name, m.host);
+  if (!known) { tgNote(`${p.name} в комнате`); tgPaint(); if (m.k === 'hello') tgSend({ k: 'hello', to: m.from, media: tg.host ? tg.media : undefined }, true); }
+  if (m.host && m.media && !tg.host) tg.media = m.media;
+  switch (m.k) {
+    case 'sig': p.q = p.q.then(() => tgSig(p, m)); break;
+    case 'chat': tgChatIn(p, String(m.text || '').slice(0, 500)); break;
+    case 'react': if (TG_REACT.includes(m.e)) tgReactIn(p, m.e); break;
+    case 'st': if (m.host) tgFollow(m); break;
+    case 'ping': tgSend({ k: 'pong', to: m.from, t0: m.t0, t1: Date.now() }); break;
+    case 'pong': tgPong(m); break;
+    case 'req': if (tg.host) tgHostReq(p, m); break;
+    case 'wait': if (tg.host) tgHostWait(p); break;
+    case 'ready': if (tg.host && tg.waitFor === p.id) { tg.waitFor = ''; tgCountdown(); } break;
+    case 'cd': if (m.host) tgRunCountdown(m.pos, m.at - tgOffset()); break;
+    case 'screen': if (!m.on) tgHideScreen(p.id); break;
+  }
+}
+
+/* ── WebRTC: «вежливые переговоры», канал данных согласован заранее ── */
+function tgPeer(id, name, isHost) {
+  let p = tg.peers.get(id);
+  if (!p) {
+    p = { id, name: 'Гость', last: Date.now(), polite: tg.me > id, making: false, ignore: false, q: Promise.resolve(), cands: [], auds: {} };
+    tg.peers.set(id, p); tgPc(p);
+  }
+  p.last = Date.now(); if (name) p.name = String(name).slice(0, 40);
+  if (isHost) { p.host = true; tg.hostId = id; }
+  return p;
+}
+function tgPc(p) {
+  const pc = new RTCPeerConnection({ iceServers: tgIce() });
+  p.pc = pc;
+  p.dc = pc.createDataChannel('tc', { negotiated: true, id: 0 });
+  p.dc.onopen = () => { tgNote(`С ${p.name} — напрямую (P2P)`); tgPaint(); };
+  p.dc.onclose = () => tgPaint();
+  p.dc.onmessage = e => { try { tgRecv(JSON.parse(e.data), 'p2p'); } catch {} };
+  pc.onnegotiationneeded = async () => {
+    try { p.making = true; await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, desc: pc.localDescription.toJSON() }); } catch {} finally { p.making = false; }
+  };
+  pc.onicecandidate = e => { if (e.candidate) tgSend({ k: 'sig', to: p.id, cand: e.candidate.toJSON() }); };
+  pc.ontrack = e => tgTrack(p, e);
+  pc.onconnectionstatechange = () => { tgPaint(); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch {} } };
+  for (const s of [tg.mic, tg.screen]) if (s) s.getTracks().forEach(t => { try { pc.addTrack(t, s); } catch {} });
+}
+async function tgSig(p, m) {
+  const pc = p.pc;
+  try {
+    if (m.desc) {
+      const collision = m.desc.type === 'offer' && (p.making || pc.signalingState !== 'stable');
+      p.ignore = !p.polite && collision; if (p.ignore) return;
+      await pc.setRemoteDescription(m.desc);
+      for (const c of p.cands.splice(0)) { try { await pc.addIceCandidate(c); } catch {} }
+      if (m.desc.type === 'offer') { await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, desc: pc.localDescription.toJSON() }); }
+    } else if (m.cand) {
+      // кандидат мог обогнать предложение (разные брокеры) — подождёт
+      if (!pc.remoteDescription) { p.cands.push(m.cand); return; }
+      try { await pc.addIceCandidate(m.cand); } catch {}
+    }
+  } catch {}
+}
+function tgDropPeer(p, quiet) {
+  try { p.pc.close(); } catch {}
+  Object.values(p.auds).forEach(a => { try { a.srcObject = null; } catch {} });
+  tg.peers.delete(p.id); if (tg.hostId === p.id) tg.hostId = '';
+  tgHideScreen(p.id);
+  if (!quiet) tgPaint();
+}
+function tgLink(p) {
+  if (p.dc && p.dc.readyState === 'open') return 'P2P';
+  return tg.mq.some(c => c.ok) ? 'через MQTT' : 'нет связи';
+}
+
+/* ── голос и экран ── */
+function tgTrack(p, e) {
+  const s = e.streams[0] || new MediaStream([e.track]);
+  if (e.track.kind === 'video') { tgShowScreen(p, s); return; }
+  let a = p.auds[s.id]; if (!a) { a = p.auds[s.id] = new Audio(); a.autoplay = true; }
+  a.srcObject = s; a.play().catch(() => {});
+}
+function tgAddTracks(s) { for (const p of tg.peers.values()) s.getTracks().forEach(t => { try { p.pc.addTrack(t, s); } catch {} }); }
+function tgDropTracks(s) {
+  const ids = new Set(s.getTracks().map(t => t.id));
+  for (const p of tg.peers.values()) p.pc.getSenders().forEach(x => { if (x.track && ids.has(x.track.id)) { try { p.pc.removeTrack(x); } catch {} } });
+}
+async function tgMic() {
+  if (tg.mic) { tgDropTracks(tg.mic); tg.mic.getTracks().forEach(t => t.stop()); tg.mic = null; tgPaint(); return; }
+  try { tg.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+  catch (e) { toast('Микрофон недоступен: ' + (e.message || e.name), true); return; }
+  tgAddTracks(tg.mic); tgPaint();
+}
+async function tgScreenToggle() {
+  if (tg.screen) { tgStopScreen(); return; }
+  try { tg.screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true }); }
+  catch (e) { if (e.name !== 'NotAllowedError') toast('Показ экрана недоступен: ' + (e.message || e.name), true); return; }
+  tg.screen.getVideoTracks().forEach(t => { t.onended = tgStopScreen; try { t.contentHint = 'motion'; } catch {} });
+  tgAddTracks(tg.screen); tgSend({ k: 'screen', on: true }); tgPaint();
+}
+function tgStopScreen() {
+  if (!tg.screen) return;
+  tgDropTracks(tg.screen); tg.screen.getTracks().forEach(t => t.stop()); tg.screen = null;
+  tgSend({ k: 'screen', on: false }); tgPaint();
+}
+function tgShowScreen(p, s) {
+  let w = $('#tgScreen');
+  if (!w) {
+    w = document.createElement('div'); w.id = 'tgScreen'; w.className = 'tg-screen';
+    w.innerHTML = '<div class="tg-screen-h"><span></span><button class="iconbtn" data-big title="Во весь экран">⛶</button><button class="iconbtn" data-x title="Скрыть">×</button></div><video autoplay playsinline muted></video>';
+    document.body.appendChild(w);
+    w.querySelector('[data-x]').onclick = () => tgHideScreen();
+    w.querySelector('[data-big]').onclick = () => { const v = w.querySelector('video'); if (v.requestFullscreen) v.requestFullscreen().catch(() => {}); };
+  }
+  w.dataset.peer = p.id; w.querySelector('span').textContent = 'Экран: ' + p.name;
+  const v = w.querySelector('video'); v.srcObject = s; v.play().catch(() => {});
+}
+function tgHideScreen(peer) { const w = $('#tgScreen'); if (w && (!peer || w.dataset.peer === peer)) { const v = w.querySelector('video'); if (v) v.srcObject = null; w.remove(); } }
+
+/* ── плеер ── */
+async function tgCmd(action, val, text) {
+  if (action !== 'osd') tg.cmdAt = Date.now();
+  try { return await api('/api/together/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, val: val || 0, text: text || '', ms: 4000 }) }); } catch { return null; }
+}
+function tgOsd(text) { if (tg.mine && tg.mine.active && tg.mine.osd) tgCmd('osd', 0, text); }
+async function tgReadPlayer() {
+  const t0 = Date.now();
+  let st; try { st = await api('/api/together/player'); } catch { st = { active: false }; }
+  st.local = (t0 + Date.now()) / 2;
+  tg.prev = tg.mine; tg.mine = st; return st;
+}
+function tgOffset() { return tg.off.length ? tg.off.slice().sort((a, b) => a.rtt - b.rtt)[0].o : 0; }
+function tgPong(m) {
+  const t3 = Date.now(), rtt = t3 - m.t0; if (!(rtt >= 0 && rtt < 10000)) return;
+  tg.off.push({ o: m.t1 - (m.t0 + t3) / 2, rtt }); if (tg.off.length > 6) tg.off.shift();
+}
+async function tgTick() {
+  if (!tg.on || tg.busy) return;
+  tg.busy = true;
+  try {
+    const now = Date.now();
+    for (const p of [...tg.peers.values()]) if (now - p.last > 45000) { tgNote(`${p.name} пропал(а) из сети`); tgDropPeer(p); }
+    const st = await tgReadPlayer();
+    if (!tg.on) return;
+    if (tg.host) tgHostTick(st); else tgGuestTick(st);
+    tgPaintSync();
+  } finally { tg.busy = false; }
+}
+/* ведущий: рассылает своё состояние раз в 2 с и сразу при изменении */
+function tgHostTick(st) {
+  if (st.active && !st.error) {
+    const t = (state.lib || []).find(x => x.hash === st.hash);
+    const media = { h: st.hash, f: st.file, t: t ? (t.title || t.name) : (tg.media && tg.media.h === st.hash ? tg.media.t : '') };
+    if (!tg.media || tg.media.h !== media.h || tg.media.f !== media.f) { tg.media = media; tgPaint(); }
+  }
+  const sig = st.active ? `${st.hash}|${st.file}|${st.paused}|${Math.round((st.rate || 1) * 100)}` : 'off';
+  const jumped = tg.prev && tg.prev.active && st.active && !st.paused && Math.abs(st.pos - tg.prev.pos - (st.local - tg.prev.local) / 1000 * (st.rate || 1)) > 2.5;
+  tg.pingN = (tg.pingN + 1) % 2;
+  if (sig !== tg.lastSt || jumped || tg.pingN === 0) {
+    tg.lastSt = sig;
+    tgSend({ k: 'st', a: !!st.active, h: st.hash, f: st.file, pos: st.pos || 0, paused: !!st.paused, rate: st.rate || 1, at: st.local, media: tg.media });
+  }
+  tg.sync = !st.active ? 'Включите фильм в mpv или VLC — гости пойдут следом' : st.error ? 'Плеер не отвечает' : st.paused ? 'Пауза у всех' : 'Вы ведёте показ';
+}
+function tgHostReq(p, m) {
+  const act = m.action;
+  if (act === 'pause' || act === 'play') { tgCmd(act); tgOsd(`${p.name}: ${act === 'pause' ? 'пауза' : 'продолжаем'}`); }
+  else if (act === 'seek' && m.val >= 0) { tgCmd('seek', m.val); tgOsd(`${p.name}: перемотка`); }
+  else return;
+  tg.lastSt = ''; setTimeout(tgTick, 400);
+}
+function tgHostWait(p) {
+  if (!tg.mine || !tg.mine.active || tg.mine.paused) return;
+  tg.waitFor = p.id; tgCmd('pause'); tgOsd(`Ждём ${p.name} — подгружается…`); tgNote(`Ждём ${p.name} — подгружается`);
+  tg.lastSt = ''; setTimeout(tgTick, 300);
+  setTimeout(() => { if (tg.waitFor === p.id) { tg.waitFor = ''; tgCountdown(); } }, 15000);
+}
+function tgCountdown() {
+  if (!tg.host || !tg.mine || !tg.mine.active) { toast('Сначала включите фильм в mpv или VLC', true); return; }
+  const at = Date.now() + 3600, pos = Math.max(0, (tg.mine.pos || 0) - 1);
+  tgSend({ k: 'cd', pos, at }); tgRunCountdown(pos, at);
+}
+// Отсчёт 3-2-1: пауза и перемотка в одну точку, старт в один момент.
+function tgRunCountdown(pos, at) {
+  tg.hold = at + 2500;
+  tgCmd('pause'); setTimeout(() => tgCmd('seek', pos), 150);
+  for (const n of [3, 2, 1]) setTimeout(() => { tgOsd(String(n)); tgNote('Старт через ' + n); }, Math.max(0, at - Date.now() - n * 1000));
+  setTimeout(() => { tgCmd('play'); tgOsd('▶ Поехали!'); tgNote('Поехали!'); tg.lastSt = ''; }, Math.max(0, at - Date.now()));
+}
+/* гость: догоняет ведущего */
+function tgFollow(m) {
+  tg.st = m; tg.stAt = Date.now();
+  if (m.media) tg.media = m.media;
+  if (tg.off.length < 3 || Math.random() < 0.15) tgSend({ k: 'ping', to: m.from, t0: Date.now() });
+}
+function tgGuestTick(mine) {
+  const st = tg.st, now = Date.now();
+  if (!st || now - tg.stAt > 8000) { tg.sync = tg.peers.size ? 'Жду ведущего…' : 'Ищу участников…'; return; }
+  if (!st.a) { tg.sync = 'У ведущего фильм не запущен'; return; }
+  if (!mine.active || mine.hash !== st.h || mine.file !== st.f) { tg.sync = 'open'; return; }
+  if (mine.error) { tg.sync = 'Плеер не отвечает'; return; }
+  if (now < tg.hold || now - tg.cmdAt < 1500) return;
+  const expect = st.pos + (st.paused ? 0 : Math.max(0, now + tgOffset() - st.at) / 1000 * (st.rate || 1));
+  const prev = tg.prev && tg.prev.active && tg.prev.hash === mine.hash ? tg.prev : null;
+  // своё действие гостя — просьба ведущему
+  if (prev && prev.paused !== mine.paused && mine.paused !== st.paused) {
+    tgSend({ k: 'req', to: st.from, action: mine.paused ? 'pause' : 'play' }); tg.cmdAt = now; tg.sync = 'Попросил ведущего: ' + (mine.paused ? 'пауза' : 'продолжить'); return;
+  }
+  if (prev && !st.paused && Math.abs(mine.pos - expect) > 5 && Math.abs(prev.pos - expect) < 1.5) {
+    tgSend({ k: 'req', to: st.from, action: 'seek', val: mine.pos }); tg.cmdAt = now; tg.sync = 'Попросил ведущего перемотать'; return;
+  }
+  if (mine.paused !== st.paused) { tgCmd(st.paused ? 'pause' : 'play'); tg.sync = st.paused ? 'Пауза у ведущего' : 'Продолжаем'; return; }
+  const diff = mine.pos - expect, base = st.rate || 1;
+  if (st.paused) { if (Math.abs(diff) > 0.5) tgCmd('seek', expect); tg.sync = 'Пауза у всех'; return; }
+  // буфер: позиция стоит, а у ведущего идёт
+  if (prev && mine.pos - prev.pos < 0.15) tg.stall++; else tg.stall = 0;
+  if (tg.stall >= 3 && now - tg.waitAt > 30000) {
+    tg.waitAt = now; tg.stall = 0;
+    tgSend({ k: 'wait', to: st.from }); tg.sync = 'Подгружается — попросил подождать';
+    setTimeout(() => tgSend({ k: 'ready', to: st.from }), 7000);
+    return;
+  }
+  if (Math.abs(diff) > 2) { tgCmd('seek', expect + 0.2); if (tg.adj) { tgCmd('rate', base); tg.adj = false; } tg.sync = 'Перемотал к ведущему'; return; }
+  if (Math.abs(diff) > 0.4) { tgCmd('rate', base * (diff > 0 ? 0.95 : 1.05)); tg.adj = true; tg.sync = diff > 0 ? 'Чуть притормаживаю' : 'Чуть догоняю'; return; }
+  if (tg.adj && Math.abs(diff) < 0.15) { tgCmd('rate', base); tg.adj = false; }
+  tg.sync = `В синхроне · ±${Math.abs(diff).toFixed(1).replace('.', ',')} с`;
+}
+async function tgOpenMedia() {
+  const m = tg.media; if (!m || !m.h) return;
+  let t = (state.lib || []).find(x => x.hash === m.h);
+  if (!t) {
+    try { await addTorrentRes(magnetFromHash(m.h, m.t || '')); await loadLibrary(); }
+    catch (e) { toast('Не удалось добавить раздачу: ' + e.message, true); return; }
+    t = (state.lib || []).find(x => x.hash === m.h) || { hash: m.h, title: m.t, file_stats: [] };
+  }
+  if (!(t.file_stats || []).length) { toast('Получаю список файлов…'); t = await waitForFiles(t, 30000) || t; }
+  const f = (t.file_stats || []).find(x => x.id === m.f);
+  if (!f) { toast('Файлы раздачи ещё не получены — попробуйте через минуту', true); return; }
+  const pl = pickPlayer();
+  if (pl !== 'mpv' && pl !== 'vlc') toast('Для синхронизации нужен mpv или VLC — выберите его в «Плеерах»', true);
+  playSelected(t, f, { fromZero: true, onPC: true });
+}
+
+/* ── чат ── */
+function tgNote(text) { tgChatPush({ sys: true, text }); }
+function tgChatPush(m) {
+  m.at = Date.now(); tg.chat.push(m); if (tg.chat.length > 200) tg.chat.shift();
+  const box = $('#tgChat');
+  if (box) { box.insertAdjacentHTML('beforeend', tgMsgHtml(m)); box.scrollTop = box.scrollHeight; }
+  else if (!m.sys && !m.mine) { tg.unread++; toast(`${m.name}: ${m.text}`); }
+  tgPaintDock();
+}
+function tgMsgHtml(m) {
+  const tm = new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  if (m.sys) return html`<div class="tg-msg sys">${m.text}</div>`;
+  return html`<div class="tg-msg${m.mine ? ' me' : ''}${m.react ? ' react' : ''}"><b>${m.name}</b><span>${m.text}</span><time>${tm}</time></div>`;
+}
+function tgChatIn(p, text) { if (!text) return; tgChatPush({ name: p.name, text }); tgOsd(`💬 ${p.name}: ${text}`); }
+function tgReactIn(p, e) { tgChatPush({ name: p.name, text: e, react: true }); tgOsd(`${e} ${p.name}`); tgBurst(e); }
+function tgSay(text) {
+  text = String(text || '').trim().slice(0, 500); if (!text || !tg.on) return;
+  tgSend({ k: 'chat', text }); tgChatPush({ name: tg.name, text, mine: true });
+}
+function tgReact(e) { tgSend({ k: 'react', e }); tgChatPush({ name: tg.name, text: e, mine: true, react: true }); tgBurst(e); }
+function tgBurst(e) {
+  const box = $('#tgRoot'); if (!box) return;
+  const s = document.createElement('span'); s.className = 'tg-burst'; s.textContent = e;
+  s.style.left = (20 + Math.random() * 60) + '%'; box.appendChild(s); setTimeout(() => s.remove(), 2200);
+}
+
+/* ── раздел ── */
+function renderTogether(root) {
+  root.innerHTML = '<div class="tg" id="tgRoot"></div>';
+  tg.unread = 0; tgPaint();
+}
+function tgPaint() {
+  tgPaintDock();
+  const root = $('#tgRoot'); if (!root) return;
+  if (!root._bound) {
+    root._bound = true;
+    root.addEventListener('click', tgOnClick);
+    root.addEventListener('change', tgOnChange);
+    root.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      if (e.target.id === 'tgIn') { tgSay(e.target.value); e.target.value = ''; }
+      if (e.target.id === 'tgCodeIn') tgOnClick({ target: $('[data-tg=join]') });
+    });
+  }
+  if (!tg.on) { root.innerHTML = tgLobbyHtml(); return; }
+  if (!$('#tgChat')) {
+    root.innerHTML = html`<div class="mu-head"><h1 class="page-title">Смотрим вместе</h1><span class="tg-role">${tg.host ? 'вы ведущий' : 'вы гость'}</span></div>
+      <div class="tg-grid">
+        <div class="tg-side">
+          <div class="card tg-card" id="tgStatus"></div>
+          <div class="card tg-card"><div class="tg-h">Пригласить</div>
+            <div class="tg-code"><code id="tgCode"></code><button class="btn" data-tg="copy">Скопировать</button></div>
+            <div class="muted sm">Друг вставляет код в «Вместе → Присоединиться». В коде — ключ шифрования, поэтому отправляйте его лично.</div></div>
+        </div>
+        <div class="card tg-chatcard">
+          <div class="tg-chat" id="tgChat">${raw(tg.chat.map(tgMsgHtml).join(''))}</div>
+          <div class="tg-reacts">${raw(TG_REACT.map(e => `<button class="iconbtn" data-tg-react="${e}">${e}</button>`).join(''))}</div>
+          <div class="tg-input"><input id="tgIn" maxlength="500" placeholder="Сообщение — увидят в чате и поверх видео в mpv" autocomplete="off"><button class="btn primary" data-tg="send">Отправить</button></div>
+        </div>
+      </div>`;
+    const c = $('#tgChat'); c.scrollTop = c.scrollHeight;
+  }
+  const code = $('#tgCode'); if (code) code.textContent = tgCode();
+  tgPaintStatus();
+}
+function tgLobbyHtml() {
+  const can = tgCanRun(), v = k => localStorage.getItem(k) || '';
+  return html`<div class="mu-head"><h1 class="page-title">Смотрим вместе</h1></div>
+    <p class="muted tg-lead">Смотрите фильм с другом на разных компьютерах: плееры идут в ногу, есть чат, голос и показ экрана. У каждого свой TorrClient и своя раздача — по сети идут только команды.</p>
+    ${can ? '' : raw('<div class="card tg-warn">Браузер разрешает звонки и шифрование только на защищённом адресе. Откройте TorrClient на самом компьютере (адрес <code>localhost</code>) или в приложении.</div>')}
+    <label class="tg-name">Ваше имя <input id="tgName" maxlength="40" value="${tgMyName()}"></label>
+    <div class="tg-lobby">
+      <div class="card tg-card"><div class="tg-h">Создать комнату</div>
+        <p class="muted sm">Включите фильм в mpv или VLC — до или после создания комнаты. Гости увидят, что смотреть, и откроют ту же раздачу у себя.</p>
+        <button class="btn primary" data-tg="create"${raw(can ? '' : ' disabled')}>Создать комнату</button></div>
+      <div class="card tg-card"><div class="tg-h">Присоединиться</div>
+        <input id="tgCodeIn" placeholder="Код приглашения TC1.…" autocomplete="off">
+        <button class="btn primary" data-tg="join"${raw(can ? '' : ' disabled')}>Присоединиться</button></div>
+    </div>
+    <details class="tg-adv"><summary>Соединение</summary>
+      <p class="muted sm">Участники находят друг друга через публичные MQTT-брокеры (EMQX, HiveMQ, Mosquitto); сообщения зашифрованы. Можно указать свой брокер (WebSocket, wss://…/mqtt) — его адрес попадёт в приглашение. Если напрямую соединиться не выходит (строгий NAT), поможет свой TURN-сервер.</p>
+      <label>Свой MQTT-брокер <input data-tg-set="tc_tg_broker" value="${v('tc_tg_broker')}" placeholder="wss://broker.example.com:8084/mqtt"></label>
+      <label>TURN <input data-tg-set="tc_tg_turn" value="${v('tc_tg_turn')}" placeholder="turn:turn.example.com:3478"></label>
+      <label>TURN логин <input data-tg-set="tc_tg_turnu" value="${v('tc_tg_turnu')}"></label>
+      <label>TURN пароль <input type="password" data-tg-set="tc_tg_turnp" value="${v('tc_tg_turnp')}"></label>
+    </details>`;
+}
+function tgPaintStatus() {
+  const box = $('#tgStatus'); if (!box) return;
+  const brokers = tg.mq.filter(c => c.ok).length, peers = [...tg.peers.values()], m = tg.media;
+  box.innerHTML = html`<div class="tg-h">Комната</div>
+    <div class="tg-people">
+      <div class="tg-person me"><i>${tg.name.slice(0, 1).toUpperCase()}</i><span>${tg.name}<small>вы${tg.host ? ' · ведущий' : ''}${tg.mic ? ' · 🎤' : ''}${tg.screen ? ' · 🖥' : ''}</small></span></div>
+      ${peers.map(p => raw(html`<div class="tg-person"><i>${p.name.slice(0, 1).toUpperCase()}</i><span>${p.name}<small>${p.host ? 'ведущий · ' : ''}${tgLink(p)}</small></span></div>`))}
+      ${peers.length ? '' : raw('<div class="muted sm">Пока никого. Отправьте код приглашения.</div>')}
+    </div>
+    <div class="tg-media">${m && m.h ? raw(html`🎬 <b>${m.t || 'Фильм'}</b>`) : raw('<span class="muted">Фильм не выбран</span>')}</div>
+    <div class="tg-sync" id="tgSync"></div>
+    <div class="tg-acts">
+      <button class="btn${tg.mic ? ' on' : ''}" data-tg="mic">${tg.mic ? '🎤 Выключить микрофон' : '🎤 Микрофон'}</button>
+      <button class="btn${tg.screen ? ' on' : ''}" data-tg="screen">${tg.screen ? '🖥 Остановить показ' : '🖥 Показать экран'}</button>
+      ${tg.host ? raw('<button class="btn" data-tg="cd" title="Пауза у всех, перемотка в одну точку и старт после 3-2-1">⏱ Старт с отсчётом</button>') : ''}
+      <button class="btn danger" data-tg="leave">Выйти</button>
+    </div>
+    <div class="muted sm">${brokers ? `Брокеров на связи: ${brokers} из ${tg.mq.length}` : 'Брокеры недоступны — переподключаюсь…'}</div>`;
+  tgPaintSync();
+}
+function tgPaintSync() {
+  const el = $('#tgSync'); if (!el) return;
+  if (tg.sync === 'open') { if (!el.querySelector('[data-tg=open]')) el.innerHTML = '<span>У вас открыт другой фильм или плеер закрыт.</span> <button class="btn primary sm" data-tg="open">▶ Открыть у себя</button>'; }
+  else el.textContent = tg.sync || '';
+}
+function tgPaintDock() {
+  let d = $('#tgDock');
+  if (!tg.on || state.view === 'together') { if (d) d.remove(); return; }
+  if (!d) { d = document.createElement('button'); d.id = 'tgDock'; d.className = 'tg-dock'; d.onclick = () => setView('together'); document.body.appendChild(d); }
+  d.innerHTML = html`👥 Вместе · ${tg.peers.size + 1}${tg.unread ? raw(`<b>${tg.unread}</b>`) : ''}`;
+}
+async function tgOnClick(e) {
+  const t = e.target && e.target.closest ? e.target : null; if (!t) return;
+  const r = t.closest('[data-tg-react]'); if (r) { tgReact(r.dataset.tgReact); return; }
+  const b = t.closest('[data-tg]'); if (!b) return;
+  const a = b.dataset.tg;
+  if (a === 'create') { tgSaveName(); await tgCreate(); }
+  else if (a === 'join') {
+    tgSaveName();
+    const o = tgParse(($('#tgCodeIn') || {}).value);
+    if (!o) { toast('Это не код приглашения — он начинается с TC1.', true); return; }
+    await tgStart(o, false);
+  }
+  else if (a === 'copy') { const c = tgCode(); try { await navigator.clipboard.writeText(c); toast('Код скопирован'); } catch { prompt('Скопируйте код:', c); } }
+  else if (a === 'send') { const i = $('#tgIn'); tgSay(i.value); i.value = ''; i.focus(); }
+  else if (a === 'mic') tgMic();
+  else if (a === 'screen') tgScreenToggle();
+  else if (a === 'cd') tgCountdown();
+  else if (a === 'leave') tgLeave();
+  else if (a === 'open') tgOpenMedia();
+}
+function tgOnChange(e) { const k = e.target.dataset && e.target.dataset.tgSet; if (k) savePref(k, e.target.value.trim()); if (e.target.id === 'tgName') tgSaveName(); }
+function tgSaveName() { const i = $('#tgName'); if (i && i.value.trim()) savePref('tc_tg_name', i.value.trim().slice(0, 40)); }
+// После перезагрузки страницы — обратно в ту же комнату.
+function tgBoot() {
+  let s; try { s = JSON.parse(sessionStorage.getItem('tc_tg') || 'null'); } catch {}
+  if (s && s.o && !tg.on) tgStart(s.o, !!s.host);
+}
+window.addEventListener('beforeunload', () => { if (tg.on) try { tgSend({ k: 'bye' }); } catch {} });
+setTimeout(tgBoot, 1200);/* ================= PLAYERS PAGE ================= */
 function renderPlayers(root) {
   root.innerHTML = html`
     <div class="toolbar"><div class="grow"><h1 class="page-title">Плееры</h1>
@@ -7691,10 +9180,11 @@ async function loadNowPlaying() {
 function paintNowPlaying() {
   const b = $('#nowBtn'); if (!b) return;
   let label = '', sub = '', kind = '';
-  if (mu.t && mu.ix >= 0 && mu.audio && mu.audio.src) {
+  const au = auNowInfo();
+  if (au) {
     kind = 'music';
-    label = musicTrackName(mu.queue[mu.ix]);
-    sub = mu.audio.paused ? 'пауза' : 'музыка';
+    label = au.label;
+    sub = au.sub;
   } else if (state.now && state.now.length) {
     const it = state.now[0];
     const t = (state.lib || []).find(x => x.hash === it.hash);
@@ -7706,7 +9196,7 @@ function paintNowPlaying() {
   b.classList.toggle('hidden', !kind);
   b.dataset.kind = kind;
   if (!kind) { b.innerHTML = ''; return; }
-  b.innerHTML = html`<span class="np-eq${kind === 'music' && mu.audio && mu.audio.paused ? ' paused' : ''}"><i></i><i></i><i></i></span><span class="np-tx"><b>${label}</b><small>Сейчас играет · ${sub}</small></span>`;
+  b.innerHTML = html`<span class="np-eq${kind === 'music' && au && au.paused ? ' paused' : ''}"><i></i><i></i><i></i></span><span class="np-tx"><b>${label}</b><small>Сейчас играет · ${sub}</small></span>`;
   b.title = 'Сейчас играет: ' + label;
 }
 function onNowClick() {

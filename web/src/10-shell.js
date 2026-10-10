@@ -302,7 +302,7 @@ function route() {
   // по навигации оставлял их поверх чужой страницы: окно «Изменить торрент»
   // продолжало висеть над «Настройками», а закрыть его было нечем, кроме Esc.
   $$('body > .overlay:not(.whatsnew-ov)').forEach(o => o.remove());
-  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, music: renderMusic, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
+  const pages = { movie: renderMovie, home: renderHome, library: renderLibrary, search: renderSearch, music: renderMusic, together: renderTogether, favorites: renderFavorites, bookmarks: renderBookmarks, players: renderPlayers, downloads: renderDownloads, series: renderSeries, subs: renderSubs, settings: renderSettings, server: renderServer };
   const fn = pages[v] || renderHome;
   const main = $('main'); main.innerHTML = '';
   main.dataset.view = v;
