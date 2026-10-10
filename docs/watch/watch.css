@@ -1,0 +1,62 @@
+*{box-sizing:border-box}
+:root{--bg:#0d1017; --bg2:#151a24; --bg3:#1f2633; --line:#2a3242; --fg:#e8ecf3; --mut:#97a1b3; --acc:#4f8cff; --red:#ff5d6c; color-scheme:dark}
+html,body{margin:0; height:100%; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input{font:inherit; color:inherit}
+button{cursor:pointer; border:1px solid var(--line); background:var(--bg3); border-radius:10px; padding:8px 14px}
+button:hover{border-color:#3d4860}
+button.primary{background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600}
+button.on{background:rgba(79,140,255,.18); border-color:var(--acc)}
+button.danger{color:var(--red)}
+button:disabled{opacity:.5; cursor:default}
+input{background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:9px 12px; width:100%; outline:none}
+input:focus{border-color:var(--acc)}
+a{color:var(--acc)}
+.w-top{display:flex; align-items:center; gap:16px; padding:10px 18px; border-bottom:1px solid var(--line)}
+.w-logo{font-weight:700; display:flex; align-items:center; gap:8px}
+.w-logo span{display:inline-grid; place-items:center; width:26px; height:26px; border-radius:8px; background:var(--acc); color:#fff; font-size:12px}
+.w-logo small{font-weight:400; color:var(--mut)}
+.w-title{color:var(--mut); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#wRoot{height:calc(100% - 52px)}
+.w-join{max-width:440px; margin:8vh auto; padding:24px; background:var(--bg2); border:1px solid var(--line); border-radius:18px; display:flex; flex-direction:column; gap:12px}
+.w-join h1{margin:0; font-size:22px}
+.w-join p{margin:0; color:var(--mut)}
+.w-join label{display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--mut)}
+.w-join .alt{font-size:13px; text-align:center}
+.w-err{color:var(--red); font-size:14px}
+.w-room{display:grid; grid-template-columns:1fr 320px; height:100%}
+.w-main{display:flex; flex-direction:column; min-width:0; min-height:0}
+.w-stage{position:relative; flex:1; min-height:0; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden}
+.w-stage video{width:100%; height:100%; object-fit:contain; background:#000}
+.w-wait{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--mut); text-align:center; padding:20px}
+.w-wait b{color:var(--fg); font-size:18px}
+.w-unmute{position:absolute; top:14px; left:50%; transform:translateX(-50%); z-index:3}
+.w-burst{position:absolute; bottom:10%; font-size:42px; pointer-events:none; animation:wfly 2.2s ease-out forwards; z-index:4}
+@keyframes wfly{from{transform:translateY(0) scale(.6); opacity:0} 15%{opacity:1; transform:translateY(-20px) scale(1.1)} to{transform:translateY(-55vh) scale(1); opacity:0}}
+.w-ctl{display:flex; align-items:center; gap:8px; padding:10px 12px; border-top:1px solid var(--line); flex-wrap:wrap}
+.w-ctl .grow{flex:1}
+.w-vol{display:flex; align-items:center; gap:6px; color:var(--mut)}
+.w-vol input{width:110px; padding:0; accent-color:var(--acc)}
+.w-side{display:flex; flex-direction:column; min-height:0; border-left:1px solid var(--line); background:var(--bg2)}
+.w-people{padding:12px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:6px; font-size:14px}
+.w-people .p{display:flex; align-items:center; gap:8px}
+.w-people .p i{flex:none; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; background:var(--bg3); font-style:normal; font-weight:700; font-size:12px}
+.w-people small{color:var(--mut); margin-left:auto; font-size:12px}
+.w-chat{flex:1; min-height:0; overflow:auto; padding:10px 12px; display:flex; flex-direction:column; gap:6px}
+.w-msg{font-size:14px; word-wrap:break-word}
+.w-msg b{margin-right:6px}
+.w-msg time{color:var(--mut); font-size:11px; margin-left:6px}
+.w-msg.me b{color:var(--acc)}
+.w-msg.sys{color:var(--mut); font-size:12.5px; font-style:italic}
+.w-msg.react span{font-size:20px}
+.w-reacts{display:flex; gap:4px; padding:6px 10px; border-top:1px solid var(--line)}
+.w-reacts button{padding:4px 8px; background:none; border-color:transparent; font-size:18px}
+.w-in{display:flex; gap:6px; padding:10px; border-top:1px solid var(--line)}
+.w-toasts{position:fixed; bottom:16px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; z-index:50}
+.w-toast{background:var(--bg3); border:1px solid var(--line); padding:9px 14px; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.w-toast.err{border-color:var(--red)}
+@media (max-width:820px){
+  .w-room{grid-template-columns:1fr; grid-template-rows:auto 1fr; height:auto; min-height:100%}
+  .w-stage{aspect-ratio:16/9; flex:none}
+  .w-side{border-left:0; border-top:1px solid var(--line); min-height:420px}
+  #wRoot{height:auto}
+}

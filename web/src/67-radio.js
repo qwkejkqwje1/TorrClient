@@ -232,7 +232,7 @@ function radioBarTitle() {
 function radioBarHtml() {
   const r = radioEl(), playing = r && !r.el.paused;
   const pinned = radioPins().some(x => sameStation(x, rd.station));
-  return html`<div class="mu-bar">
+  return html`<div class="mu-bar${playing ? ' playing' : ''}"><div class="mu-np">
     <div class="mu-bar-cov rd-cov">${raw(rd.station.favicon ? `<img src="${esc(rd.station.favicon)}" alt="">` : '📻')}</div>
     <div class="mu-bar-t" id="rdBarT">${raw(radioBarTitle())}</div>
     <div class="mu-ctl">
@@ -241,8 +241,8 @@ function radioBarHtml() {
       <button class="iconbtn${pinned ? ' on' : ''}" data-rd-pinnow title="Закрепить станцию">${raw(ico('star', 15))}</button>
       <button class="iconbtn" data-mu-stop title="Выключить радио">${raw(ico('stop', 14))}</button>
     </div>
-    <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((r ? r.el.volume : 0.8) * 100)}" id="rdVol" title="Громкость">
-  </div>`;
+    <div class="mu-side"><input type="range" class="mu-vol" min="0" max="100" value="${Math.round((r ? r.el.volume : 0.8) * 100)}" id="rdVol" title="Громкость"></div>
+  </div></div>`;
 }
 function bindRadioBar() {
   const v = $('#rdVol'); if (v) v.addEventListener('input', () => { for (const el of [rd.a, rd.b, mu.audio]) if (el) el.volume = v.value / 100; savePref('tc_muvol', v.value / 100); });

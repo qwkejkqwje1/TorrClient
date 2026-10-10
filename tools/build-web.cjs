@@ -32,4 +32,17 @@ for (const t of targets) {
     console.log('web/' + t.out + ' собран из ' + parts.length + ' частей, строк: ' + code.split('\n').length);
   }
 }
+// Страница «смотреть без TorrClient» (GitHub Pages, docs/watch) использует тот же
+// протокол комнаты: берём из 68-together.js всё до раздела «плеер».
+{
+  const src = fs.readFileSync(path.join(root, 'src', '68-together.js'), 'utf8');
+  const cut = src.indexOf('/* ── плеер ── */');
+  const code = '// Собрано из web/src/68-together.js (node tools/build-web.cjs) — не править вручную.\n' + src.slice(0, cut);
+  const out = path.join(root, '..', 'docs', 'watch', 'tg-core.js');
+  if (cut < 0) { console.error('68-together.js: нет метки «плеер»'); bad = true; }
+  else if (process.argv.includes('--check')) {
+    const cur = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+    if (cur !== code) { console.error('docs/watch/tg-core.js устарел — запустите: node tools/build-web.cjs'); bad = true; }
+  } else { fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, code); console.log('docs/watch/tg-core.js обновлён'); }
+}
 if (bad) process.exit(1);

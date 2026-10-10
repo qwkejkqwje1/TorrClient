@@ -231,14 +231,47 @@ function cleanMusicTitle(t) {
   return s.length > 2 ? s.slice(0, 120) : String(t || '').slice(0, 120);
 }
 const COVER_FILE_RE = /(^|\/)(cover|folder|front|albumart[^/]*|обложка)\.(jpe?g|png|webp)$/i;
+/* audioWaitFiles — список файлов раздачи без модального окна и анимации
+   запуска: ход ожидания виден в строке плеера, прошлый трек играет дальше,
+   отмена — «×» или выбор другого. Раздачу, у которой за 20 с не нашлось ни
+   одного пира, бросаем; живую ждём до 60 с. quiet — для полки книг: без
+   строки в плеере. Ответ: { st } | { dead: 'почему' } | { cancel: true }. */
+async function audioWaitFiles(hash, title, quiet) {
+  const tok = quiet ? 0 : (mu.loadTok = (mu.loadTok || 0) + 1);
+  const gone = () => !quiet && mu.loadTok !== tok;
+  const quick = await statTorrent(hash).catch(() => null);
+  if (gone()) return { cancel: true };
+  if (quick && Array.isArray(quick.file_stats) && quick.file_stats.length) return { st: rememberStat(hash, quick) };
+  const L = { hash, title, start: Date.now(), peers: 0, active: 0, speed: 0 };
+  if (!quiet) { mu.loading = L; paintMusicPlayer(); }
+  await torrentAction('add', { link: hash, save_to_db: true }).catch(() => {});
+  await torrentAction('start', { hash }).catch(() => {});
+  try {
+    for (;;) {
+      if (gone()) return { cancel: true };
+      const st = await statTorrent(hash).catch(() => null);
+      if (gone()) return { cancel: true };
+      if (st && Array.isArray(st.file_stats) && st.file_stats.length) return { st: rememberStat(hash, st) };
+      if (st) { L.peers = Number(st.total_peers) || 0; L.active = Number(st.active_peers) || 0; L.speed = Number(st.download_speed) || 0; }
+      if (!quiet) paintMusicLoading();
+      const el = Date.now() - L.start;
+      if (el > 20000 && !L.peers) return { dead: 'за 20 с не нашлось ни одного пира — раздача мёртвая' };
+      if (el > 60000) return { dead: L.active ? 'пиры есть, но список файлов не пришёл за минуту' : 'пиры известны, но ни один не подключился' };
+      await sleep(1000);
+    }
+  } finally { if (!quiet && mu.loadTok === tok) { mu.loading = null; paintMusicPlayer(); } }
+}
+function musicCancelLoad() { mu.loadTok = (mu.loadTok || 0) + 1; mu.loading = null; paintMusicPlayer(); }
 async function musicPlayHash(hash, title, kind, known) {
   // known — список файлов, сохранённый заранее: книге, скачанной для
   // офлайна, TorrServer и сеть для старта не нужны.
-  const st = known ? { file_stats: known } : await waitForFiles({ hash, title });
-  if (!st) { audioDiag('Раздача не отдала список файлов — нет раздающих или TorrServer не ответил', true); return musicFallback('нет списка файлов'); }
+  const w = known ? { st: { file_stats: known } } : await audioWaitFiles(hash, title);
+  if (w.cancel) return;
+  const st = w.st;
+  if (!st) { audioDiag('Раздача не отдаёт: ' + w.dead, true); return musicFallback(w.dead, { hash, title, kind }); }
   const files = (st.file_stats || []).filter(f => isAudio(f.path))
     .sort((a, b) => a.path.localeCompare(b.path, 'ru', { numeric: true }));
-  if (!files.length) { toast('В раздаче нет аудиофайлов, которые играют в окне', true); return musicFallback('нет аудио'); }
+  if (!files.length) { toast('В раздаче нет аудиофайлов, которые играют в окне', true); return musicFallback('нет аудио', { hash, title, kind }); }
   if (kind === 'book' && typeof bookKeepFiles === 'function') bookKeepFiles(hash, files);
   const cov = (st.file_stats || []).find(f => COVER_FILE_RE.test(f.path));
   if (cov) coverRemember(title, hash, ts(`/stream/${encodeURIComponent(basename(cov.path))}?link=${encodeURIComponent(hash)}&index=${cov.id}&play`));
@@ -311,7 +344,8 @@ function musicToggle() {
 function musicStop() {
   if (mu.kind === 'radio') { radioStop(); }
   if (mu.audio) { if (mu.kind === 'book') bookSavePos(true); mu.audio.pause(); mu.audio.removeAttribute('src'); mu.audio.load(); }
-  mu.ix = -1; mu.t = null; mu.queue = []; mu.kind = ''; mu.wd = null; mu.diag = '';
+  mu.ix = -1; mu.t = null; mu.queue = []; mu.kind = ''; mu.wd = null; mu.diag = ''; mu.qOpen = false;
+  mu.loadTok = (mu.loadTok || 0) + 1; mu.loading = null;
   paintMusicPlayer(); paintNowPlaying(); paintMusicMine();
 }
 function musicTrackName(f) { return f ? basename(f.path).replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, '') : ''; }
@@ -330,40 +364,64 @@ function toggleShuffle() {
 /* ── плеер внизу раздела ── */
 function paintMusicPlayer() {
   const el = $('#muPlayer'); if (!el) return;
-  if (mu.kind === 'radio' && typeof radioBarHtml === 'function') { el.innerHTML = radioBarHtml(); bindRadioBar(); return; }
-  if (!mu.t || mu.ix < 0) { el.innerHTML = ''; return; }
-  const a = mu.audio;
-  const f = mu.queue[mu.ix];
-  const book = mu.kind === 'book';
-  el.innerHTML = html`<div class="mu-bar">
-    <div class="mu-bar-cov">${raw(coverImg(mu.t.title, mu.t.hash))}</div>
-    <div class="mu-bar-t"><b title="${musicTrackName(f)}">${musicTrackName(f)}</b><small>${mu.t.title} · ${mu.ix + 1}/${mu.queue.length}</small></div>
-    <div class="mu-ctl">
-      ${raw(book ? html`<button class="iconbtn" data-bk-back title="Назад на 15 секунд">↺15</button>` : html`<button class="iconbtn${mu.shuffle ? ' on' : ''}" data-mu-shuf title="Вперемешку">🔀</button>`)}
-      <button class="iconbtn" data-mu-prev title="Предыдущий" ${mu.ix > 0 || mu.shuffle ? '' : 'disabled'}>${raw(ico('prev', 16))}</button>
-      <button class="iconbtn mu-pp" data-mu-pp title="Пауза / играть">${raw(ico(a && !a.paused ? 'pause' : 'play', 17))}</button>
-      <button class="iconbtn" data-mu-next title="Следующий" ${mu.ix < mu.queue.length - 1 || mu.shuffle ? '' : 'disabled'}>${raw(ico('next', 16))}</button>
-      ${raw(book ? html`<button class="iconbtn" data-bk-fwd title="Вперёд на 30 секунд">30↻</button><button class="iconbtn" data-bk-mark title="Закладка здесь">${raw(ico('bookmark', 15))}</button>` : '')}
-      <button class="iconbtn" data-mu-stop title="Остановить">${raw(ico('stop', 14))}</button>
+  const load = mu.loading ? html`<div class="mu-load" id="muLoad">${raw(musicLoadingHtml())}</div>` : '';
+  if (mu.kind === 'radio' && typeof radioBarHtml === 'function') { el.innerHTML = load + radioBarHtml(); bindRadioBar(); return; }
+  if (!mu.t || mu.ix < 0) { el.innerHTML = load; return; }
+  const a = mu.audio, f = mu.queue[mu.ix], book = mu.kind === 'book';
+  const artist = artistOf(mu.t.title), album = albumOf(mu.t.title) || mu.t.title;
+  const prevQ = $('#muQList'), qScroll = prevQ ? prevQ.scrollTop : -1;
+  el.innerHTML = html`${raw(load)}<div class="mu-bar${a && !a.paused ? ' playing' : ''}">
+    <div class="mu-bar-bg" aria-hidden="true">${raw(coverImg(mu.t.title, mu.t.hash, book ? 'book' : ''))}</div>
+    ${raw(mu.qOpen ? html`<div class="mu-qpanel"><div class="mu-qhead"><b>${book ? 'Главы' : 'Треки'} · ${mu.queue.length}</b><button class="iconbtn" data-mu-qx title="Свернуть (Esc)">×</button></div>
+      <div class="mu-qlist" id="muQList">${raw(mu.queue.map((x, i) => html`<button class="${i === mu.ix ? 'on' : ''}" data-mu-ix="${i}"><span>${i === mu.ix ? raw(a && !a.paused ? '<i class="np-eq"><i></i><i></i><i></i></i>' : '❚❚') : i + 1}</span>${musicTrackName(x)}</button>`).join(''))}</div></div>` : '')}
+    <div class="mu-np">
+      <button class="mu-bar-cov" data-mu-cov title="Обложка крупно">${raw(coverImg(mu.t.title, mu.t.hash, book ? 'book' : ''))}</button>
+      <div class="mu-bar-t"><small>${book ? 'Аудиокнига' : 'Сейчас играет'} · ${book ? 'глава' : 'трек'} ${mu.ix + 1} из ${mu.queue.length}</small><b title="${musicTrackName(f)}">${musicTrackName(f)}</b><span title="${mu.t.title}">${artist ? artist + ' — ' + album : mu.t.title}</span></div>
+      <div class="mu-ctl">
+        ${raw(book ? html`<button class="iconbtn" data-bk-back title="Назад на 15 секунд">↺15</button>` : html`<button class="iconbtn${mu.shuffle ? ' on' : ''}" data-mu-shuf title="Вперемешку">🔀</button>`)}
+        <button class="iconbtn" data-mu-prev title="Предыдущий" ${mu.ix > 0 || mu.shuffle ? '' : 'disabled'}>${raw(ico('prev', 18))}</button>
+        <button class="iconbtn mu-pp" data-mu-pp title="Пауза / играть (пробел)">${raw(ico(a && !a.paused ? 'pause' : 'play', 22))}</button>
+        <button class="iconbtn" data-mu-next title="Следующий" ${mu.ix < mu.queue.length - 1 || mu.shuffle ? '' : 'disabled'}>${raw(ico('next', 18))}</button>
+        ${raw(book ? html`<button class="iconbtn" data-bk-fwd title="Вперёд на 30 секунд">30↻</button><button class="iconbtn" data-bk-mark title="Закладка здесь">${raw(ico('bookmark', 16))}</button>` : '')}
+      </div>
+      <div class="mu-side">
+        ${raw(book ? html`<select id="bkSpeed" class="mu-speed" title="Скорость чтения">${raw([0.75, 0.9, 1, 1.15, 1.25, 1.5, 1.75, 2].map(v => `<option value="${v}" ${Math.abs(bookSpeed() - v) < 0.01 ? 'selected' : ''}>${v}×</option>`).join(''))}</select>` : '')}
+        <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((a ? a.volume : 0.8) * 100)}" id="muVol" title="Громкость">
+        <button class="iconbtn${mu.qOpen ? ' on' : ''}" data-mu-q title="${book ? 'Главы' : 'Список треков'}">${raw(ico('list', 17))}</button>
+        <button class="iconbtn" data-mu-stop title="Остановить">${raw(ico('stop', 15))}</button>
+      </div>
     </div>
-    <input type="range" class="mu-seek" min="0" max="1000" value="0" id="muSeek" title="Перемотка">
-    <span class="mu-time" id="muTime">0:00</span>
-    ${raw(book ? html`<select id="bkSpeed" class="mu-speed" title="Скорость чтения">${raw([0.75, 0.9, 1, 1.15, 1.25, 1.5, 1.75, 2].map(v => `<option value="${v}" ${Math.abs(bookSpeed() - v) < 0.01 ? 'selected' : ''}>${v}×</option>`).join(''))}</select>` : '')}
-    <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((a ? a.volume : 0.8) * 100)}" id="muVol" title="Громкость">
-    <details class="mu-q"><summary title="Список треков">≡</summary><div>${raw(mu.queue.map((x, i) => html`<button class="${i === mu.ix ? 'on' : ''}" data-mu-ix="${i}">${i + 1}. ${musicTrackName(x)}</button>`).join(''))}</div></details>
+    <div class="mu-prog-row"><span class="mu-time" id="muTime">0:00</span><input type="range" class="mu-seek" min="0" max="1000" value="0" id="muSeek" title="Перемотка"><span class="mu-time r" id="muDur">—</span></div>
     <div class="mu-stat" id="muStat">${raw(statsHtml())}</div>
   </div>`;
   const sk = $('#muSeek'); sk.addEventListener('input', () => { const au = mu.audio; if (au && isFinite(au.duration)) au.currentTime = au.duration * sk.value / 1000; });
   const vo = $('#muVol'); vo.addEventListener('input', () => { const au = musicAudio(); au.volume = vo.value / 100; savePref('tc_muvol', au.volume); });
   const sp = $('#bkSpeed'); if (sp) sp.addEventListener('change', () => { bookSetSpeed(+sp.value); if (mu.audio) mu.audio.playbackRate = +sp.value; });
+  const ql = $('#muQList');
+  if (ql) { if (qScroll >= 0) ql.scrollTop = qScroll; else { const on = ql.querySelector('.on'); if (on) ql.scrollTop = on.offsetTop - ql.clientHeight / 2 + on.offsetHeight / 2; } }
   hydrateCovers(el);
   paintMusicProgress();
+}
+function musicLoadingHtml() {
+  const L = mu.loading; if (!L) return '';
+  const sec = Math.round((Date.now() - L.start) / 1000);
+  return html`<span class="spin"></span><span class="mu-load-t"><b>${cleanMusicTitle(L.title)}</b><small>Ищу раздающих… ${sec} с · ${L.peers ? L.active + ' из ' + L.peers + ' пиров' : 'пиров пока нет'}${L.speed ? ' · ↓ ' + fmtSpeed(L.speed) : ''}${!L.peers && sec > 8 ? ' · похоже, раздача мёртвая — через ' + Math.max(0, 20 - sec) + ' с попробую другую' : ''}</small></span><button class="iconbtn" data-mu-cancel title="Отменить">×</button>`;
+}
+function paintMusicLoading() { const el = $('#muLoad'); if (el) el.innerHTML = musicLoadingHtml(); else paintMusicPlayer(); }
+function musicCoverBig() {
+  if (!mu.t) return;
+  const ov = document.createElement('div'); ov.className = 'overlay mu-big-ov';
+  const f = mu.queue[mu.ix];
+  ov.innerHTML = html`<div class="mu-big" data-close><div class="mu-big-cov">${raw(coverImg(mu.t.title, mu.t.hash, mu.kind === 'book' ? 'book' : ''))}</div><b>${musicTrackName(f)}</b><span>${mu.t.title}</span></div>`;
+  ov.addEventListener('click', () => ov.remove());
+  document.body.appendChild(ov); hydrateCovers(ov);
 }
 function paintMusicProgress() {
   const a = mu.audio; if (!a || mu.kind === 'radio') return;
   const sk = $('#muSeek'), tm = $('#muTime');
   if (sk && isFinite(a.duration) && a.duration > 0 && document.activeElement !== sk) sk.value = Math.round(a.currentTime / a.duration * 1000);
-  if (tm) tm.textContent = fmtPos(a.currentTime || 0) + (isFinite(a.duration) ? ' / ' + fmtPos(a.duration) : '');
+  if (tm) tm.textContent = fmtPos(a.currentTime || 0);
+  const du = $('#muDur'); if (du) du.textContent = isFinite(a.duration) ? fmtPos(a.duration) : '—';
 }
 
 /* ── скорость, раздающие, буфер ── */
@@ -410,7 +468,8 @@ function audioDiag(text, bad) { mu.diag = text || ''; const el = $('#muStat'); i
 function audioWatchdog() {
   const w = mu.wd, a = mu.audio; if (!w || !a || mu.kind === 'radio' || a.paused && w.playing) return;
   const now = Date.now(), s = mu.stats || {};
-  const notStarted = !w.playing && now - w.start > 20000;
+  const dead = mu.stats && !Number(mu.stats.total_peers) && !Number(mu.stats.active_peers);
+  const notStarted = !w.playing && now - w.start > (dead ? 9000 : 20000);
   const stalled = w.playing && w.stall && now - w.stall > 25000;
   if (!notStarted && !stalled) return;
   const peers = Number(s.active_peers) || 0, speed = Number(s.download_speed) || 0;
@@ -432,9 +491,16 @@ function audioOnError() {
   audioDiag(why);
   if (mu.switches++ < 6 && mu.ix < mu.queue.length - 1) { toast('Пропускаю трек: ' + why); setTimeout(() => musicNext(1, true), 600); }
 }
-async function musicFallback(why) {
-  if (mu.kind === 'book') { toast('Аудиокнига: ' + why + '. Попробуйте позже или скачайте для офлайна', true); return; }
-  const alt = (mu.alts || []).find(r => (Number(r.seed) || 0) > 0 && audioQuality(r.title) > 0.35 && r.hash !== (mu.t && mu.t.hash));
+async function musicFallback(why, cur) {
+  cur = cur || { hash: mu.t && mu.t.hash, title: mu.t && mu.t.title, kind: mu.kind };
+  if (cur.kind === 'book' || mu.kind === 'book') { toast('Аудиокнига: ' + why + '. Попробуйте позже или скачайте для офлайна', true); return; }
+  const ok = r => (Number(r.seed) || 0) > 0 && audioQuality(r.title) > 0.35 && r.hash !== cur.hash;
+  // Запасных нет (трек из «Моей музыки») — ищем этот же альбом заново.
+  if (!(mu.alts || []).some(ok) && cur.title && mu.switches < 3) {
+    toast('Раздача не отдаёт (' + why + ') — ищу другую раздачу этого альбома…');
+    try { const res = await audioTrackerSearch(cleanMusicTitle(cur.title).slice(0, 90), 2, isMusicRelease, 0.45); mu.alts = res.rows; } catch { mu.alts = []; }
+  }
+  const alt = (mu.alts || []).find(ok);
   if (!alt || mu.switches >= 3) { toast('Раздача не отдаёт: ' + why + '. Других живых раздач нет', true); return; }
   mu.switches++;
   mu.alts = mu.alts.filter(r => r !== alt);
@@ -614,6 +680,26 @@ function onMusicClick(e) {
   if (t.closest('[data-mu-prev]')) return musicNext(-1);
   if (t.closest('[data-mu-next]')) return musicNext(1);
   if (t.closest('[data-mu-stop]')) return musicStop();
+  if (t.closest('[data-mu-q]')) { mu.qOpen = !mu.qOpen; return paintMusicPlayer(); }
+  if (t.closest('[data-mu-qx]')) { mu.qOpen = false; return paintMusicPlayer(); }
+  if (t.closest('[data-mu-cancel]')) return musicCancelLoad();
+  if (t.closest('[data-mu-cov]')) return musicCoverBig();
   if (typeof onBookClick === 'function' && onBookClick(t)) return;
   if (typeof onRadioClick === 'function' && onRadioClick(t)) return;
 }
+
+/* Esc — на уровень выше: свернуть список треков, закрыть книгу, сбросить
+   поиск, затем вернуться на вкладку «Музыка». Окна (оверлеи) закрывает
+   общий обработчик, поэтому при открытом окне здесь ничего не делаем. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.defaultPrevented || state.view !== 'music') return;
+  if (document.querySelector('body > .overlay, .ctxmenu:not(.hidden)')) return;
+  const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') && t.value;
+  if (typing) return; // поле с текстом очищается своим обработчиком
+  if (typeof dancerMenuClose === 'function' && dancerMenuClose()) return;
+  if (mu.qOpen) { mu.qOpen = false; paintMusicPlayer(); return; }
+  if (mu.tab === 'books' && typeof bk !== 'undefined' && bk.open) { bk.open = null; paintBooks(); return; }
+  if (mu.tab === 'books' && typeof bk !== 'undefined' && bk.q) { bk.q = ''; bk.rows = []; paintAudioTab(); return; }
+  if (mu.tab === 'music' && mu.q) { mu.q = ''; mu.rows = []; paintAudioTab(); return; }
+  if (mu.tab !== 'music') { mu.tab = 'music'; savePref('tc_autab', 'music'); paintAudioTab(); }
+}, true);

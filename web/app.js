@@ -283,6 +283,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
+  ['2.5.0', ['💃 Танцор теперь 3D: модель VRM (например, Резе с VRoid Hub) танцует прямо на странице, без окошка. Модель добавляется кнопкой ⚙ или перетаскиванием файла .vrm', 'Свои движения: .vrma, .fbx с Mixamo и .bvh — плюс встроенные танцы, режим «вперемешку»', '🌐 «Смотрим вместе» с другом без TorrClient: ссылка открывает страницу в браузере — он видит ваш экран, слышит звук и голос, пишет в чат', 'Плеер: крупная обложка, понятно что играет, список треков больше не закрывается сам', 'Мёртвая раздача больше не вешает «Аудио»: ожидание в плеере с отменой, затем следующая раздача', 'Esc возвращает на основную вкладку']],
   ['2.4.0', ['👥 «Смотрим вместе»: комната по коду приглашения, плееры mpv/VLC идут в ногу (пауза, перемотка, отсчёт 3-2-1, ожидание отстающего), чат и реакции поверх видео, голос и показ экрана. Связь — WebRTC напрямую, запасной путь — зашифрованный MQTT', '«Музыка» стала «Аудио»: вкладки Музыка, Аудиокниги и Радио; обложки альбомов, рекомендации, перемешивание, скорость и буфер под плеером, сам переключается на другую раздачу, если трек не играет', 'Аудиокниги: полка, продолжение с места, скорость чтения, закладки с подписью, скачать для офлайна', 'Радио: Nightride FM, Radio Paradise, EVE и тысячи станций Radio Browser, название песни и осциллограф', 'Поиск музыки сам выбирает лучшую раздачу по качеству и скорости', 'Вместо голограммы танцуют Резе и Волк — случайный танец на каждый трек (🎲 на сцене закрепляет танцора); оба умеют «ихвильнихт» из мема с волком, у Резе это любимый танец']],
   ['2.3.0', ['В разделе «Музыка» живёт неоновая танцовщица-голограмма: слышит трек, сама находит темп и танцует под него (× убирает её)', 'Новые темы с живым фоном: «Матрица», «Кибер-неон», светлая «Японский сад» с лепестками сакуры и «Девятый вал» в духе Айвазовского и Ван Гога', 'Анимации запуска просмотра: варп, «Матрица», «Киноплёнка» с отсчётом 3-2-1, «Вихрь сакуры», «Неон», «Девятый вал» — по теме, случайная или своя (Настройки → Оформление)', 'Звездопад у «Графита» стал случайным: звёзды падают в разное время и в разных местах']],
   ['2.2.0', ['Поиск сразу открывает карточку фильма, если название нашлось в TMDB (галочка «сразу карточка»); над раздачами — карточка названия', 'Крестик и Esc в поле поиска очищают запрос', 'В карточке фильма у каждой раздачи «♥» — именно эта раздача уходит в избранное', 'Исправлен размер раздач Кинозала: «37.85 ГБ» показывалось как 38 байт', '«Продолжить просмотр» — от последнего открытого и не больше 6 карточек', 'Оценка качества у аниме и мультсериалов в Библиотеке — по именам файлов', 'Новое «Сейчас играет» в шапке: что открыто в плеере или какой трек звучит', 'Колокольчик уведомлений: новые серии больше не теряются', 'Сериалы из Библиотеки отслеживаются сами — о новых сериях приходит уведомление', 'Раздел «Музыка»: только аудиораздачи и плеер прямо в окне; музыка не попадает в Библиотеку', 'Новая тема «Денди 90-х», звёздное небо у «Графита» и варп-прыжок при запуске просмотра (выключается в Настройках → Оформление)']],
@@ -368,6 +369,8 @@ async function tsGet(path) { const r = await fetch(ts(path)); const t = await r.
 function streamBase(fname) { return fname ? `/stream/${encodeURIComponent(fname)}` : '/stream'; }
 
 /* ---------- boot ---------- */
+// Адрес при открытии (до того, как его перепишет навигация): ссылки вида #join=КОД.
+const BOOT_HASH = location.hash || '';
 (async function boot() {
   try { state.hello = await api('/api/hello'); }
   catch (e) { toast('Не удалось подключиться к демону: ' + e.message, true); return; }
@@ -6478,14 +6481,47 @@ function cleanMusicTitle(t) {
   return s.length > 2 ? s.slice(0, 120) : String(t || '').slice(0, 120);
 }
 const COVER_FILE_RE = /(^|\/)(cover|folder|front|albumart[^/]*|обложка)\.(jpe?g|png|webp)$/i;
+/* audioWaitFiles — список файлов раздачи без модального окна и анимации
+   запуска: ход ожидания виден в строке плеера, прошлый трек играет дальше,
+   отмена — «×» или выбор другого. Раздачу, у которой за 20 с не нашлось ни
+   одного пира, бросаем; живую ждём до 60 с. quiet — для полки книг: без
+   строки в плеере. Ответ: { st } | { dead: 'почему' } | { cancel: true }. */
+async function audioWaitFiles(hash, title, quiet) {
+  const tok = quiet ? 0 : (mu.loadTok = (mu.loadTok || 0) + 1);
+  const gone = () => !quiet && mu.loadTok !== tok;
+  const quick = await statTorrent(hash).catch(() => null);
+  if (gone()) return { cancel: true };
+  if (quick && Array.isArray(quick.file_stats) && quick.file_stats.length) return { st: rememberStat(hash, quick) };
+  const L = { hash, title, start: Date.now(), peers: 0, active: 0, speed: 0 };
+  if (!quiet) { mu.loading = L; paintMusicPlayer(); }
+  await torrentAction('add', { link: hash, save_to_db: true }).catch(() => {});
+  await torrentAction('start', { hash }).catch(() => {});
+  try {
+    for (;;) {
+      if (gone()) return { cancel: true };
+      const st = await statTorrent(hash).catch(() => null);
+      if (gone()) return { cancel: true };
+      if (st && Array.isArray(st.file_stats) && st.file_stats.length) return { st: rememberStat(hash, st) };
+      if (st) { L.peers = Number(st.total_peers) || 0; L.active = Number(st.active_peers) || 0; L.speed = Number(st.download_speed) || 0; }
+      if (!quiet) paintMusicLoading();
+      const el = Date.now() - L.start;
+      if (el > 20000 && !L.peers) return { dead: 'за 20 с не нашлось ни одного пира — раздача мёртвая' };
+      if (el > 60000) return { dead: L.active ? 'пиры есть, но список файлов не пришёл за минуту' : 'пиры известны, но ни один не подключился' };
+      await sleep(1000);
+    }
+  } finally { if (!quiet && mu.loadTok === tok) { mu.loading = null; paintMusicPlayer(); } }
+}
+function musicCancelLoad() { mu.loadTok = (mu.loadTok || 0) + 1; mu.loading = null; paintMusicPlayer(); }
 async function musicPlayHash(hash, title, kind, known) {
   // known — список файлов, сохранённый заранее: книге, скачанной для
   // офлайна, TorrServer и сеть для старта не нужны.
-  const st = known ? { file_stats: known } : await waitForFiles({ hash, title });
-  if (!st) { audioDiag('Раздача не отдала список файлов — нет раздающих или TorrServer не ответил', true); return musicFallback('нет списка файлов'); }
+  const w = known ? { st: { file_stats: known } } : await audioWaitFiles(hash, title);
+  if (w.cancel) return;
+  const st = w.st;
+  if (!st) { audioDiag('Раздача не отдаёт: ' + w.dead, true); return musicFallback(w.dead, { hash, title, kind }); }
   const files = (st.file_stats || []).filter(f => isAudio(f.path))
     .sort((a, b) => a.path.localeCompare(b.path, 'ru', { numeric: true }));
-  if (!files.length) { toast('В раздаче нет аудиофайлов, которые играют в окне', true); return musicFallback('нет аудио'); }
+  if (!files.length) { toast('В раздаче нет аудиофайлов, которые играют в окне', true); return musicFallback('нет аудио', { hash, title, kind }); }
   if (kind === 'book' && typeof bookKeepFiles === 'function') bookKeepFiles(hash, files);
   const cov = (st.file_stats || []).find(f => COVER_FILE_RE.test(f.path));
   if (cov) coverRemember(title, hash, ts(`/stream/${encodeURIComponent(basename(cov.path))}?link=${encodeURIComponent(hash)}&index=${cov.id}&play`));
@@ -6558,7 +6594,8 @@ function musicToggle() {
 function musicStop() {
   if (mu.kind === 'radio') { radioStop(); }
   if (mu.audio) { if (mu.kind === 'book') bookSavePos(true); mu.audio.pause(); mu.audio.removeAttribute('src'); mu.audio.load(); }
-  mu.ix = -1; mu.t = null; mu.queue = []; mu.kind = ''; mu.wd = null; mu.diag = '';
+  mu.ix = -1; mu.t = null; mu.queue = []; mu.kind = ''; mu.wd = null; mu.diag = ''; mu.qOpen = false;
+  mu.loadTok = (mu.loadTok || 0) + 1; mu.loading = null;
   paintMusicPlayer(); paintNowPlaying(); paintMusicMine();
 }
 function musicTrackName(f) { return f ? basename(f.path).replace(/\.[^.]+$/, '').replace(/^\d{1,3}[\s._-]+/, '') : ''; }
@@ -6577,40 +6614,64 @@ function toggleShuffle() {
 /* ── плеер внизу раздела ── */
 function paintMusicPlayer() {
   const el = $('#muPlayer'); if (!el) return;
-  if (mu.kind === 'radio' && typeof radioBarHtml === 'function') { el.innerHTML = radioBarHtml(); bindRadioBar(); return; }
-  if (!mu.t || mu.ix < 0) { el.innerHTML = ''; return; }
-  const a = mu.audio;
-  const f = mu.queue[mu.ix];
-  const book = mu.kind === 'book';
-  el.innerHTML = html`<div class="mu-bar">
-    <div class="mu-bar-cov">${raw(coverImg(mu.t.title, mu.t.hash))}</div>
-    <div class="mu-bar-t"><b title="${musicTrackName(f)}">${musicTrackName(f)}</b><small>${mu.t.title} · ${mu.ix + 1}/${mu.queue.length}</small></div>
-    <div class="mu-ctl">
-      ${raw(book ? html`<button class="iconbtn" data-bk-back title="Назад на 15 секунд">↺15</button>` : html`<button class="iconbtn${mu.shuffle ? ' on' : ''}" data-mu-shuf title="Вперемешку">🔀</button>`)}
-      <button class="iconbtn" data-mu-prev title="Предыдущий" ${mu.ix > 0 || mu.shuffle ? '' : 'disabled'}>${raw(ico('prev', 16))}</button>
-      <button class="iconbtn mu-pp" data-mu-pp title="Пауза / играть">${raw(ico(a && !a.paused ? 'pause' : 'play', 17))}</button>
-      <button class="iconbtn" data-mu-next title="Следующий" ${mu.ix < mu.queue.length - 1 || mu.shuffle ? '' : 'disabled'}>${raw(ico('next', 16))}</button>
-      ${raw(book ? html`<button class="iconbtn" data-bk-fwd title="Вперёд на 30 секунд">30↻</button><button class="iconbtn" data-bk-mark title="Закладка здесь">${raw(ico('bookmark', 15))}</button>` : '')}
-      <button class="iconbtn" data-mu-stop title="Остановить">${raw(ico('stop', 14))}</button>
+  const load = mu.loading ? html`<div class="mu-load" id="muLoad">${raw(musicLoadingHtml())}</div>` : '';
+  if (mu.kind === 'radio' && typeof radioBarHtml === 'function') { el.innerHTML = load + radioBarHtml(); bindRadioBar(); return; }
+  if (!mu.t || mu.ix < 0) { el.innerHTML = load; return; }
+  const a = mu.audio, f = mu.queue[mu.ix], book = mu.kind === 'book';
+  const artist = artistOf(mu.t.title), album = albumOf(mu.t.title) || mu.t.title;
+  const prevQ = $('#muQList'), qScroll = prevQ ? prevQ.scrollTop : -1;
+  el.innerHTML = html`${raw(load)}<div class="mu-bar${a && !a.paused ? ' playing' : ''}">
+    <div class="mu-bar-bg" aria-hidden="true">${raw(coverImg(mu.t.title, mu.t.hash, book ? 'book' : ''))}</div>
+    ${raw(mu.qOpen ? html`<div class="mu-qpanel"><div class="mu-qhead"><b>${book ? 'Главы' : 'Треки'} · ${mu.queue.length}</b><button class="iconbtn" data-mu-qx title="Свернуть (Esc)">×</button></div>
+      <div class="mu-qlist" id="muQList">${raw(mu.queue.map((x, i) => html`<button class="${i === mu.ix ? 'on' : ''}" data-mu-ix="${i}"><span>${i === mu.ix ? raw(a && !a.paused ? '<i class="np-eq"><i></i><i></i><i></i></i>' : '❚❚') : i + 1}</span>${musicTrackName(x)}</button>`).join(''))}</div></div>` : '')}
+    <div class="mu-np">
+      <button class="mu-bar-cov" data-mu-cov title="Обложка крупно">${raw(coverImg(mu.t.title, mu.t.hash, book ? 'book' : ''))}</button>
+      <div class="mu-bar-t"><small>${book ? 'Аудиокнига' : 'Сейчас играет'} · ${book ? 'глава' : 'трек'} ${mu.ix + 1} из ${mu.queue.length}</small><b title="${musicTrackName(f)}">${musicTrackName(f)}</b><span title="${mu.t.title}">${artist ? artist + ' — ' + album : mu.t.title}</span></div>
+      <div class="mu-ctl">
+        ${raw(book ? html`<button class="iconbtn" data-bk-back title="Назад на 15 секунд">↺15</button>` : html`<button class="iconbtn${mu.shuffle ? ' on' : ''}" data-mu-shuf title="Вперемешку">🔀</button>`)}
+        <button class="iconbtn" data-mu-prev title="Предыдущий" ${mu.ix > 0 || mu.shuffle ? '' : 'disabled'}>${raw(ico('prev', 18))}</button>
+        <button class="iconbtn mu-pp" data-mu-pp title="Пауза / играть (пробел)">${raw(ico(a && !a.paused ? 'pause' : 'play', 22))}</button>
+        <button class="iconbtn" data-mu-next title="Следующий" ${mu.ix < mu.queue.length - 1 || mu.shuffle ? '' : 'disabled'}>${raw(ico('next', 18))}</button>
+        ${raw(book ? html`<button class="iconbtn" data-bk-fwd title="Вперёд на 30 секунд">30↻</button><button class="iconbtn" data-bk-mark title="Закладка здесь">${raw(ico('bookmark', 16))}</button>` : '')}
+      </div>
+      <div class="mu-side">
+        ${raw(book ? html`<select id="bkSpeed" class="mu-speed" title="Скорость чтения">${raw([0.75, 0.9, 1, 1.15, 1.25, 1.5, 1.75, 2].map(v => `<option value="${v}" ${Math.abs(bookSpeed() - v) < 0.01 ? 'selected' : ''}>${v}×</option>`).join(''))}</select>` : '')}
+        <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((a ? a.volume : 0.8) * 100)}" id="muVol" title="Громкость">
+        <button class="iconbtn${mu.qOpen ? ' on' : ''}" data-mu-q title="${book ? 'Главы' : 'Список треков'}">${raw(ico('list', 17))}</button>
+        <button class="iconbtn" data-mu-stop title="Остановить">${raw(ico('stop', 15))}</button>
+      </div>
     </div>
-    <input type="range" class="mu-seek" min="0" max="1000" value="0" id="muSeek" title="Перемотка">
-    <span class="mu-time" id="muTime">0:00</span>
-    ${raw(book ? html`<select id="bkSpeed" class="mu-speed" title="Скорость чтения">${raw([0.75, 0.9, 1, 1.15, 1.25, 1.5, 1.75, 2].map(v => `<option value="${v}" ${Math.abs(bookSpeed() - v) < 0.01 ? 'selected' : ''}>${v}×</option>`).join(''))}</select>` : '')}
-    <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((a ? a.volume : 0.8) * 100)}" id="muVol" title="Громкость">
-    <details class="mu-q"><summary title="Список треков">≡</summary><div>${raw(mu.queue.map((x, i) => html`<button class="${i === mu.ix ? 'on' : ''}" data-mu-ix="${i}">${i + 1}. ${musicTrackName(x)}</button>`).join(''))}</div></details>
+    <div class="mu-prog-row"><span class="mu-time" id="muTime">0:00</span><input type="range" class="mu-seek" min="0" max="1000" value="0" id="muSeek" title="Перемотка"><span class="mu-time r" id="muDur">—</span></div>
     <div class="mu-stat" id="muStat">${raw(statsHtml())}</div>
   </div>`;
   const sk = $('#muSeek'); sk.addEventListener('input', () => { const au = mu.audio; if (au && isFinite(au.duration)) au.currentTime = au.duration * sk.value / 1000; });
   const vo = $('#muVol'); vo.addEventListener('input', () => { const au = musicAudio(); au.volume = vo.value / 100; savePref('tc_muvol', au.volume); });
   const sp = $('#bkSpeed'); if (sp) sp.addEventListener('change', () => { bookSetSpeed(+sp.value); if (mu.audio) mu.audio.playbackRate = +sp.value; });
+  const ql = $('#muQList');
+  if (ql) { if (qScroll >= 0) ql.scrollTop = qScroll; else { const on = ql.querySelector('.on'); if (on) ql.scrollTop = on.offsetTop - ql.clientHeight / 2 + on.offsetHeight / 2; } }
   hydrateCovers(el);
   paintMusicProgress();
+}
+function musicLoadingHtml() {
+  const L = mu.loading; if (!L) return '';
+  const sec = Math.round((Date.now() - L.start) / 1000);
+  return html`<span class="spin"></span><span class="mu-load-t"><b>${cleanMusicTitle(L.title)}</b><small>Ищу раздающих… ${sec} с · ${L.peers ? L.active + ' из ' + L.peers + ' пиров' : 'пиров пока нет'}${L.speed ? ' · ↓ ' + fmtSpeed(L.speed) : ''}${!L.peers && sec > 8 ? ' · похоже, раздача мёртвая — через ' + Math.max(0, 20 - sec) + ' с попробую другую' : ''}</small></span><button class="iconbtn" data-mu-cancel title="Отменить">×</button>`;
+}
+function paintMusicLoading() { const el = $('#muLoad'); if (el) el.innerHTML = musicLoadingHtml(); else paintMusicPlayer(); }
+function musicCoverBig() {
+  if (!mu.t) return;
+  const ov = document.createElement('div'); ov.className = 'overlay mu-big-ov';
+  const f = mu.queue[mu.ix];
+  ov.innerHTML = html`<div class="mu-big" data-close><div class="mu-big-cov">${raw(coverImg(mu.t.title, mu.t.hash, mu.kind === 'book' ? 'book' : ''))}</div><b>${musicTrackName(f)}</b><span>${mu.t.title}</span></div>`;
+  ov.addEventListener('click', () => ov.remove());
+  document.body.appendChild(ov); hydrateCovers(ov);
 }
 function paintMusicProgress() {
   const a = mu.audio; if (!a || mu.kind === 'radio') return;
   const sk = $('#muSeek'), tm = $('#muTime');
   if (sk && isFinite(a.duration) && a.duration > 0 && document.activeElement !== sk) sk.value = Math.round(a.currentTime / a.duration * 1000);
-  if (tm) tm.textContent = fmtPos(a.currentTime || 0) + (isFinite(a.duration) ? ' / ' + fmtPos(a.duration) : '');
+  if (tm) tm.textContent = fmtPos(a.currentTime || 0);
+  const du = $('#muDur'); if (du) du.textContent = isFinite(a.duration) ? fmtPos(a.duration) : '—';
 }
 
 /* ── скорость, раздающие, буфер ── */
@@ -6657,7 +6718,8 @@ function audioDiag(text, bad) { mu.diag = text || ''; const el = $('#muStat'); i
 function audioWatchdog() {
   const w = mu.wd, a = mu.audio; if (!w || !a || mu.kind === 'radio' || a.paused && w.playing) return;
   const now = Date.now(), s = mu.stats || {};
-  const notStarted = !w.playing && now - w.start > 20000;
+  const dead = mu.stats && !Number(mu.stats.total_peers) && !Number(mu.stats.active_peers);
+  const notStarted = !w.playing && now - w.start > (dead ? 9000 : 20000);
   const stalled = w.playing && w.stall && now - w.stall > 25000;
   if (!notStarted && !stalled) return;
   const peers = Number(s.active_peers) || 0, speed = Number(s.download_speed) || 0;
@@ -6679,9 +6741,16 @@ function audioOnError() {
   audioDiag(why);
   if (mu.switches++ < 6 && mu.ix < mu.queue.length - 1) { toast('Пропускаю трек: ' + why); setTimeout(() => musicNext(1, true), 600); }
 }
-async function musicFallback(why) {
-  if (mu.kind === 'book') { toast('Аудиокнига: ' + why + '. Попробуйте позже или скачайте для офлайна', true); return; }
-  const alt = (mu.alts || []).find(r => (Number(r.seed) || 0) > 0 && audioQuality(r.title) > 0.35 && r.hash !== (mu.t && mu.t.hash));
+async function musicFallback(why, cur) {
+  cur = cur || { hash: mu.t && mu.t.hash, title: mu.t && mu.t.title, kind: mu.kind };
+  if (cur.kind === 'book' || mu.kind === 'book') { toast('Аудиокнига: ' + why + '. Попробуйте позже или скачайте для офлайна', true); return; }
+  const ok = r => (Number(r.seed) || 0) > 0 && audioQuality(r.title) > 0.35 && r.hash !== cur.hash;
+  // Запасных нет (трек из «Моей музыки») — ищем этот же альбом заново.
+  if (!(mu.alts || []).some(ok) && cur.title && mu.switches < 3) {
+    toast('Раздача не отдаёт (' + why + ') — ищу другую раздачу этого альбома…');
+    try { const res = await audioTrackerSearch(cleanMusicTitle(cur.title).slice(0, 90), 2, isMusicRelease, 0.45); mu.alts = res.rows; } catch { mu.alts = []; }
+  }
+  const alt = (mu.alts || []).find(ok);
   if (!alt || mu.switches >= 3) { toast('Раздача не отдаёт: ' + why + '. Других живых раздач нет', true); return; }
   mu.switches++;
   mu.alts = mu.alts.filter(r => r !== alt);
@@ -6861,77 +6930,492 @@ function onMusicClick(e) {
   if (t.closest('[data-mu-prev]')) return musicNext(-1);
   if (t.closest('[data-mu-next]')) return musicNext(1);
   if (t.closest('[data-mu-stop]')) return musicStop();
+  if (t.closest('[data-mu-q]')) { mu.qOpen = !mu.qOpen; return paintMusicPlayer(); }
+  if (t.closest('[data-mu-qx]')) { mu.qOpen = false; return paintMusicPlayer(); }
+  if (t.closest('[data-mu-cancel]')) return musicCancelLoad();
+  if (t.closest('[data-mu-cov]')) return musicCoverBig();
   if (typeof onBookClick === 'function' && onBookClick(t)) return;
   if (typeof onRadioClick === 'function' && onRadioClick(t)) return;
 }
-/* ───────────── аудио: танцоры ─────────────
-   На сцене раздела «Аудио» танцует персонаж, нарисованный в духе аниме
-   (заливка и тёмный контур): Резе — каре, зелёные глаза, белая рубашка и
-   чокер — или серый волк с хвостом. На каждый трек выбирается случайный
-   танцор и танец (или тот, кого закрепили кнопкой). Слух: удары баса из
-   Web Audio дают темп и фазу «метронома»; если звук прочитать нельзя
-   (радио без CORS), танцор держит свой темп ~118 BPM. Руки и ноги — через
-   обратную кинематику к целям кистей и стоп. Рисуется 30 кадров/с, только
-   пока раздел открыт и окно видно. */
-const dz = { cv: null, ctx: null, raf: 0, last: 0, w: 0, h: 0, dpr: 1,
-  who: 'reze', b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, prevE: 0, spec: null, bassIx: [1, 6],
-  move: 'idle', prevMove: 'idle', moveAt: 0, pose: null, hair: 0, hairV: 0, skirt: 0, skirtV: 0, lastHx: 0, lastPx: 0,
-  tail: [], fw: [], stars: [], trees: [], flies: [], lastBurst: -1, flash: 0 };
-// «ихвильнихт» — танец волка из мема, его делают оба; у Резе он любимый
-const DZ_MOVES = { reze: ['ichwill', 'ichwill', 'iris', 'clap', 'point', 'hop'], wolf: ['ichwill', 'howl', 'stomp', 'shuffle', 'shake'] };
+
+/* Esc — на уровень выше: свернуть список треков, закрыть книгу, сбросить
+   поиск, затем вернуться на вкладку «Музыка». Окна (оверлеи) закрывает
+   общий обработчик, поэтому при открытом окне здесь ничего не делаем. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.defaultPrevented || state.view !== 'music') return;
+  if (document.querySelector('body > .overlay, .ctxmenu:not(.hidden)')) return;
+  const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') && t.value;
+  if (typing) return; // поле с текстом очищается своим обработчиком
+  if (typeof dancerMenuClose === 'function' && dancerMenuClose()) return;
+  if (mu.qOpen) { mu.qOpen = false; paintMusicPlayer(); return; }
+  if (mu.tab === 'books' && typeof bk !== 'undefined' && bk.open) { bk.open = null; paintBooks(); return; }
+  if (mu.tab === 'books' && typeof bk !== 'undefined' && bk.q) { bk.q = ''; bk.rows = []; paintAudioTab(); return; }
+  if (mu.tab === 'music' && mu.q) { mu.q = ''; mu.rows = []; paintAudioTab(); return; }
+  if (mu.tab !== 'music') { mu.tab = 'music'; savePref('tc_autab', 'music'); paintAudioTab(); }
+}, true);
+/* ───────────── аудио: 3D-танцор ─────────────
+   На сцене раздела «Аудио» танцует 3D-модель VRM (формат VRoid и витуберов),
+   которую пользователь загрузил сам: модели и записи движений лежат в папке
+   данных демона (/api/dancer), в программу они не вшиты — у персонажей и
+   записей свои авторы и лицензии. Без окна и фона: модель стоит прямо на
+   странице, тень под ногами.
+   • Слух: удары баса из Web Audio дают темп и фазу «метронома»; если звук
+     прочитать нельзя (радио без CORS), танцор держит свой темп ~118 BPM.
+   • Встроенные танцы — позы, заданные целями кистей и стоп (обратная
+     кинематика на «нормализованном» скелете VRM), меняются на долю; среди них
+     «ихвильнихт» по мему с волком. Свои записи (.vrma, .fbx с Mixamo, .bvh)
+     переносятся на скелет модели и идут вперемешку со встроенными.
+   • three.js и three-vrm (/vrm.js, ~250 КБ сжатыми) грузятся, только когда
+     танцор нужен. Рисуется 30 кадров/с, пока раздел открыт и окно видно. */
+const dz = { cv: null, raf: 0, last: 0, w: 0, h: 0,
+  b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, prevE: 0, spec: null, bassIx: [1, 6],
+  move: 'idle', prevMove: 'idle', moveAt: 0, pose: null, ichAt: 0 };
+const DZ_BUILTIN = ['ichwill', 'ichwill', 'iris', 'clap', 'point', 'hop', 'stomp', 'shuffle', 'shake'];
 const DZ_LEN = { ichwill: 16 };
 const DZ_NAMES = { iris: 'IRIS OUT', clap: 'хлопки', point: 'указка', hop: 'прыжки', howl: 'вой', ichwill: 'ихвильнихт', stomp: 'топот', shuffle: 'шаффл', shake: 'тряска', idle: '' };
+// v3 — всё, что касается 3D: модуль, сцена, модель, клипы.
+const v3 = { M: null, mod: null, ren: null, scene: null, cam: null, vrm: null, vrmName: '', loading: '', err: '', files: [], filesAt: 0,
+  rig: null, mixer: null, clips: {}, action: null, clipName: '', snap: null, snapAt: 0, blinkAt: 0, shadow: null, menu: false };
 function dancerOn() { return localStorage.getItem('tc_dancer') !== '0'; }
-function dancerWho() { const v = localStorage.getItem('tc_dancer_who'); return v === 'reze' || v === 'wolf' ? v : 'random'; }
+function dzMix() { const v = localStorage.getItem('tc_dz_mix'); return v === 'builtin' || v === 'mine' ? v : 'all'; }
+function dzAnims() { return v3.files.filter(f => f.kind === 'anim'); }
+function dzModels() { return v3.files.filter(f => f.kind === 'model'); }
+function dzMoveList() {
+  const mine = dzAnims().map(f => 'clip:' + f.name), mix = dzMix();
+  if (mix === 'mine' && mine.length) return mine;
+  if (mix === 'builtin' || !mine.length) return DZ_BUILTIN;
+  return DZ_BUILTIN.concat(mine, mine); // свои — почаще
+}
+function dzMoveLen(m) {
+  if (m.startsWith('clip:')) { const c = v3.clips[m.slice(5)]; return c ? Math.max(16, Math.round(c.duration * dz.bpm / 60)) : 4; }
+  return DZ_LEN[m] || 8;
+}
+function dzMoveName(m) { return m.startsWith('clip:') ? m.slice(5).replace(/\.[^.]+$/, '') : DZ_NAMES[m] || ''; }
+
+/* ── сцена в разметке ── */
 function dancerHtml() {
-  const on = dancerOn(), w = dancerWho();
-  return html`<aside class="mu-stage${on ? '' : ' off'}" id="muStage">
+  const on = dancerOn();
+  if (!on) return html`<aside class="dz-stage off" id="muStage"><button class="iconbtn dz-call" id="muDanceX" title="Позвать танцора">💃</button></aside>`;
+  return html`<aside class="dz-stage" id="muStage">
     <canvas id="muDance"></canvas>
-    ${on ? raw(html`<button class="iconbtn mu-stage-who" id="muDanceWho" title="Кто танцует: ${w === 'random' ? 'случайно на каждый трек' : w === 'reze' ? 'Резе' : 'Волк'}">${w === 'random' ? '🎲' : w === 'reze' ? '💃' : '🐺'}</button>`) : ''}
-    <button class="iconbtn mu-stage-x" id="muDanceX" title="${on ? 'Убрать танцора' : 'Позвать танцора'}">${on ? '×' : '💃'}</button>
-    <div class="mu-stage-cap" id="muDanceCap"></div>
+    <div class="dz-empty hidden" id="dzEmpty"></div>
+    <div class="dz-bar"><span class="dz-cap" id="muDanceCap"></span>
+      <button class="iconbtn" id="dzMenuBtn" title="Танцор: модель и движения">⚙</button>
+      <button class="iconbtn" id="muDanceX" title="Убрать танцора">×</button></div>
+    <div class="dz-menu hidden" id="dzMenu"></div>
+    <input type="file" id="dzFile" class="hidden" accept=".vrm,.vrma,.fbx,.bvh" multiple>
   </aside>`;
 }
 function bindDancer() {
-  const x = $('#muDanceX'); if (!x) return;
-  const redraw = () => { const st = $('#muStage'); st.outerHTML = dancerHtml(); bindDancer(); };
-  x.addEventListener('click', () => { savePref('tc_dancer', dancerOn() ? '0' : '1'); redraw(); });
-  const w = $('#muDanceWho');
-  if (w) w.addEventListener('click', () => {
-    const order = ['random', 'reze', 'wolf'], next = order[(order.indexOf(dancerWho()) + 1) % 3];
-    savePref('tc_dancer_who', next); dancerNewTrack(); redraw();
-    toast(next === 'random' ? 'Танцор — случайный на каждый трек' : next === 'reze' ? 'Танцует Резе' : 'Танцует волк');
-  });
-  if (dancerOn()) dancerStart();
+  const st = $('#muStage'); if (!st) return;
+  const redraw = () => { const s = $('#muStage'); if (s) { s.outerHTML = dancerHtml(); bindDancer(); } };
+  $('#muDanceX').addEventListener('click', () => { savePref('tc_dancer', dancerOn() ? '0' : '1'); v3.menu = false; redraw(); });
+  if (!dancerOn()) return;
+  $('#dzMenuBtn').addEventListener('click', e => { e.stopPropagation(); v3.menu = !v3.menu; paintDzMenu(); });
+  $('#dzFile').addEventListener('change', e => { dzUpload([...e.target.files]); e.target.value = ''; });
+  st.addEventListener('click', onDzClick);
+  st.addEventListener('change', onDzChange);
+  st.addEventListener('dragover', e => { e.preventDefault(); st.classList.add('drop'); });
+  st.addEventListener('dragleave', () => st.classList.remove('drop'));
+  st.addEventListener('drop', e => { e.preventDefault(); st.classList.remove('drop'); dzUpload([...(e.dataTransfer.files || [])]); });
+  dancerStart();
 }
-// Новый трек: новый танцор (если не закреплён) и новый танец.
+function dancerMenuClose() { if (!v3.menu) return false; v3.menu = false; paintDzMenu(); return true; }
+document.addEventListener('click', e => { if (v3.menu && !e.target.closest('#dzMenu, #dzMenuBtn')) { v3.menu = false; paintDzMenu(); } });
+
+// Новый трек — новый танец.
 function dancerNewTrack() {
-  const w = dancerWho();
-  const who = w === 'random' ? (Math.random() < 0.5 ? 'reze' : 'wolf') : w;
-  if (who !== dz.who) { dz.who = who; dz.pose = null; dz.tail = []; dz.fw = []; }
-  const list = DZ_MOVES[dz.who];
+  const list = dzMoveList();
   dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
   if (dz.move === 'ichwill') dz.ichAt = dz.moveAt;
   dz.onsets = [];
+  dzMoveStarted();
 }
-function dancerStart() {
+async function dancerStart() {
   const cv = $('#muDance'); if (!cv) return;
-  if (!dz.who || (dancerWho() !== 'random' && dz.who !== dancerWho())) dz.who = dancerWho() === 'random' ? dz.who : dancerWho();
-  dz.cv = cv; dz.ctx = cv.getContext('2d');
-  dancerResize();
+  dz.cv = cv;
+  await dzLoadFiles();
+  const models = dzModels();
+  if (!models.length) { dzEmpty(); return; }
+  const want = localStorage.getItem('tc_vrm_model'), pick = models.find(f => f.name === want) || models[0];
+  try { await dzEnsure3D(); } catch (e) { dzEmpty('Не удалось загрузить 3D: ' + e.message); return; }
+  if (!dz.cv || !dz.cv.isConnected) return;
+  dzAttachCanvas();
+  if (v3.vrmName !== pick.name) await dzLoadModel(pick.name);
   cancelAnimationFrame(dz.raf); dz.last = 0;
   dz.raf = requestAnimationFrame(dancerFrame);
 }
+async function dzLoadFiles(force) {
+  if (!force && Date.now() - v3.filesAt < 5000) return;
+  try { v3.files = (await api('/api/dancer')).files || []; v3.filesAt = Date.now(); } catch { v3.files = []; }
+}
+function dzEmpty(err) {
+  const el = $('#dzEmpty'); if (!el) return;
+  el.classList.remove('hidden');
+  el.innerHTML = html`<div class="dz-empty-in">
+    <div class="dz-empty-i">💃</div>
+    <b>Добавьте танцора</b>
+    <span>3D-модель в формате VRM — например, из VRoid Hub или VRoid Studio. Перетащите файл сюда или выберите его.</span>
+    ${err ? raw(html`<span class="err">${err}</span>`) : ''}
+    <button class="btn primary sm" data-dz-up>Выбрать модель (.vrm)</button>
+  </div>`;
+}
+
+/* ── загрузка файлов на демон ── */
+async function dzUpload(files) {
+  files = files.filter(f => /\.(vrm|vrma|fbx|bvh)$/i.test(f.name));
+  if (!files.length) { toast('Нужен файл .vrm (модель) или .vrma, .fbx, .bvh (движение)', true); return; }
+  let lastModel = '';
+  for (const f of files) {
+    const name = f.name.replace(/[^\p{L}\p{N} _.()\[\]-]/gu, '_').slice(-100);
+    toast('Загружаю ' + name + ' (' + fmtSize(f.size) + ')…');
+    try {
+      const r = await fetch('/api/dancer/file?n=' + encodeURIComponent(name), { method: 'POST', body: f });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+      if (/\.vrm$/i.test(name)) lastModel = name;
+      else delete v3.clips[name];
+    } catch (e) { toast('Не загрузилось: ' + e.message, true); }
+  }
+  await dzLoadFiles(true);
+  if (lastModel) { savePref('tc_vrm_model', lastModel); v3.vrmName = ''; const em = $('#dzEmpty'); if (em) em.classList.add('hidden'); dancerStart(); toast('Танцор готов'); }
+  else toast('Движения добавлены — пойдут вперемешку со встроенными');
+  paintDzMenu();
+}
+async function dzDelete(name) {
+  try { await fetch('/api/dancer/file?n=' + encodeURIComponent(name), { method: 'DELETE' }); } catch {}
+  delete v3.clips[name];
+  await dzLoadFiles(true);
+  if (name === v3.vrmName) { dzDropModel(); if (dzModels().length) dancerStart(); else dzEmpty(); }
+  paintDzMenu();
+}
+function paintDzMenu() {
+  const m = $('#dzMenu'); if (!m) return;
+  m.classList.toggle('hidden', !v3.menu); const st = $('#muStage'); if (st) st.classList.toggle('menu', !!v3.menu);
+  if (!v3.menu) return;
+  const meta = v3.vrm && v3.vrm.meta, mix = dzMix();
+  const who = meta ? (meta.name || meta.title || v3.vrmName) : '';
+  const by = meta ? [].concat(meta.authors || meta.author || []).join(', ') : '';
+  m.innerHTML = html`<div class="dz-mh">Модель</div>
+    ${dzModels().map(f => raw(html`<div class="dz-row${f.name === v3.vrmName ? ' on' : ''}"><button data-dz-model="${f.name}">${f.name.replace(/\.vrm$/i, '')}</button><button class="iconbtn" data-dz-del="${f.name}" title="Удалить файл">×</button></div>`))}
+    ${who ? raw(html`<div class="dz-credit">«${who}»${by ? ' · автор ' + by : ''}${meta && meta.licenseUrl ? raw(' · <a href="' + esc(meta.licenseUrl) + '" target="_blank" rel="noopener">лицензия</a>') : ''}</div>`) : ''}
+    <button class="btn sm" data-dz-up>+ Модель (.vrm)</button>
+    <div class="dz-mh">Танцы</div>
+    <label class="dz-opt"><input type="radio" name="dzMix" value="all" ${mix === 'all' ? 'checked' : ''}> встроенные и мои вперемешку</label>
+    <label class="dz-opt"><input type="radio" name="dzMix" value="builtin" ${mix === 'builtin' ? 'checked' : ''}> только встроенные</label>
+    <label class="dz-opt"><input type="radio" name="dzMix" value="mine" ${mix === 'mine' ? 'checked' : ''}> только мои</label>
+    ${dzAnims().map(f => raw(html`<div class="dz-row${dz.move === 'clip:' + f.name ? ' on' : ''}"><button data-dz-play="${f.name}" title="Танцевать сейчас">${f.name}</button><button class="iconbtn" data-dz-del="${f.name}" title="Удалить файл">×</button></div>`))}
+    <button class="btn sm" data-dz-up>+ Движение (.vrma, .fbx, .bvh)</button>
+    <div class="dz-hint">Движения: .vrma (VRoid), .fbx с Mixamo («Without Skin»), .bvh. Файлы можно перетащить на танцора.</div>`;
+}
+function onDzClick(e) {
+  const t = e.target; let b;
+  if (t.closest('[data-dz-up]')) { $('#dzFile').click(); return; }
+  if ((b = t.closest('[data-dz-model]'))) { savePref('tc_vrm_model', b.dataset.dzModel); dancerStart(); paintDzMenu(); return; }
+  if ((b = t.closest('[data-dz-del]'))) { const n = b.dataset.dzDel; if (confirm('Удалить «' + n + '»?')) dzDelete(n); return; }
+  if ((b = t.closest('[data-dz-play]'))) { dz.prevMove = dz.move; dz.move = 'clip:' + b.dataset.dzPlay; dz.moveAt = Math.floor(dz.b); dzMoveStarted(); paintDzMenu(); }
+}
+function onDzChange(e) { if (e.target.name === 'dzMix') { savePref('tc_dz_mix', e.target.value); dancerNewTrack(); } }
+
+/* ── 3D ── */
+async function dzEnsure3D() {
+  if (v3.M) return v3.M;
+  if (!v3.mod) v3.mod = import('/vrm.js');
+  v3.M = await v3.mod;
+  return v3.M;
+}
+function dzAttachCanvas() {
+  const M = v3.M, THREE = M.THREE;
+  if (!v3.ren || v3.ren.domElement !== dz.cv) {
+    if (v3.ren) { try { v3.ren.dispose(); } catch {} }
+    v3.ren = new THREE.WebGLRenderer({ canvas: dz.cv, alpha: true, antialias: true, powerPreference: 'low-power' });
+    v3.ren.setClearColor(0x000000, 0);
+    v3.ren.outputColorSpace = THREE.SRGBColorSpace;
+  }
+  if (!v3.scene) {
+    v3.scene = new THREE.Scene();
+    v3.cam = new THREE.PerspectiveCamera(26, 1, 0.1, 30);
+    const key = new THREE.DirectionalLight(0xffffff, Math.PI * 0.9); key.position.set(1, 2, 3); v3.scene.add(key);
+    v3.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    // мягкая тень — пятно с радиальной прозрачностью
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c);
+    v3.shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+    v3.shadow.rotation.x = -Math.PI / 2; v3.shadow.position.y = 0.002; v3.scene.add(v3.shadow);
+  }
+  dancerResize();
+}
 function dancerResize() {
+  if (!v3.ren || !dz.cv) return;
   const r = dz.cv.getBoundingClientRect();
-  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-  dz.w = Math.max(10, r.width); dz.h = Math.max(10, r.height); dz.dpr = dpr;
-  dz.cv.width = Math.round(dz.w * dpr); dz.cv.height = Math.round(dz.h * dpr);
-  const W = dz.w, H = dz.h;
-  dz.stars = Array.from({ length: 60 }, () => ({ x: Math.random() * W, y: Math.random() * H * 0.6, r: Math.random() * 1.2 + 0.3, f: Math.random() * 6 }));
-  dz.trees = Array.from({ length: 16 }, (_, i) => ({ x: (i + Math.random() * 0.8) / 16 * W * 1.1 - W * 0.05, h: H * (0.16 + Math.random() * 0.16), far: i % 2 }));
-  dz.trees.sort((a, b) => b.far - a.far);
-  dz.flies = Array.from({ length: 16 }, () => ({ x: Math.random() * W, y: H * (0.45 + Math.random() * 0.45), a: Math.random() * 6, s: 6 + Math.random() * 12, f: Math.random() * 6 }));
+  dz.w = Math.max(10, r.width); dz.h = Math.max(10, r.height);
+  v3.ren.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
+  v3.ren.setSize(dz.w, dz.h, false);
+  v3.cam.aspect = dz.w / dz.h;
+  dzFrameCamera();
+}
+// Камера: модель целиком, ноги у нижнего края, с запасом под поднятые руки.
+function dzFrameCamera() {
+  if (!v3.cam) return;
+  const H = v3.rig ? v3.rig.height : 1.6, fov = v3.cam.fov * Math.PI / 180;
+  const needH = H * 1.18, needW = H * 0.95; // по высоте и по ширине (руки в стороны)
+  const dist = Math.max(needH / 2 / Math.tan(fov / 2), needW / 2 / Math.tan(fov / 2) / v3.cam.aspect);
+  v3.cam.position.set(0, H * 0.56, dist);
+  v3.cam.lookAt(0, H * 0.53, 0);
+  v3.cam.updateProjectionMatrix();
+}
+function dzDropModel() {
+  if (v3.vrm) { v3.scene.remove(v3.vrm.scene); try { v3.M.VRMUtils.deepDispose(v3.vrm.scene); } catch {} }
+  v3.vrm = null; v3.vrmName = ''; v3.rig = null; v3.mixer = null; v3.action = null; v3.clipName = ''; v3.clips = {};
+}
+async function dzLoadModel(name) {
+  const M = v3.M;
+  v3.loading = name; dzCap('загружаю танцора…');
+  try {
+    const loader = new M.GLTFLoader();
+    loader.register(p => new M.VRMLoaderPlugin(p));
+    const gltf = await loader.loadAsync('/api/dancer/file?n=' + encodeURIComponent(name));
+    const vrm = gltf.userData.vrm; if (!vrm) throw new Error('в файле нет VRM');
+    if (v3.loading !== name) { M.VRMUtils.deepDispose(gltf.scene); return; }
+    dzDropModel();
+    M.VRMUtils.removeUnnecessaryVertices(gltf.scene);
+    if (M.VRMUtils.combineSkeletons) M.VRMUtils.combineSkeletons(gltf.scene);
+    M.VRMUtils.rotateVRM0(vrm);
+    vrm.scene.traverse(o => { o.frustumCulled = false; });
+    v3.scene.add(vrm.scene);
+    v3.vrm = vrm; v3.vrmName = name;
+    if (vrm.lookAt) vrm.lookAt.target = v3.cam;
+    v3.mixer = new M.THREE.AnimationMixer(vrm.scene);
+    dzBuildRig();
+    dzFrameCamera();
+    const em = $('#dzEmpty'); if (em) em.classList.add('hidden');
+    paintDzMenu();
+  } catch (e) { dzEmpty('Модель не открылась: ' + e.message); }
+  finally { if (v3.loading === name) v3.loading = ''; }
+}
+
+/* ── скелет: опорные точки и обратная кинематика ── */
+const DZ_BONES = ['hips', 'spine', 'chest', 'upperChest', 'neck', 'head', 'leftShoulder', 'rightShoulder', 'leftUpperArm', 'leftLowerArm', 'leftHand', 'rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperLeg', 'leftLowerLeg', 'leftFoot', 'rightUpperLeg', 'rightLowerLeg', 'rightFoot', 'leftToes', 'rightToes'];
+function dzBuildRig() {
+  const THREE = v3.M.THREE, h = v3.vrm.humanoid, V = () => new THREE.Vector3();
+  const n = {}; for (const k of DZ_BONES) n[k] = h.getNormalizedBoneNode(k);
+  v3.vrm.scene.updateMatrixWorld(true);
+  const wp = k => n[k] ? n[k].getWorldPosition(V()) : null;
+  const armL = wp('leftUpperArm').distanceTo(wp('leftLowerArm')) + wp('leftLowerArm').distanceTo(wp('leftHand'));
+  const head = wp('head'), foot = wp('leftFoot');
+  const eyeL = h.getNormalizedBoneNode('leftEye'), eyeR = h.getNormalizedBoneNode('rightEye');
+  v3.rig = { n, u: armL / 55, hips0: n.hips.position.clone(), ankleY: foot.y, height: head.y + armL * 0.42,
+    eyes: eyeL && eyeR ? [eyeL, eyeR] : null, len: {} };
+  for (const s of ['left', 'right']) {
+    v3.rig.len[s + 'Arm'] = [wp(s + 'UpperArm').distanceTo(wp(s + 'LowerArm')), wp(s + 'LowerArm').distanceTo(wp(s + 'Hand'))];
+    v3.rig.len[s + 'Leg'] = [wp(s + 'UpperLeg').distanceTo(wp(s + 'LowerLeg')), wp(s + 'LowerLeg').distanceTo(wp(s + 'Foot'))];
+  }
+  v3.shadow.scale.set(armL * 1.7, armL * 1.0, 1);
+}
+// Двухзвенная ОК в мировых координатах; pole — куда смотрит сустав.
+const dzT = {};
+function dzIK3(up, lo, end, target, pole, lens) {
+  const THREE = v3.M.THREE;
+  if (!dzT.a) { for (const k of ['a', 'b', 'c', 'd', 'e', 't', 'x', 'y']) dzT[k] = new THREE.Vector3(); dzT.q = new THREE.Quaternion(); dzT.pq = new THREE.Quaternion(); dzT.wq = new THREE.Quaternion(); }
+  const { a, b, c, d, e, t, x, y, q, pq, wq } = dzT;
+  const [l1, l2] = lens;
+  up.getWorldPosition(a); lo.getWorldPosition(b); end.getWorldPosition(c);
+  t.copy(target).sub(a); let dist = t.length();
+  const dd = Math.min(l1 + l2 - 1e-4, Math.max(Math.abs(l1 - l2) + 1e-4, dist));
+  t.normalize();
+  const along = (l1 * l1 - l2 * l2 + dd * dd) / (2 * dd), hgt = Math.sqrt(Math.max(0, l1 * l1 - along * along));
+  x.copy(pole).addScaledVector(t, -pole.dot(t)); if (x.lengthSq() < 1e-8) x.set(0, 0, 1).addScaledVector(t, -t.z); x.normalize();
+  e.copy(a).addScaledVector(t, along).addScaledVector(x, hgt);          // локоть / колено
+  const tip = d.copy(a).addScaledVector(t, dd);                          // кисть / стопа
+  // верхнее звено: (b - a) → (e - a)
+  x.copy(b).sub(a).normalize(); y.copy(e).sub(a).normalize();
+  q.setFromUnitVectors(x, y);
+  up.getWorldQuaternion(wq); wq.premultiply(q);
+  up.parent.getWorldQuaternion(pq); up.quaternion.copy(pq.invert().multiply(wq));
+  up.updateMatrixWorld(true);
+  // нижнее звено: (c' - e) → (tip - e)
+  lo.getWorldPosition(b); end.getWorldPosition(c);
+  x.copy(c).sub(b).normalize(); y.copy(tip).sub(b).normalize();
+  q.setFromUnitVectors(x, y);
+  lo.getWorldQuaternion(wq); wq.premultiply(q);
+  lo.parent.getWorldQuaternion(pq); lo.quaternion.copy(pq.invert().multiply(wq));
+  lo.updateMatrixWorld(true);
+}
+function dzApplyPose(p) {
+  const THREE = v3.M.THREE, R = v3.rig, n = R.n, u = R.u;
+  for (const k of DZ_BONES) if (n[k]) n[k].quaternion.identity();
+  const E = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, 'YXZ'));
+  // 2D: x вправо по экрану (= левая рука модели, +X), y вниз; tl — наклон по часовой
+  n.hips.position.set(R.hips0.x + p.px * u, R.hips0.y - p.py * u, R.hips0.z);
+  n.hips.quaternion.copy(E(0, p.tw * 0.5, -p.tl * 0.5));
+  n.spine.quaternion.copy(E(0.02, p.tw * 0.3, -p.tl * 0.3));
+  if (n.chest) n.chest.quaternion.copy(E(0, p.tw * 0.2, -p.tl * 0.2));
+  if (n.neck) n.neck.quaternion.copy(E(-p.up * 0.4, -p.tw * 0.4, -p.ht * 0.4));
+  n.head.quaternion.copy(E(-p.up * 0.6, -p.tw * 0.3, -p.ht * 0.6));
+  v3.vrm.scene.updateMatrixWorld(true);
+  // руки: цели — от точки груди, в осях повёрнутого торса
+  const sl = n.leftUpperArm.getWorldPosition(new THREE.Vector3()), sr = n.rightUpperArm.getWorldPosition(new THREE.Vector3());
+  const chest = sl.clone().add(sr).multiplyScalar(0.5).add(new THREE.Vector3(0, 2 * u, 0));
+  const roll = -p.tl * 0.6, cr = Math.cos(roll), sn = Math.sin(roll);
+  const loc = (xy, z) => { const x = xy[0] * u, y = -xy[1] * u; return new THREE.Vector3(chest.x + x * cr - y * sn, chest.y + x * sn + y * cr, chest.z + z * u); };
+  let tl = loc(p.rh, p.rhz), tr = loc(p.lh, p.lhz); // экран справа = левая рука модели
+  const ew = Math.min(1, Math.abs(p.eye || 0));
+  if (ew > 0.02 && R.eyes) { // кисть кольцом у глаза: та, что на стороне p.eye (|eye| — вес, т.к. позы плавно смешиваются)
+    const left = p.eye > 0, eye = R.eyes[left ? 0 : 1].getWorldPosition(new THREE.Vector3()), a = TAU * dz.b;
+    const tg = eye.add(new THREE.Vector3((left ? 1 : -1) * 0.04 + Math.cos(a) * 0.008, -0.01 + Math.sin(a) * 0.008, 0.07));
+    if (left) tl.lerp(tg, ew); else tr.lerp(tg, ew);
+  }
+  dzIK3(n.leftUpperArm, n.leftLowerArm, n.leftHand, tl, new THREE.Vector3(0.8, -1, -0.7), R.len.leftArm);
+  dzIK3(n.rightUpperArm, n.rightLowerArm, n.rightHand, tr, new THREE.Vector3(-0.8, -1, -0.7), R.len.rightArm);
+  // ноги: стопы на полу, колени вперёд (в присяде — в стороны)
+  const fl = new THREE.Vector3(p.rf[0] * u, R.ankleY + p.rf[1] * u, p.rfz * u), fr = new THREE.Vector3(p.lf[0] * u, R.ankleY + p.lf[1] * u, p.lfz * u);
+  const ko = 0.3 + (p.kn - 0.4) * 2;
+  dzIK3(n.leftUpperLeg, n.leftLowerLeg, n.leftFoot, fl, new THREE.Vector3(ko, 0, 1), R.len.leftLeg);
+  dzIK3(n.rightUpperLeg, n.rightLowerLeg, n.rightFoot, fr, new THREE.Vector3(-ko, 0, 1), R.len.rightLeg);
+  // стопы ровно, носком туда же, куда таз
+  const yaw = E(0, p.tw * 0.5, 0), pq = new THREE.Quaternion();
+  for (const k of ['leftFoot', 'rightFoot']) { n[k].parent.getWorldQuaternion(pq); n[k].quaternion.copy(pq.invert().multiply(yaw)); }
+  // мимика: рот поёт, иногда моргает
+  const ex = v3.vrm.expressionManager;
+  if (ex) {
+    ex.setValue('aa', Math.min(1, p.mo * 0.8));
+    ex.setValue('happy', Math.min(0.6, dz.energy * 0.5));
+  }
+}
+function dzBlink(now) {
+  const ex = v3.vrm && v3.vrm.expressionManager; if (!ex) return;
+  if (!v3.blinkAt) v3.blinkAt = now + 2000 + Math.random() * 3000;
+  const k = (now - v3.blinkAt) / 140;
+  ex.setValue('blink', k > 0 && k < 2 ? 1 - Math.abs(k - 1) : 0);
+  if (k >= 2) v3.blinkAt = now + 2200 + Math.random() * 3500;
+}
+
+/* ── свои движения: .vrma, .fbx (Mixamo), .bvh → скелет модели ── */
+const DZ_RIGMAP = { Hips: 'hips', Spine: 'spine', Spine1: 'chest', Spine2: 'upperChest', Chest: 'chest', UpperChest: 'upperChest', LowerBack: 'spine', Neck: 'neck', Neck1: 'neck', Head: 'head',
+  LeftShoulder: 'leftShoulder', LeftArm: 'leftUpperArm', LeftForeArm: 'leftLowerArm', LeftHand: 'leftHand', RightShoulder: 'rightShoulder', RightArm: 'rightUpperArm', RightForeArm: 'rightLowerArm', RightHand: 'rightHand',
+  LeftUpLeg: 'leftUpperLeg', LeftLeg: 'leftLowerLeg', LeftFoot: 'leftFoot', LeftToeBase: 'leftToes', RightUpLeg: 'rightUpperLeg', RightLeg: 'rightLowerLeg', RightFoot: 'rightFoot', RightToeBase: 'rightToes' };
+function dzRigKey(name) { return String(name).replace(/^mixamorig\d*:?/i, '').replace(/^.*[:|]/, ''); }
+function dzRetarget(root, clip) {
+  const THREE = v3.M.THREE, vrm = v3.vrm, v = new THREE.Vector3();
+  root.updateMatrixWorld(true);
+  const byKey = {}; root.traverse(o => { const k = DZ_RIGMAP[dzRigKey(o.name)]; if (k && !byKey[k]) byKey[k] = o; });
+  const hipsSrc = byKey.hips; if (!hipsSrc) throw new Error('в записи нет кости бёдер (Hips)');
+  const footSrc = byKey.leftFoot || byKey.rightFoot;
+  const pScale = hipsSrc.parent ? hipsSrc.parent.getWorldScale(v).y : 1;
+  const hipsW = hipsSrc.getWorldPosition(new THREE.Vector3()), footW = footSrc ? footSrc.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3();
+  const srcH = Math.max(1e-6, (hipsW.y - footW.y) / (pScale || 1));
+  const vrmH = Math.abs(vrm.humanoid.getNormalizedBoneNode('hips').getWorldPosition(v).y - v3.rig.ankleY);
+  const scale = vrmH / srcH, floorLocal = footW.y / (pScale || 1) - (v3.rig.ankleY / scale);
+  const v0 = vrm.meta && vrm.meta.metaVersion === '0';
+  const tracks = [], restInv = new THREE.Quaternion(), parentRest = new THREE.Quaternion(), q = new THREE.Quaternion();
+  for (const tr of clip.tracks) {
+    const [node, prop] = tr.name.split('.');
+    const src = root.getObjectByName(node) || (node === root.name ? root : null);
+    const vb = DZ_RIGMAP[dzRigKey(node)];
+    const dst = vb && vrm.humanoid.getNormalizedBoneNode(vb);
+    if (!src || !dst) continue;
+    src.getWorldQuaternion(restInv).invert();
+    if (src.parent) src.parent.getWorldQuaternion(parentRest); else parentRest.identity();
+    if (prop === 'quaternion') {
+      const vals = tr.values.slice();
+      for (let i = 0; i < vals.length; i += 4) {
+        q.fromArray(vals, i).premultiply(parentRest).multiply(restInv).toArray(vals, i);
+        if (v0) { vals[i] = -vals[i]; vals[i + 2] = -vals[i + 2]; }
+      }
+      tracks.push(new THREE.QuaternionKeyframeTrack(dst.name + '.quaternion', tr.times, vals));
+    } else if (prop === 'position' && vb === 'hips') {
+      const vals = tr.values.slice(), x0 = vals[0], z0 = vals[2];
+      for (let i = 0; i < vals.length; i += 3) {
+        // по полу — на месте сцены: сдвиг от первого кадра
+        vals[i] = (vals[i] - x0) * scale * (v0 ? -1 : 1);
+        vals[i + 1] = (vals[i + 1] - floorLocal) * scale;
+        vals[i + 2] = (vals[i + 2] - z0) * scale * (v0 ? -1 : 1);
+      }
+      tracks.push(new THREE.VectorKeyframeTrack(dst.name + '.position', tr.times, vals));
+    }
+  }
+  if (!tracks.length) throw new Error('кости записи не совпали со скелетом');
+  return new THREE.AnimationClip(clip.name || 'dance', clip.duration, tracks);
+}
+async function dzLoadClip(name) {
+  if (v3.clips[name] || !v3.vrm) return v3.clips[name];
+  const M = v3.M, url = '/api/dancer/file?n=' + encodeURIComponent(name), ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1].toLowerCase();
+  let clip;
+  if (ext === 'vrma') {
+    const loader = new M.GLTFLoader(); loader.register(p => new M.VRMAnimationLoaderPlugin(p));
+    const g = await loader.loadAsync(url), a = (g.userData.vrmAnimations || [])[0];
+    if (!a) throw new Error('в файле нет VRMA-анимации');
+    clip = M.createVRMAnimationClip(a, v3.vrm);
+  } else if (ext === 'fbx') {
+    const obj = await new M.FBXLoader().loadAsync(url);
+    const src = (obj.animations || [])[0]; if (!src) throw new Error('в FBX нет анимации');
+    clip = dzRetarget(obj, src);
+  } else if (ext === 'bvh') {
+    const res = new M.BVHLoader().parse(await (await fetch(url)).text());
+    const root = res.skeleton.bones[0];
+    clip = dzRetarget(root, res.clip);
+  }
+  v3.clips[name] = clip;
+  return clip;
+}
+// Смена танца: запоминаем текущую позу, чтобы перейти к новой плавно.
+function dzMoveStarted() {
+  if (!v3.rig) return;
+  const n = v3.rig.n;
+  v3.snap = { at: performance.now(), q: DZ_BONES.map(k => n[k] ? n[k].quaternion.clone() : null), hp: n.hips.position.clone() };
+  const m = dz.move;
+  if (m.startsWith('clip:')) {
+    const name = m.slice(5);
+    dzLoadClip(name).then(clip => {
+      if (dz.move !== m || !clip || !v3.mixer) return;
+      if (v3.action) v3.action.stop();
+      v3.action = v3.mixer.clipAction(clip); v3.action.reset().setLoop(v3.M.THREE.LoopRepeat, Infinity).play();
+      v3.clipName = name;
+      v3.snap = { at: performance.now(), q: DZ_BONES.map(k => n[k] ? n[k].quaternion.clone() : null), hp: n.hips.position.clone() };
+    }).catch(e => { toast('Движение «' + name + '» не подошло: ' + e.message, true); dz.move = 'idle'; dz.moveAt = dz.b - 99; });
+  } else if (v3.action) { v3.action.stop(); v3.action = null; v3.clipName = ''; }
+}
+function dzBlendSnap() {
+  const s = v3.snap; if (!s) return;
+  const k = Math.min(1, (performance.now() - s.at) / 450); if (k >= 1) { v3.snap = null; return; }
+  const e = k * k * (3 - 2 * k), n = v3.rig.n;
+  DZ_BONES.forEach((name, i) => { if (n[name] && s.q[i]) n[name].quaternion.slerpQuaternions(s.q[i], n[name].quaternion.clone(), e); });
+  n.hips.position.lerpVectors(s.hp, n.hips.position.clone(), e);
+}
+function dzCap(text) { const c = $('#muDanceCap'); if (c) c.textContent = text; }
+
+/* ── кадр ── */
+function dancerFrame(now) {
+  if (!dz.cv || !dz.cv.isConnected) { dz.raf = 0; return; }
+  dz.raf = requestAnimationFrame(dancerFrame);
+  if (document.hidden || now - dz.last < 32) return;
+  const dt = dz.last ? Math.min(0.1, (now - dz.last) / 1000) : 0.033; dz.last = now;
+  if (!v3.vrm || !v3.rig) return;
+  const r = dz.cv.getBoundingClientRect();
+  if (Math.abs(r.width - dz.w) > 1 || Math.abs(r.height - dz.h) > 1) dancerResize();
+  const { playing, heard } = dancerListen(dt, now);
+  dzChoreo(playing);
+  const clip = dz.move.startsWith('clip:') && v3.action;
+  if (clip) {
+    v3.mixer.update(dt);
+    const ex = v3.vrm.expressionManager; if (ex) { ex.setValue('aa', 0); ex.setValue('happy', Math.min(0.6, dz.energy * 0.5)); }
+  } else {
+    const k = Math.min(1, Math.max(0, dz.b - dz.moveAt));
+    const mv = dz.move.startsWith('clip:') ? 'idle' : dz.move, pm = dz.prevMove.startsWith('clip:') ? 'idle' : dz.prevMove;
+    let pose = dzPose(mv, dz.b, dz.energy);
+    if (k < 1) pose = dzLerp(dzPose(pm, dz.b, dz.energy), pose, k * k * (3 - 2 * k));
+    dz.pose = dz.pose ? dzLerp(dz.pose, pose, 1 - Math.exp(-dt * 14)) : pose;
+    dzApplyPose(dz.pose);
+  }
+  dzBlendSnap();
+  dzBlink(now);
+  v3.vrm.update(dt);
+  const hp = v3.rig.n.hips.getWorldPosition(dzT.sh || (dzT.sh = new v3.M.THREE.Vector3()));
+  v3.shadow.position.x = hp.x; v3.shadow.position.z = hp.z;
+  v3.ren.render(v3.scene, v3.cam);
+  dzCap(!playing ? 'включите трек — потанцуем' : `${dzMoveName(dz.move)} · ${heard ? '' : '≈'}${Math.round(dz.bpm)} BPM`);
 }
 
 /* ── слух: удары баса и темп ── */
@@ -6977,7 +7461,8 @@ function dancerListen(dt, now) {
 const TAU = Math.PI * 2;
 function dzPose(m, b, e) {
   const fr = b - Math.floor(b), beat = Math.floor(b), dn = Math.pow(1 - fr, 3), A = 0.55 + e * 0.6;
-  const p = { px: 0, py: dn * 4 * A, tl: 0, ht: 0, lh: [-17, 40], rh: [17, 40], lf: [-12, 0], rf: [12, 0], muz: 0, ring: 0, spark: 0, kn: 0.4, mo: 0 };
+  const p = { px: 0, py: dn * 4 * A, tl: 0, ht: 0, lh: [-17, 40], rh: [17, 40], lf: [-12, 0], rf: [12, 0], muz: 0, ring: 0, spark: 0, kn: 0.4, mo: 0,
+    lhz: 10, rhz: 10, lfz: 0, rfz: 0, tw: 0, up: 0, eye: 0 };
   const sw = Math.sin(Math.PI * b);
   switch (m) {
     case 'idle':
@@ -6989,17 +7474,17 @@ function dzPose(m, b, e) {
       if (rb < 8) { // стоит на одной ноге, другая согнута и заходит за опорную; лапки висят у груди
         const hop = Math.sin(Math.PI * fr) * 5 * A;
         p.py = -hop + 2; p.tl = -s * 0.08; p.ht = s * 0.1 - 0.06; p.px = s * 2;
-        if (s > 0) { p.rf = [5, hop]; p.lf = [9, 20 + hop]; } else { p.lf = [-5, hop]; p.rf = [-9, 20 + hop]; }
-        p.lh = [-8, 6 + flop]; p.rh = [8, 6 - flop];
+        if (s > 0) { p.rf = [5, hop]; p.lf = [9, 20 + hop]; p.lfz = 12; } else { p.lf = [-5, hop]; p.rf = [-9, 20 + hop]; p.rfz = 12; }
+        p.lh = [-8, 6 + flop]; p.rh = [8, 6 - flop]; p.lhz = p.rhz = 22; p.up = 0.28; p.tw = s * 0.15;
       } else if (rb < 12) { // лапы машут в стороны по очереди, корпус крутится
         const a = Math.PI * b, w = Math.sin(a);
         p.lh = [-14 - 26 * Math.max(0, w), 2 - 12 * w]; p.rh = [14 + 26 * Math.max(0, -w), 2 + 12 * w];
-        p.px = 4 * w; p.tl = 0.1 * w; p.ht = -0.15 * w;
+        p.px = 4 * w; p.tl = 0.1 * w; p.ht = -0.15 * w; p.tw = 0.4 * w; p.lhz = p.rhz = 6; p.up = 0.12;
         if (Math.floor(rb) % 2) p.lf = [-12, Math.sin(Math.PI * fr) * 7]; else p.rf = [12, Math.sin(Math.PI * fr) * 7];
       } else { // широкий присед, колени в стороны, пружинит на долю
         p.lf = [-23, 0]; p.rf = [23, 0]; p.kn = 1; p.py = 9 + dn * 6 * A;
         p.tl = Math.sin(Math.PI * b) * 0.08; p.ht = -p.tl;
-        p.lh = [-9, 8 + flop]; p.rh = [9, 8 - flop];
+        p.lh = [-9, 8 + flop]; p.rh = [9, 8 - flop]; p.lhz = p.rhz = 20; p.up = 0.15;
       }
       break;
     }
@@ -7009,14 +7494,14 @@ function dzPose(m, b, e) {
       if (s < 0) { p.lh = hand; p.rh = [16, 39]; } else { p.rh = hand; p.lh = [-16, 39]; }
       p.px = -s * 5 * A; p.tl = s * 0.07; p.ht = s * 0.16 + Math.sin(a) * 0.03;
       if (s < 0) p.rf = [12, 3]; else p.lf = [-12, 3];
-      p.ring = 1; break;
+      p.ring = 1; p.eye = s; break;
     }
     case 'clap': {
       const sep = Math.sin(Math.PI * fr), hi = beat % 4 === 3 ? -22 : 12;
       p.lh = [-3 - 19 * sep, hi + sep * 6]; p.rh = [3 + 19 * sep, hi + sep * 6];
       p.px = Math.sin(Math.PI * b) * 4 * A; p.tl = -p.px * 0.012;
       if (beat % 2) p.lf = [-16, 0]; else p.rf = [16, 0];
-      p.spark = fr < 0.18 ? 1 - fr / 0.18 : 0; break;
+      p.spark = fr < 0.18 ? 1 - fr / 0.18 : 0; p.lhz = p.rhz = 26; break;
     }
     case 'point': {
       const s = Math.floor(b / 2) % 2 ? 1 : -1, pop = Math.pow(1 - (b / 2 - Math.floor(b / 2)), 2);
@@ -7053,7 +7538,7 @@ function dzPose(m, b, e) {
     case 'shake': {
       const q = Math.sin(TAU * b * 2);
       p.px = q * 6 * A; p.tl = -q * 0.06; p.ht = q * 0.08; p.py = 3;
-      p.lh = [-42, -4 + 6 * q]; p.rh = [42, -4 - 6 * q]; p.lf = [-15, 0]; p.rf = [15, 0]; break;
+      p.lh = [-42, -4 + 6 * q]; p.rh = [42, -4 - 6 * q]; p.lf = [-15, 0]; p.rf = [15, 0]; p.tw = q * 0.2; p.lhz = p.rhz = 4; break;
     }
   }
   return p;
@@ -7065,292 +7550,14 @@ function dzLerp(a, b, t) {
 }
 function dzChoreo(playing) {
   if (!playing) { if (dz.move !== 'idle') { dz.prevMove = dz.move; dz.move = 'idle'; dz.moveAt = dz.b; } return; }
-  if (dz.move === 'idle' || dz.b - dz.moveAt >= (DZ_LEN[dz.move] || 8)) {
-    const list = DZ_MOVES[dz.who].filter(m => m !== dz.move);
+  if (dz.move === 'idle' || dz.b - dz.moveAt >= dzMoveLen(dz.move)) {
+    const list = dzMoveList().filter(m => m !== dz.move);
     dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
     if (dz.move === 'ichwill') dz.ichAt = dz.moveAt;
+    dzMoveStarted();
   }
 }
 
-/* ── скелет ── */
-function dzRot(v, a) { const c = Math.cos(a), s = Math.sin(a); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; }
-function dzAdd(a, b) { return [a[0] + b[0], a[1] + b[1]]; }
-// Двухзвенная ОК: сустав выбирается «наружу» (out = −1 влево, +1 вправо).
-function dzIK(root, tgt, l1, l2, out) {
-  let dx = tgt[0] - root[0], dy = tgt[1] - root[1], d = Math.hypot(dx, dy) || 0.001;
-  const dm = Math.min(l1 + l2 - 0.01, Math.max(Math.abs(l1 - l2) + 0.01, d));
-  dx *= dm / d; dy *= dm / d; d = dm;
-  const th = Math.atan2(dy, dx), al = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
-  const j1 = [root[0] + Math.cos(th + al) * l1, root[1] + Math.sin(th + al) * l1], j2 = [root[0] + Math.cos(th - al) * l1, root[1] + Math.sin(th - al) * l1];
-  return { j: (j1[0] - j2[0]) * out > 0 ? j1 : j2, e: [root[0] + dx, root[1] + dy] };
-}
-function dzSkeleton(p) {
-  const pel = [p.px, p.py], chest = dzAdd(pel, dzRot([0, -46], p.tl));
-  const loc = v => dzAdd(chest, dzRot(v, p.tl));
-  const g = { pel, chest, tl: p.tl, ht: p.ht, neck: loc([0, -6]) };
-  g.head = dzAdd(g.neck, dzRot([0, -16], p.tl + p.ht));
-  g.ls = loc([-14, 2]); g.rs = loc([14, 2]);
-  const la = dzIK(g.ls, loc(p.lh), 28, 27, -1), ra = dzIK(g.rs, loc(p.rh), 28, 27, 1);
-  g.le = la.j; g.lw = la.e; g.re = ra.j; g.rw = ra.e;
-  g.lhip = dzAdd(pel, dzRot([-9, 4], p.tl * 0.5)); g.rhip = dzAdd(pel, dzRot([9, 4], p.tl * 0.5));
-  const ll = dzIK(g.lhip, [p.lf[0], 92 - p.lf[1]], 47, 46, -1), rl = dzIK(g.rhip, [p.rf[0], 92 - p.rf[1]], 47, 46, 1);
-  // колени гнутся к зрителю, а не в стороны: боковой вынос сильно сжат
-  const knee = (h, k, a) => { const mx = h[0] + (a[0] - h[0]) * 47 / 93; return [mx + (k[0] - mx) * p.kn, k[1]]; };
-  g.lk = knee(g.lhip, ll.j, ll.e); g.la = ll.e; g.rk = knee(g.rhip, rl.j, rl.e); g.ra = rl.e;
-  return g;
-}
-
-/* ── рисование в cel-стиле ── */
-const OL = '#1b1424';
-function dzLimb(c, pts, w, col, ol = OL) {
-  c.lineCap = 'round'; c.lineJoin = 'round';
-  c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
-  c.strokeStyle = ol; c.lineWidth = w + 3; c.stroke();
-  c.strokeStyle = col; c.lineWidth = w; c.stroke();
-}
-function dzFill(c, col, ol = OL, lw = 1.6) { c.fillStyle = col; c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke(); }
-function dzDot(c, p, r, col) { c.beginPath(); c.arc(p[0], p[1], r, 0, TAU); dzFill(c, col); }
-function dzShoe(c, a, col, side) {
-  c.beginPath(); c.ellipse(a[0] + side * 3, a[1] + 1.5, 7, 3.6, 0, 0, TAU); dzFill(c, col);
-}
-// Пружинка для волос, юбки и прочего, что догоняет тело.
-function dzSpring(k, v, tgt, dt, stiff = 70, damp = 7) { const a = (tgt - dz[k]) * stiff - dz[v] * damp; dz[v] += a * dt; dz[k] += dz[v] * dt; }
-
-function dzDrawReze(c, g, p, dt) {
-  const SKIN = '#f6dccd', HAIR = '#3a2346', HAIR2 = '#5b3a6e', SHIRT = '#f5f3ef', SKIRT = '#262a3d', SHOE = '#221c28';
-  const hv = (g.head[0] - dz.lastHx) / Math.max(dt, 0.01); dz.lastHx = g.head[0];
-  dzSpring('hair', 'hairV', Math.max(-0.7, Math.min(0.7, -hv * 0.012)), dt);
-  const pv = (g.pel[0] - dz.lastPx) / Math.max(dt, 0.01); dz.lastPx = g.pel[0];
-  dzSpring('skirt', 'skirtV', Math.max(-0.5, Math.min(0.5, -pv * 0.01)), dt, 55, 6);
-  const H = g.head, ha = g.tl + g.ht;
-  // волосы сзади: каре до подбородка
-  c.save(); c.translate(H[0], H[1]); c.rotate(ha); c.scale(1.25, 1.25);
-  c.beginPath(); c.moveTo(-14, -2); c.quadraticCurveTo(-16, -17, 0, -17); c.quadraticCurveTo(16, -17, 14, -2);
-  c.quadraticCurveTo(15 + dz.hair * 4, 10, 12 + dz.hair * 5, 15); c.lineTo(-12 + dz.hair * 5, 15); c.quadraticCurveTo(-15 + dz.hair * 4, 10, -14, -2); dzFill(c, HAIR);
-  c.restore();
-  // ноги
-  dzLimb(c, [g.lhip, g.lk, g.la], 8, SKIN); dzLimb(c, [g.rhip, g.rk, g.ra], 8, SKIN);
-  dzShoe(c, g.la, SHOE, -1); dzShoe(c, g.ra, SHOE, 1);
-  // юбка
-  c.save(); c.translate(g.pel[0], g.pel[1]); c.rotate(g.tl * 0.5);
-  const sk = dz.skirt * 10, fl = 2 + dz.energy * 3;
-  c.beginPath(); c.moveTo(-11, -6); c.lineTo(11, -6); c.lineTo(17 + fl + sk, 24); c.quadraticCurveTo(sk, 27, -17 - fl + sk, 24); c.closePath(); dzFill(c, SKIRT);
-  c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-4, -4); c.lineTo(-6 + sk * 0.6, 23); c.moveTo(5, -4); c.lineTo(7 + sk * 0.6, 23); c.stroke();
-  c.restore();
-  // рубашка
-  c.save(); c.translate(g.chest[0], g.chest[1]); c.rotate(g.tl);
-  c.beginPath(); c.moveTo(-15, 0); c.quadraticCurveTo(0, -5, 15, 0); c.lineTo(11, 41); c.quadraticCurveTo(0, 43, -11, 41); c.closePath(); dzFill(c, SHIRT);
-  c.strokeStyle = '#c9c4cf'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, 2); c.lineTo(0, 40); c.stroke();
-  for (let y = 9; y < 40; y += 9) { c.fillStyle = '#b8b2c0'; c.beginPath(); c.arc(1.8, y, 0.9, 0, TAU); c.fill(); }
-  c.beginPath(); c.moveTo(-6, -3); c.lineTo(0, 5); c.lineTo(6, -3); dzFill(c, SHIRT, OL, 1.2); // воротник
-  c.restore();
-  // шея с чокером
-  dzLimb(c, [g.chest, g.neck], 6, SKIN);
-  c.save(); c.translate(g.neck[0], g.neck[1]); c.rotate(g.tl); c.fillStyle = '#111'; c.fillRect(-4, -1.5, 8, 2.6); c.restore();
-  // голова и лицо
-  c.save(); c.translate(H[0], H[1]); c.rotate(ha); c.scale(1.25, 1.25);
-  c.beginPath(); c.ellipse(0, 0, 10.5, 12.5, 0, 0, TAU); dzFill(c, SKIN);
-  for (const s of [-1, 1]) {
-    c.fillStyle = '#fff'; c.beginPath(); c.ellipse(s * 4.4, 1, 2.6, 2.9, 0, 0, TAU); c.fill();
-    c.fillStyle = '#2f9e6e'; c.beginPath(); c.ellipse(s * 4.2, 1.4, 1.8, 2.4, 0, 0, TAU); c.fill();
-    c.fillStyle = '#0c2a1e'; c.beginPath(); c.arc(s * 4.2, 1.6, 0.9, 0, TAU); c.fill();
-    c.fillStyle = '#fff'; c.beginPath(); c.arc(s * 4.7, 0.6, 0.6, 0, TAU); c.fill();
-    c.strokeStyle = OL; c.lineWidth = 1.3; c.beginPath(); c.moveTo(s * 1.8, -1.2); c.quadraticCurveTo(s * 4.4, -2.6, s * 7.2, -1); c.stroke();
-    c.fillStyle = 'rgba(255,120,140,.35)'; c.beginPath(); c.ellipse(s * 6, 5, 1.8, 1, 0, 0, TAU); c.fill();
-  }
-  c.strokeStyle = '#a0505a'; c.lineWidth = 1; c.beginPath();
-  if (p.mo > 0.3) { c.closePath(); c.fillStyle = '#7a2a3a'; c.beginPath(); c.ellipse(0, 7.6, 1.6, 1.1 + p.mo * 1.1, 0, 0, TAU); c.fill(); }
-  else if (dz.energy > 0.5) { c.arc(0, 7, 1.8, 0.1, Math.PI - 0.1); } else { c.moveTo(-1.6, 7.6); c.quadraticCurveTo(0, 8.6, 1.6, 7.6); }
-  c.stroke();
-  // чёлка и боковые пряди на пружинах
-  c.beginPath(); c.moveTo(-11.5, -1); c.quadraticCurveTo(-12, -14, 0, -14.5); c.quadraticCurveTo(12, -14, 11.5, -1);
-  c.lineTo(8, -5); c.lineTo(5.5, -1.5); c.lineTo(3, -6); c.lineTo(0, -2.5); c.lineTo(-3, -6.5); c.lineTo(-5.5, -2); c.lineTo(-8.5, -5.5); c.closePath(); dzFill(c, HAIR);
-  c.strokeStyle = HAIR2; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-6, -11); c.quadraticCurveTo(0, -13, 5, -11); c.stroke();
-  for (const s of [-1, 1]) {
-    const sw = dz.hair * 6;
-    c.beginPath(); c.moveTo(s * 11, -4); c.quadraticCurveTo(s * 13 + sw * 0.5, 6, s * 11 + sw, 15); c.lineTo(s * 8 + sw * 0.8, 12); c.quadraticCurveTo(s * 9, 4, s * 8.5, -3); c.closePath(); dzFill(c, HAIR);
-  }
-  c.restore();
-  // руки: рукав до локтя, дальше кожа
-  for (const [s, e, w] of [[g.ls, g.le, g.lw], [g.rs, g.re, g.rw]]) {
-    dzLimb(c, [s, e], 8, SHIRT); dzLimb(c, [e, w], 6, SKIN);
-    dzDot(c, w, 3.4, SKIN);
-  }
-  // «IRIS OUT»: кольцо из пальцев у глаза
-  if (p.ring > 0.5) {
-    const dl = Math.hypot(g.lw[0] - H[0], g.lw[1] - H[1]), dr = Math.hypot(g.rw[0] - H[0], g.rw[1] - H[1]);
-    const hand = dl < dr ? g.lw : g.rw;
-    if (Math.min(dl, dr) < 18) {
-    c.strokeStyle = OL; c.lineWidth = 2.6; c.beginPath(); c.arc(hand[0], hand[1], 4.2, 0, TAU); c.stroke();
-    c.strokeStyle = SKIN; c.lineWidth = 1.4; c.stroke(); }
-  }
-  if (p.spark > 0) {
-    const m = [(g.lw[0] + g.rw[0]) / 2, (g.lw[1] + g.rw[1]) / 2];
-    c.strokeStyle = `rgba(255,230,140,${p.spark})`; c.lineWidth = 1.4; c.beginPath();
-    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU, r0 = 6, r1 = 6 + 7 * p.spark; c.moveTo(m[0] + Math.cos(a) * r0, m[1] + Math.sin(a) * r0); c.lineTo(m[0] + Math.cos(a) * r1, m[1] + Math.sin(a) * r1); }
-    c.stroke();
-  }
-}
-
-function dzDrawWolf(c, g, p, dt) {
-  const FUR = '#8e97a8', FUR2 = '#6c7486', BELLY = '#dfe3ea', JEANS = '#34466b', SHOE = '#f2f2f2', OLW = '#1a1d27';
-  // хвост — цепочка звеньев, каждое догоняет предыдущее: так и виляет
-  const wag = Math.sin(TAU * dz.b * (dz.move === 'shake' ? 2 : 1)) * (0.35 + dz.energy * 0.55);
-  if (dz.tail.length !== 8) dz.tail = Array(8).fill(-0.4);
-  dz.tail[0] = -0.3 + wag;
-  for (let i = 1; i < 8; i++) dz.tail[i] += (dz.tail[i - 1] - dz.tail[i]) * Math.min(1, dt * 14);
-  const pts = []; let q = dzAdd(g.pel, [6, 6]);
-  for (let i = 0; i < 8; i++) { pts.push(q); const a = dz.tail[i] - i * 0.12; q = dzAdd(q, [Math.cos(a) * 6.5, -Math.sin(a) * 6.5]); }
-  const rr = i => 8.5 - i * 0.5;
-  c.fillStyle = OLW; pts.forEach((t, i) => { c.beginPath(); c.arc(t[0], t[1], rr(i) + 1.6, 0, TAU); c.fill(); });
-  pts.forEach((t, i) => { c.fillStyle = i > 5 ? BELLY : FUR; c.beginPath(); c.arc(t[0], t[1], rr(i), 0, TAU); c.fill(); });
-  // ноги в джинсах, кроссовки
-  dzLimb(c, [g.lhip, g.lk, g.la], 11, JEANS, OLW); dzLimb(c, [g.rhip, g.rk, g.ra], 11, JEANS, OLW);
-  dzShoe(c, g.la, SHOE, -1); dzShoe(c, g.ra, SHOE, 1);
-  // торс: мех, светлая грудь
-  c.save(); c.translate(g.chest[0], g.chest[1]); c.rotate(g.tl);
-  c.beginPath(); c.moveTo(-17, 0); c.quadraticCurveTo(0, -6, 17, 0); c.quadraticCurveTo(15, 24, 12, 46); c.quadraticCurveTo(0, 49, -12, 46); c.quadraticCurveTo(-15, 24, -17, 0); dzFill(c, FUR, OLW);
-  c.beginPath(); c.moveTo(-8, 1); c.lineTo(-4, 6); c.lineTo(0, 2); c.lineTo(4, 6); c.lineTo(8, 1); c.quadraticCurveTo(9, 26, 0, 34); c.quadraticCurveTo(-9, 26, -8, 1); c.fillStyle = BELLY; c.fill();
-  c.fillStyle = '#26324d'; c.fillRect(-12.5, 40, 25, 6); // пояс джинсов
-  c.restore();
-  // голова
-  const H = g.head, ha = g.tl + g.ht, m = Math.max(p.muz, p.mo * 0.55);
-  c.save(); c.translate(H[0], H[1] - m * 1.5); c.rotate(ha); c.scale(1.2, 1.2);
-  for (const s of [-1, 1]) {
-    const flick = Math.max(0, Math.sin(TAU * dz.b + s)) * 0.12 * dz.energy;
-    c.save(); c.translate(s * 7.5, -8); c.rotate(s * (0.18 + flick));
-    c.beginPath(); c.moveTo(-4.5, 2); c.lineTo(0, -13); c.lineTo(4.5, 2); c.closePath(); dzFill(c, FUR2, OLW);
-    c.beginPath(); c.moveTo(-2.3, 0.5); c.lineTo(0, -8.5); c.lineTo(2.3, 0.5); c.fillStyle = '#d99aa8'; c.fill();
-    c.restore();
-  }
-  c.beginPath(); c.moveTo(-12, -4); c.quadraticCurveTo(-12, -14, 0, -14); c.quadraticCurveTo(12, -14, 12, -4);
-  c.lineTo(15, 3); c.lineTo(11, 4); c.lineTo(13, 9); c.quadraticCurveTo(0, 16, -13, 9); c.lineTo(-11, 4); c.lineTo(-15, 3); c.closePath(); dzFill(c, FUR, OLW);
-  // морда: при вое уходит вверх, глаза закрываются
-  const sy = 5 - m * 5;
-  c.beginPath(); c.ellipse(0, sy, 6.8 + m, 5.4 + m * 1.5, 0, 0, TAU); dzFill(c, BELLY, OLW, 1.3);
-  for (const s of [-1, 1]) {
-    if (p.muz > 0.4) { c.strokeStyle = OLW; c.lineWidth = 1.4; c.beginPath(); c.arc(s * 5, -3, 2, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
-    else {
-      c.beginPath(); c.ellipse(s * 5, -3.5, 2.5, 2.2, s * 0.25, 0, TAU); dzFill(c, '#ffc93c', OLW, 1);
-      c.fillStyle = '#111'; c.beginPath(); c.ellipse(s * 5, -3.3, 0.8, 1.6, 0, 0, TAU); c.fill();
-    }
-    c.strokeStyle = OLW; c.lineWidth = 1.3; c.beginPath(); c.moveTo(s * 2.4, -6.6 - m); c.lineTo(s * 7.6, -7.4 + m); c.stroke();
-  }
-  c.fillStyle = '#15161c'; c.beginPath(); c.ellipse(0, sy - 2.6 - m, 2.6, 1.8, 0, 0, TAU); c.fill();
-  if (m > 0.3) { c.fillStyle = '#5b1f2c'; c.beginPath(); c.ellipse(0, sy + 2.2, 2 * m + 0.6, 2.4 * m, 0, 0, TAU); c.fill(); }
-  else { c.strokeStyle = OLW; c.lineWidth = 1; c.beginPath(); c.moveTo(0, sy - 1); c.lineTo(0, sy + 1.5); c.moveTo(-2.5, sy + 2.5); c.quadraticCurveTo(0, sy + 3.6, 2.5, sy + 2.5); c.stroke(); }
-  c.restore();
-  // руки в меху, лапы темнее
-  for (const [s, e, w] of [[g.ls, g.le, g.lw], [g.rs, g.re, g.rw]]) {
-    dzLimb(c, [s, e, w], 8.5, FUR, OLW); dzDot(c, w, 4, FUR2);
-  }
-  if (m > 0.6) {
-    c.save(); c.globalAlpha = (m - 0.6) / 0.4; c.fillStyle = '#e8eefc'; c.font = 'italic 700 9px sans-serif'; c.textAlign = 'center';
-    c.fillText('А-у-у-у!', H[0] + 26, H[1] - 26 - (dz.b % 4) * 3); c.restore();
-  }
-}
-
-/* ── сцены ── */
-function dzSceneReze(c, W, H, dt, pl, t, floorY) {
-  const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0a0f2e'); bg.addColorStop(0.55, '#2b1a4d'); bg.addColorStop(1, '#4a2550');
-  c.fillStyle = bg; c.fillRect(0, 0, W, H);
-  if (dz.flash > 0) { c.fillStyle = `rgba(255,200,230,${dz.flash * 0.12})`; c.fillRect(0, 0, W, H); dz.flash = Math.max(0, dz.flash - dt * 2.5); }
-  for (const s of dz.stars) { c.fillStyle = `rgba(255,255,255,${0.35 + 0.35 * Math.sin(t * 1.3 + s.f)})`; c.fillRect(s.x, s.y, s.r, s.r); }
-  // фейерверк на каждую четвёртую долю (без музыки — изредка)
-  const bar = Math.floor(dz.b / 4);
-  if ((pl && bar !== dz.lastBurst) || (!pl && Math.random() < dt * 0.15)) {
-    dz.lastBurst = bar;
-    const x = W * (0.15 + Math.random() * 0.7), y = H * (0.1 + Math.random() * 0.25), hue = Math.floor(Math.random() * 360);
-    for (let i = 0; i < 46; i++) { const a = i / 46 * TAU, v = 50 + Math.random() * 60; dz.fw.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, hue: hue + Math.random() * 40 }); }
-    if (dz.fw.length > 400) dz.fw.splice(0, dz.fw.length - 400);
-    dz.flash = 1;
-  }
-  c.globalCompositeOperation = 'lighter'; c.lineWidth = 1.6;
-  for (const f of dz.fw) {
-    f.vy += 38 * dt; f.vx *= 1 - dt * 0.9; f.vy *= 1 - dt * 0.9; f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt * 0.65;
-    if (f.life <= 0) continue;
-    c.strokeStyle = `hsla(${f.hue},100%,65%,${f.life})`; c.beginPath(); c.moveTo(f.x, f.y); c.lineTo(f.x - f.vx * 0.06, f.y - f.vy * 0.06); c.stroke();
-  }
-  dz.fw = dz.fw.filter(f => f.life > 0);
-  c.globalCompositeOperation = 'source-over';
-  // гирлянда фонариков
-  c.strokeStyle = 'rgba(30,15,30,.8)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, H * 0.42);
-  c.quadraticCurveTo(W / 2, H * 0.5, W, H * 0.4); c.stroke();
-  for (let i = 1; i < 7; i++) {
-    const u = i / 7, x = W * u, y = (1 - u) * (1 - u) * H * 0.42 + 2 * (1 - u) * u * H * 0.5 + u * u * H * 0.4 + 6, sw = Math.sin(t * 1.5 + i) * 2;
-    const glow = 0.6 + 0.4 * (pl ? Math.pow(1 - (dz.b % 1), 2) : 0.4);
-    c.fillStyle = `rgba(255,120,60,${0.15 * glow})`; c.beginPath(); c.arc(x + sw, y, 13, 0, TAU); c.fill();
-    c.fillStyle = i % 2 ? '#e8463a' : '#f29a3a'; c.beginPath(); c.ellipse(x + sw, y, 5, 6.5, 0, 0, TAU); c.fill();
-  }
-  // холмы и крыши
-  c.fillStyle = '#1b1030'; c.beginPath(); c.moveTo(0, floorY - 40);
-  c.quadraticCurveTo(W * 0.3, floorY - 70, W * 0.55, floorY - 45); c.quadraticCurveTo(W * 0.8, floorY - 25, W, floorY - 55); c.lineTo(W, H); c.lineTo(0, H); c.fill();
-  c.fillStyle = '#130a22'; c.fillRect(0, floorY - 6, W, H - floorY + 6);
-}
-function dzSceneWolf(c, W, H, dt, pl, t, floorY) {
-  const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#050b18'); bg.addColorStop(0.6, '#0f2238'); bg.addColorStop(1, '#0b1a28');
-  c.fillStyle = bg; c.fillRect(0, 0, W, H);
-  for (const s of dz.stars) { c.fillStyle = `rgba(220,235,255,${0.3 + 0.3 * Math.sin(t + s.f)})`; c.fillRect(s.x, s.y, s.r, s.r); }
-  const mx = W * 0.27, my = H * 0.16, mr = Math.min(W, H) * 0.09, howl = dz.move === 'howl' && dz.pose ? dz.pose.muz : 0;
-  const gl = c.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * (3.2 + howl));
-  gl.addColorStop(0, `rgba(220,230,255,${0.25 + howl * 0.2})`); gl.addColorStop(1, 'rgba(220,230,255,0)');
-  c.fillStyle = gl; c.fillRect(0, 0, W, H * 0.6);
-  c.fillStyle = '#eef1f8'; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill();
-  c.fillStyle = 'rgba(160,170,195,.35)'; for (const [dx, dy, r] of [[-0.3, -0.2, 0.22], [0.25, 0.15, 0.16], [-0.05, 0.35, 0.12]]) { c.beginPath(); c.arc(mx + dx * mr, my + dy * mr, r * mr, 0, TAU); c.fill(); }
-  // ели в два ряда
-  for (const tr of dz.trees) {
-    c.fillStyle = tr.far ? '#0d1d2e' : '#081320';
-    const base = floorY - (tr.far ? 22 : 0), h = tr.h * (tr.far ? 0.8 : 1);
-    for (let k = 0; k < 3; k++) {
-      const y0 = base - h * k * 0.28, w = h * (0.32 - k * 0.07);
-      c.beginPath(); c.moveTo(tr.x - w, y0); c.lineTo(tr.x, y0 - h * 0.48); c.lineTo(tr.x + w, y0); c.fill();
-    }
-  }
-  c.fillStyle = '#0a1622'; c.fillRect(0, floorY - 4, W, H - floorY + 4);
-  // светлячки — вспыхивают на долю
-  const pulse = pl ? Math.pow(1 - (dz.b % 1), 2) : 0.3;
-  c.globalCompositeOperation = 'lighter';
-  for (const f of dz.flies) {
-    f.a += dt * 0.6; f.x += Math.cos(f.a + f.f) * f.s * dt; f.y += Math.sin(f.a * 1.3) * f.s * 0.5 * dt;
-    if (f.x < 0) f.x += W; if (f.x > W) f.x -= W;
-    const al = 0.25 + 0.5 * Math.max(0, Math.sin(t * 2 + f.f)) + 0.3 * pulse;
-    const gr = c.createRadialGradient(f.x, f.y, 0, f.x, f.y, 7); gr.addColorStop(0, `rgba(210,255,120,${al})`); gr.addColorStop(1, 'rgba(210,255,120,0)');
-    c.fillStyle = gr; c.fillRect(f.x - 7, f.y - 7, 14, 14);
-  }
-  c.globalCompositeOperation = 'source-over';
-}
-
-/* ── кадр ── */
-function dancerFrame(now) {
-  if (!dz.cv || !dz.cv.isConnected) { dz.raf = 0; return; }
-  dz.raf = requestAnimationFrame(dancerFrame);
-  if (document.hidden || now - dz.last < 32) return;
-  const dt = dz.last ? Math.min(0.1, (now - dz.last) / 1000) : 0.033; dz.last = now;
-  const r = dz.cv.getBoundingClientRect();
-  if (Math.abs(r.width - dz.w) > 1 || Math.abs(r.height - dz.h) > 1) dancerResize();
-  const { playing, heard } = dancerListen(dt, now);
-  dzChoreo(playing);
-  const W = dz.w, H = dz.h, c = dz.ctx, dpr = dz.dpr, t = now / 1000;
-  const cap = $('#muDanceCap');
-  if (cap) cap.textContent = !playing ? 'включите трек — потанцуем'
-    : `${dz.who === 'reze' ? 'Резе' : 'Волк'} · ${DZ_NAMES[dz.move] || ''} · ${heard ? '' : '≈'}${Math.round(dz.bpm)} BPM`;
-  const S = Math.min(W / 150, H / 255), cx = W / 2, floorY = H * 0.87, hipY = floorY - 92 * S;
-  c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (dz.who === 'reze') dzSceneReze(c, W, H, dt, playing, t, floorY); else dzSceneWolf(c, W, H, dt, playing, t, floorY);
-  // поза: смена движения за долю, тело догоняет цель
-  const k = Math.min(1, Math.max(0, dz.b - dz.moveAt));
-  let pose = dzPose(dz.move, dz.b, dz.energy);
-  if (k < 1) pose = dzLerp(dzPose(dz.prevMove, dz.b, dz.energy), pose, k * k * (3 - 2 * k));
-  dz.pose = dz.pose ? dzLerp(dz.pose, pose, 1 - Math.exp(-dt * 16)) : pose;
-  const g = dzSkeleton(dz.pose);
-  // тень: меньше, когда ноги в воздухе
-  const lift = Math.min(dz.pose.lf[1], dz.pose.rf[1]);
-  c.fillStyle = `rgba(0,0,0,${0.4 - Math.min(0.25, lift / 60)})`;
-  c.beginPath(); c.ellipse(cx + dz.pose.px * S * 0.5, floorY + 2, (30 - Math.min(14, lift)) * S, 5 * S, 0, 0, TAU); c.fill();
-  c.setTransform(dpr * S, 0, 0, dpr * S, cx * dpr, hipY * dpr);
-  if (dz.who === 'reze') dzDrawReze(c, g, dz.pose, dt); else dzDrawWolf(c, g, dz.pose, dt);
-  c.setTransform(1, 0, 0, 1, 0, 0);
-}
 /* ================= АУДИО · АУДИОКНИГИ =================
    Полка книг с прогрессом, продолжение с места, закладки с подписью, скорость
    чтения и скачивание для офлайна. Позиция пишется каждые 5 секунд и при
@@ -7464,7 +7671,7 @@ async function paintBookOpen(el) {
   hydrateCovers(el);
   if (off && off.jobs) bookDlWatch();
   if (!files) {
-    const st = await waitForFiles({ hash: b.hash, title: b.title });
+    const st = (await audioWaitFiles(b.hash, b.title, true)).st;
     if (st && bk.open === b.hash) { files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(b.hash, files); const ch = $('#bkCh'); if (ch) ch.innerHTML = bookChaptersHtml(b.hash, files); }
   }
 }
@@ -7504,7 +7711,7 @@ function bookMarkHere() {
 async function bookDownload(hash) {
   const b = bookList().find(x => x.hash === hash); if (!b) return;
   let files = bookFiles(hash);
-  if (!files) { const st = await waitForFiles({ hash, title: b.title }); if (!st) return toast('Раздача не отдаёт список файлов', true); files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(hash, files); }
+  if (!files) { const w = await audioWaitFiles(hash, b.title); if (w.cancel) return; const st = w.st; if (!st) return toast('Аудиокнига не отдаёт: ' + w.dead, true); files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(hash, files); }
   const jobs = {};
   for (const f of files) {
     if (bookOfflinePath(hash, f.id)) continue;
@@ -7796,7 +8003,7 @@ function radioBarTitle() {
 function radioBarHtml() {
   const r = radioEl(), playing = r && !r.el.paused;
   const pinned = radioPins().some(x => sameStation(x, rd.station));
-  return html`<div class="mu-bar">
+  return html`<div class="mu-bar${playing ? ' playing' : ''}"><div class="mu-np">
     <div class="mu-bar-cov rd-cov">${raw(rd.station.favicon ? `<img src="${esc(rd.station.favicon)}" alt="">` : '📻')}</div>
     <div class="mu-bar-t" id="rdBarT">${raw(radioBarTitle())}</div>
     <div class="mu-ctl">
@@ -7805,8 +8012,8 @@ function radioBarHtml() {
       <button class="iconbtn${pinned ? ' on' : ''}" data-rd-pinnow title="Закрепить станцию">${raw(ico('star', 15))}</button>
       <button class="iconbtn" data-mu-stop title="Выключить радио">${raw(ico('stop', 14))}</button>
     </div>
-    <input type="range" class="mu-vol" min="0" max="100" value="${Math.round((r ? r.el.volume : 0.8) * 100)}" id="rdVol" title="Громкость">
-  </div>`;
+    <div class="mu-side"><input type="range" class="mu-vol" min="0" max="100" value="${Math.round((r ? r.el.volume : 0.8) * 100)}" id="rdVol" title="Громкость"></div>
+  </div></div>`;
 }
 function bindRadioBar() {
   const v = $('#rdVol'); if (v) v.addEventListener('input', () => { for (const el of [rd.a, rd.b, mu.audio]) if (el) el.volume = v.value / 100; savePref('tc_muvol', v.value / 100); });
@@ -7844,7 +8051,7 @@ const TG_BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8
 const TG_REACT = ['😂', '😱', '❤️', '👍', '🔥', '🍿'];
 const tg = { on: false, room: '', key: null, keyB64: '', host: false, me: '', name: '', peers: new Map(), mq: [], seen: new Map(),
   media: null, chat: [], mic: null, screen: null, hostId: '', off: [], st: null, stAt: 0, mine: null, prev: null, adj: false,
-  cmdAt: 0, hold: 0, stall: 0, waitAt: 0, waitFor: '', timers: [], unread: 0, sync: '', lastSt: '', pingN: 0 };
+  cmdAt: 0, hold: 0, web: false, stall: 0, waitAt: 0, waitFor: '', timers: [], unread: 0, sync: '', lastSt: '', pingN: 0 };
 const tgRid = (n = 8) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
 const tgB64e = u8 => { let s = ''; for (const b of u8) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 const tgB64d = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
@@ -7980,14 +8187,20 @@ async function tgSend(m, viaMqtt) {
   }
   if (mq) { const b = await tgSeal(m); tg.mq.forEach(c => c.pub(b)); }
 }
-function tgHello() { if (tg.on) tgSend({ k: 'hello', media: tg.host ? tg.media : undefined }, true); }
+function tgHello() { if (tg.on) tgSend({ k: 'hello', media: tg.host ? tg.media : undefined, web: tg.web ? 1 : undefined }, true); }
 function tgRecv(m, via) {
   if (!tg.on || !m || !m.id || !m.from || m.from === tg.me || tgSeen(m.id)) return;
   if (m.to && m.to !== tg.me) return;
   if (m.k === 'bye') { const p = tg.peers.get(m.from); if (p) { tgNote(`${p.name} вышел(а)`); tgDropPeer(p); } return; }
   const known = tg.peers.has(m.from);
   const p = tgPeer(m.from, m.name, m.host);
-  if (!known) { tgNote(`${p.name} в комнате`); tgPaint(); if (m.k === 'hello') tgSend({ k: 'hello', to: m.from, media: tg.host ? tg.media : undefined }, true); }
+  if (m.web) p.web = true;
+  if (!known) {
+    tgNote(`${p.name} в комнате${p.web ? ' (из браузера, без TorrClient)' : ''}`);
+    if (p.web && !tg.web && !tg.screen) { tgNote(`🌐 ${p.name} смотрит из браузера — нажмите «Показать экран» и выберите окно плеера (со звуком), чтобы он видел фильм`); if (typeof toast === 'function') toast(`${p.name} зашёл из браузера — покажите ему экран`); }
+    tgPaint();
+    if (m.k === 'hello') tgSend({ k: 'hello', to: m.from, media: tg.host ? tg.media : undefined, web: tg.web ? 1 : undefined }, true);
+  }
   if (m.host && m.media && !tg.host) tg.media = m.media;
   switch (m.k) {
     case 'sig': p.q = p.q.then(() => tgSig(p, m)); break;
@@ -8279,7 +8492,8 @@ function tgPaint() {
           <div class="card tg-card" id="tgStatus"></div>
           <div class="card tg-card"><div class="tg-h">Пригласить</div>
             <div class="tg-code"><code id="tgCode"></code><button class="btn" data-tg="copy">Скопировать</button></div>
-            <div class="muted sm">Друг вставляет код в «Вместе → Присоединиться». В коде — ключ шифрования, поэтому отправляйте его лично.</div></div>
+            <div class="tg-links"><button class="btn sm" data-tg="link-web" title="Откроется в обычном браузере: друг видит ваш экран, слышит звук и голос, пишет в чат">🌐 Ссылка для друга без TorrClient</button><button class="btn sm" data-tg="link-app" title="У друга есть TorrClient — ссылка откроет комнату в нём">Ссылка для TorrClient</button></div>
+            <div class="muted sm">Друг с TorrClient вставляет код в «Вместе → Присоединиться» или открывает ссылку. Без TorrClient — «Ссылка для друга»: откроется страница в браузере, а вы включите «Показать экран». В коде — ключ шифрования, поэтому отправляйте его лично.</div></div>
         </div>
         <div class="card tg-chatcard">
           <div class="tg-chat" id="tgChat">${raw(tg.chat.map(tgMsgHtml).join(''))}</div>
@@ -8320,7 +8534,7 @@ function tgPaintStatus() {
   box.innerHTML = html`<div class="tg-h">Комната</div>
     <div class="tg-people">
       <div class="tg-person me"><i>${tg.name.slice(0, 1).toUpperCase()}</i><span>${tg.name}<small>вы${tg.host ? ' · ведущий' : ''}${tg.mic ? ' · 🎤' : ''}${tg.screen ? ' · 🖥' : ''}</small></span></div>
-      ${peers.map(p => raw(html`<div class="tg-person"><i>${p.name.slice(0, 1).toUpperCase()}</i><span>${p.name}<small>${p.host ? 'ведущий · ' : ''}${tgLink(p)}</small></span></div>`))}
+      ${peers.map(p => raw(html`<div class="tg-person"><i>${p.name.slice(0, 1).toUpperCase()}</i><span>${p.name}<small>${p.host ? 'ведущий · ' : ''}${p.web ? '🌐 браузер · ' : ''}${tgLink(p)}</small></span></div>`))}
       ${peers.length ? '' : raw('<div class="muted sm">Пока никого. Отправьте код приглашения.</div>')}
     </div>
     <div class="tg-media">${m && m.h ? raw(html`🎬 <b>${m.t || 'Фильм'}</b>`) : raw('<span class="muted">Фильм не выбран</span>')}</div>
@@ -8357,6 +8571,7 @@ async function tgOnClick(e) {
     if (!o) { toast('Это не код приглашения — он начинается с TC1.', true); return; }
     await tgStart(o, false);
   }
+  else if (a === 'link-web' || a === 'link-app') { const c = tgLinkFor(a === 'link-web'); try { await navigator.clipboard.writeText(c); toast(a === 'link-web' ? 'Ссылка скопирована — друг откроет её в браузере' : 'Ссылка скопирована'); } catch { prompt('Скопируйте ссылку:', c); } }
   else if (a === 'copy') { const c = tgCode(); try { await navigator.clipboard.writeText(c); toast('Код скопирован'); } catch { prompt('Скопируйте код:', c); } }
   else if (a === 'send') { const i = $('#tgIn'); tgSay(i.value); i.value = ''; i.focus(); }
   else if (a === 'mic') tgMic();
@@ -8367,8 +8582,16 @@ async function tgOnClick(e) {
 }
 function tgOnChange(e) { const k = e.target.dataset && e.target.dataset.tgSet; if (k) savePref(k, e.target.value.trim()); if (e.target.id === 'tgName') tgSaveName(); }
 function tgSaveName() { const i = $('#tgName'); if (i && i.value.trim()) savePref('tc_tg_name', i.value.trim().slice(0, 40)); }
-// После перезагрузки страницы — обратно в ту же комнату.
+const TG_WEB_URL = 'https://qwkejkqwje1.github.io/TorrClient/watch/';
+// Ссылки-приглашения: код идёт после #, поэтому не уходит ни на GitHub, ни на чей-то сервер.
+function tgLinkFor(web) { return web ? TG_WEB_URL + '#' + tgCode() : 'http://localhost:8099/#join=' + tgCode(); }
+// После перезагрузки страницы — обратно в ту же комнату; ссылка #join=КОД — сразу в комнату гостем.
 function tgBoot() {
+  const h = decodeURIComponent(BOOT_HASH), j = h.match(/^#join=(TC1\.[A-Za-z0-9_-]+)/);
+  if (j) {
+    const o = tgParse(j[1]);
+    if (o) { if (typeof setView === 'function') setView('together'); tgStart(o, false); return; }
+  }
   let s; try { s = JSON.parse(sessionStorage.getItem('tc_tg') || 'null'); } catch {}
   if (s && s.o && !tg.on) tgStart(s.o, !!s.host);
 }

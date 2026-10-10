@@ -705,40 +705,86 @@ h2.section{font-size:17px; font-weight:650; margin:28px 0 12px; display:flex; al
 .mu-t{font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .mu-s{font-size:12px; color:var(--faint)}
 .mu-row .iconbtn.on{color:var(--acc2)}
-#muPlayer{position:sticky; bottom:12px; margin-top:18px; z-index:5}
-.mu-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px; border-radius:14px; background:color-mix(in srgb,var(--bg3) 92%,transparent); border:1px solid var(--line2); box-shadow:var(--sh-2); backdrop-filter:blur(10px)}
-.mu-bar-t{flex:1 1 180px; min-width:0; display:flex; flex-direction:column}
-.mu-bar-t b{font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.mu-bar-t small{font-size:11.5px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.mu-ctl{display:flex; gap:2px}
-.mu-ctl .iconbtn{width:32px; height:32px; min-height:0; padding:0; font-size:14px}
-.mu-ctl .mu-pp{color:var(--acc); font-size:16px}
-.mu-seek{flex:2 1 160px; accent-color:var(--acc)}
-.mu-vol{width:70px; accent-color:var(--acc)}
-.mu-time{font-size:11.5px; color:var(--mut); font-variant-numeric:tabular-nums; min-width:76px}
-.mu-q{position:relative}
-.mu-q summary{list-style:none; cursor:pointer; padding:4px 8px; color:var(--mut); font-size:16px}
-.mu-q summary::-webkit-details-marker{display:none}
-.mu-q > div{position:absolute; right:0; bottom:36px; width:min(360px,80vw); max-height:300px; overflow:auto; background:var(--bg2); border:1px solid var(--line2); border-radius:var(--r); box-shadow:var(--sh-2); padding:4px}
-.mu-q > div button{display:block; width:100%; text-align:left; border:0; background:none; min-height:28px; font-size:12.5px; padding:2px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.mu-q > div button.on{color:var(--acc); background:var(--acc-soft)}
+#muPlayer{position:sticky; bottom:12px; margin-top:18px; z-index:5; display:flex; flex-direction:column; gap:8px}
+.mu-bar{position:relative; overflow:hidden; display:flex; flex-direction:column; gap:6px; padding:12px 14px 10px; border-radius:16px; background:color-mix(in srgb,var(--bg3) 88%,transparent); border:1px solid var(--line2); box-shadow:var(--sh-2); backdrop-filter:blur(14px)}
+.mu-bar-bg{position:absolute; inset:-40px; z-index:0; opacity:.38; filter:blur(38px) saturate(1.5); pointer-events:none}
+.mu-bar-bg img,.mu-bar-bg .au-ph,.mu-bar-bg .au-cv{width:100%; height:100%; object-fit:cover; display:block}
+.mu-bar > *:not(.mu-bar-bg){position:relative; z-index:1}
+.mu-np{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.mu-bar-cov{width:72px; height:72px; flex:none; padding:0; min-height:0; border:0; border-radius:10px; overflow:hidden; background:var(--bg3); position:relative; display:flex; align-items:center; justify-content:center; font-size:28px; box-shadow:0 6px 18px rgba(0,0,0,.4); cursor:zoom-in}
+.mu-bar-cov img,.mu-bar-cov .au-ph,.mu-bar-cov .au-cv{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:flex; font-size:22px}
+.mu-bar.playing .mu-bar-cov{box-shadow:0 0 0 2px var(--acc),0 6px 22px rgba(0,0,0,.45)}
+.mu-bar-t{flex:1 1 200px; min-width:0; display:flex; flex-direction:column; gap:1px}
+.mu-bar-t small{font-size:11px; color:var(--acc); text-transform:uppercase; letter-spacing:.06em; font-weight:600}
+.mu-bar-t b{font-size:16px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-bar-t span{font-size:12.5px; color:var(--mut); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-ctl{display:flex; gap:4px; align-items:center}
+.mu-ctl .iconbtn{width:36px; height:36px; min-height:0; padding:0; font-size:14px; border-radius:50%}
+.mu-ctl .mu-pp{width:48px; height:48px; color:#fff; background:var(--acc); box-shadow:0 4px 14px color-mix(in srgb,var(--acc) 45%,transparent)}
+.mu-ctl .mu-pp:hover{filter:brightness(1.1); background:var(--acc)}
+.mu-side{display:flex; align-items:center; gap:4px; margin-left:auto}
+.mu-side .iconbtn{width:34px; height:34px; min-height:0; padding:0}
+.mu-side .iconbtn.on{color:var(--acc); background:var(--acc-soft)}
+.mu-prog-row{display:flex; align-items:center; gap:10px}
+.mu-seek{flex:1; accent-color:var(--acc)}
+.mu-vol{width:80px; accent-color:var(--acc)}
+.mu-time{font-size:11.5px; color:var(--mut); font-variant-numeric:tabular-nums; min-width:38px}
+.mu-time.r{text-align:right}
+.mu-qpanel{border:1px solid var(--line2); border-radius:12px; background:color-mix(in srgb,var(--bg2) 92%,transparent); overflow:hidden; margin-bottom:4px}
+.mu-qhead{display:flex; align-items:center; justify-content:space-between; padding:6px 6px 6px 12px; font-size:12.5px; border-bottom:1px solid var(--line)}
+.mu-qhead .iconbtn{width:28px; height:28px; min-height:0; padding:0}
+.mu-qlist{max-height:min(320px,42vh); overflow:auto; padding:4px}
+.mu-qlist button{display:flex; align-items:center; gap:8px; width:100%; text-align:left; justify-content:flex-start; border:0; background:none; min-height:32px; font-size:13px; padding:2px 8px; border-radius:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-qlist button > span{flex:none; width:22px; text-align:right; color:var(--faint); font-size:11.5px; font-variant-numeric:tabular-nums}
+.mu-qlist button:hover{background:var(--bg3)}
+.mu-qlist button.on{color:var(--acc); background:var(--acc-soft); font-weight:600}
+.mu-qlist .np-eq{display:inline-flex; height:12px}
+.mu-load{display:flex; align-items:center; gap:10px; padding:8px 10px 8px 14px; border-radius:12px; background:var(--bg3); border:1px solid var(--line2); box-shadow:var(--sh-2); font-size:12.5px}
+.mu-load-t{flex:1; min-width:0; display:flex; flex-direction:column}
+.mu-load-t b{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-load-t small{color:var(--faint)}
+.mu-load .iconbtn{width:28px; height:28px; min-height:0; padding:0}
+.mu-big-ov{display:flex; align-items:center; justify-content:center; align-items:center; cursor:zoom-out; background:rgba(0,0,0,.85)}
+.mu-big{display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; color:#fff; max-width:min(560px,90vw)}
+.mu-big-cov{width:min(520px,80vw,70vh); aspect-ratio:1; border-radius:14px; overflow:hidden; position:relative; box-shadow:0 20px 60px rgba(0,0,0,.6); background:var(--bg3)}
+.mu-big-cov img,.mu-big-cov .au-ph,.mu-big-cov .au-cv{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:flex; font-size:60px}
+.mu-big b{font-size:18px; margin-top:8px}
+.mu-big span{font-size:13px; opacity:.75}
+@media (max-width:640px){ .mu-bar-cov{width:56px; height:56px} .mu-side{margin-left:0} .mu-vol{width:64px} }
 /* танцоры: справа от раздела, на узком экране — над ним */
 .mu-wrap{position:relative; display:flex; gap:20px; align-items:flex-start}
 .mu-wrap .mu{flex:1; min-width:0}
-.mu-stage{position:sticky; top:12px; flex:none; width:300px; height:min(560px,calc(100vh - 110px)); border-radius:var(--r-lg); overflow:hidden; background:#0a0f2e; border:1px solid var(--line2); box-shadow:var(--sh-2)}
-.mu-stage canvas{display:block; width:100%; height:100%}
-.mu-stage-x{position:absolute; top:6px; right:6px; width:28px; height:28px; min-height:0; padding:0; color:rgba(200,240,255,.7); background:rgba(0,0,0,.3); border-radius:50%; font-size:16px}
-.mu-stage-who{position:absolute; top:6px; right:40px; width:28px; height:28px; min-height:0; padding:0; background:rgba(0,0,0,.3); border-radius:50%; font-size:14px}
-.mu-stage-cap{position:absolute; left:10px; bottom:8px; right:10px; font:11px/1.3 var(--mono); color:rgba(235,225,255,.75); letter-spacing:.08em; text-shadow:0 1px 2px #000; text-transform:uppercase; pointer-events:none}
-.mu-stage.off{width:auto; height:auto; background:none; border:0; box-shadow:none; overflow:visible}
-.mu-stage.off canvas,.mu-stage.off .mu-stage-who{position:absolute; top:6px; right:40px; width:28px; height:28px; min-height:0; padding:0; background:rgba(0,0,0,.3); border-radius:50%; font-size:14px}
-.mu-stage-cap{display:none}
-.mu-stage.off .mu-stage-x{position:static; width:36px; height:36px; font-size:18px; background:var(--bg2); border:1px solid var(--line2)}
+.dz-stage{position:sticky; top:12px; flex:none; width:340px; height:min(620px,calc(100vh - 100px))}
+.dz-stage canvas{display:block; width:100%; height:100%; pointer-events:none}
+.dz-bar{position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; gap:4px; padding:6px; opacity:0; transition:opacity .2s}
+.dz-stage:hover .dz-bar,.dz-stage:focus-within .dz-bar,.dz-stage.menu .dz-bar{opacity:1}
+.dz-bar .iconbtn{width:30px; height:30px; min-height:0; padding:0; border-radius:50%; background:var(--bg2); border:1px solid var(--line2); font-size:15px}
+.dz-cap{flex:1; min-width:0; font:11px/1.3 var(--mono); letter-spacing:.06em; text-transform:uppercase; opacity:.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dz-menu{position:absolute; right:0; bottom:44px; width:300px; max-width:100%; max-height:calc(100% - 52px); overflow:auto; padding:10px; display:flex; flex-direction:column; gap:6px; background:var(--bg2); border:1px solid var(--line2); border-radius:var(--r-lg); box-shadow:var(--sh-2); z-index:5}
+.dz-mh{font-size:11px; text-transform:uppercase; letter-spacing:.08em; opacity:.6; margin-top:4px}
+.dz-row{display:flex; align-items:center; gap:4px; border-radius:8px}
+.dz-row>button:first-child{flex:1; min-width:0; text-align:left; padding:6px 8px; background:none; border:0; color:inherit; border-radius:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer}
+.dz-row>button:first-child:hover{background:var(--bg2)}
+.dz-row.on>button:first-child{background:var(--acc-soft); font-weight:600}
+.dz-row .iconbtn{width:26px; height:26px; min-height:0; padding:0; opacity:.6}
+.dz-credit{font-size:12px; opacity:.75; line-height:1.35}
+.dz-credit a{color:inherit; text-decoration:underline}
+.dz-opt{display:flex; gap:6px; align-items:center; font-size:13px; cursor:pointer}
+.dz-hint{font-size:11.5px; opacity:.6; line-height:1.35}
+.dz-empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:16px}
+.dz-empty-in{display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; padding:18px; border:1.5px dashed var(--line2); border-radius:var(--r-lg); font-size:13px}
+.dz-empty-in span{opacity:.75; line-height:1.4}
+.dz-empty-in .err{color:var(--red); opacity:1}
+.dz-empty-i{font-size:40px}
+.dz-stage.drop::after{content:'Отпустите файл'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; border:2px dashed var(--acc); border-radius:var(--r-lg); background:rgba(80,100,255,.08); font-weight:600}
+.dz-stage.off{width:auto; height:auto}
+.dz-call{width:38px; height:38px; min-height:0; padding:0; border-radius:50%; font-size:18px; background:var(--bg2); border:1px solid var(--line2)}
 @media (max-width:1180px){
   .mu-wrap{flex-direction:column-reverse}
   .mu-wrap .mu{width:100%}
-  .mu-stage{position:relative; top:0; width:100%; max-width:860px; height:300px}
-  .mu-stage.off{position:absolute; right:24px}
+  .dz-stage{position:relative; top:0; width:100%; max-width:860px; height:340px}
+  .dz-stage.off{position:absolute; right:24px; top:0; z-index:3}
+  .dz-bar{opacity:1}
 }
 
 /* ── «Аудио»: вкладки, обложки, книги, радио ── */
@@ -770,8 +816,6 @@ h2.section{font-size:17px; font-weight:650; margin:28px 0 12px; display:flex; al
 .mu-row.best{background:color-mix(in srgb,var(--acc-soft) 70%,var(--bg2))}
 .mu-score{flex:none; min-width:30px; text-align:center; font-size:11.5px; font-variant-numeric:tabular-nums; color:var(--mut); padding:2px 6px; border-radius:6px; background:var(--bg3)}
 .mu-best{margin-left:auto}
-.mu-bar-cov{width:46px; height:46px; flex:none; border-radius:8px; overflow:hidden; background:var(--bg3); position:relative; display:flex; align-items:center; justify-content:center; font-size:22px}
-.mu-bar-cov img,.mu-bar-cov .au-ph,.mu-bar-cov .au-cv{width:100%; height:100%; object-fit:cover; font-size:16px}
 .mu-stat{flex:1 1 100%; font-size:11.5px; color:var(--faint); font-variant-numeric:tabular-nums; display:flex; flex-wrap:wrap; gap:4px 0}
 .mu-stat:empty{display:none}
 .mu-stat i{font-style:normal; margin:0 7px; opacity:.5}
@@ -852,6 +896,7 @@ h2.section{font-size:17px; font-weight:650; margin:28px 0 12px; display:flex; al
 .tg-screen video{display:block; width:100%; max-height:70vh; background:#000}
 @media (max-width:860px){ .tg-grid{grid-template-columns:1fr} .tg-chatcard{height:460px} }
 .rd-tags .chip{border:1px solid var(--line2); cursor:pointer; min-height:28px; padding:0 10px; font-weight:500}
+.tg-links{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 6px}
 /* ───────────── ПЛЕЕРЫ ───────────── */
 .switch{display:flex; gap:8px; flex-wrap:wrap}
 .player{flex:1; min-width:120px; text-align:center; border:1px solid var(--line); background:var(--bg2); border-radius:12px; padding:12px 8px; cursor:pointer; transition:border-color .12s,background .12s}
