@@ -283,7 +283,7 @@ function savedPref(key, ok, def) {
 function savePref(key, v) { try { localStorage.setItem(key, String(v == null ? '' : v)); } catch {} }
 
 const WHATSNEW = [
-  ['2.4.0', ['👥 «Смотрим вместе»: комната по коду приглашения, плееры mpv/VLC идут в ногу (пауза, перемотка, отсчёт 3-2-1, ожидание отстающего), чат и реакции поверх видео, голос и показ экрана. Связь — WebRTC напрямую, запасной путь — зашифрованный MQTT', '«Музыка» стала «Аудио»: вкладки Музыка, Аудиокниги и Радио; обложки альбомов, рекомендации, перемешивание, скорость и буфер под плеером, сам переключается на другую раздачу, если трек не играет', 'Аудиокниги: полка, продолжение с места, скорость чтения, закладки с подписью, скачать для офлайна', 'Радио: Nightride FM, Radio Paradise, EVE и тысячи станций Radio Browser, название песни и осциллограф', 'Поиск музыки сам выбирает лучшую раздачу по качеству и скорости', 'Вместо голограммы танцуют Резе и Волк — случайный танец на каждый трек (🎲 на сцене закрепляет танцора)']],
+  ['2.4.0', ['👥 «Смотрим вместе»: комната по коду приглашения, плееры mpv/VLC идут в ногу (пауза, перемотка, отсчёт 3-2-1, ожидание отстающего), чат и реакции поверх видео, голос и показ экрана. Связь — WebRTC напрямую, запасной путь — зашифрованный MQTT', '«Музыка» стала «Аудио»: вкладки Музыка, Аудиокниги и Радио; обложки альбомов, рекомендации, перемешивание, скорость и буфер под плеером, сам переключается на другую раздачу, если трек не играет', 'Аудиокниги: полка, продолжение с места, скорость чтения, закладки с подписью, скачать для офлайна', 'Радио: Nightride FM, Radio Paradise, EVE и тысячи станций Radio Browser, название песни и осциллограф', 'Поиск музыки сам выбирает лучшую раздачу по качеству и скорости', 'Вместо голограммы танцуют Резе и Волк — случайный танец на каждый трек (🎲 на сцене закрепляет танцора); оба умеют «ихвильнихт» из мема с волком, у Резе это любимый танец']],
   ['2.3.0', ['В разделе «Музыка» живёт неоновая танцовщица-голограмма: слышит трек, сама находит темп и танцует под него (× убирает её)', 'Новые темы с живым фоном: «Матрица», «Кибер-неон», светлая «Японский сад» с лепестками сакуры и «Девятый вал» в духе Айвазовского и Ван Гога', 'Анимации запуска просмотра: варп, «Матрица», «Киноплёнка» с отсчётом 3-2-1, «Вихрь сакуры», «Неон», «Девятый вал» — по теме, случайная или своя (Настройки → Оформление)', 'Звездопад у «Графита» стал случайным: звёзды падают в разное время и в разных местах']],
   ['2.2.0', ['Поиск сразу открывает карточку фильма, если название нашлось в TMDB (галочка «сразу карточка»); над раздачами — карточка названия', 'Крестик и Esc в поле поиска очищают запрос', 'В карточке фильма у каждой раздачи «♥» — именно эта раздача уходит в избранное', 'Исправлен размер раздач Кинозала: «37.85 ГБ» показывалось как 38 байт', '«Продолжить просмотр» — от последнего открытого и не больше 6 карточек', 'Оценка качества у аниме и мультсериалов в Библиотеке — по именам файлов', 'Новое «Сейчас играет» в шапке: что открыто в плеере или какой трек звучит', 'Колокольчик уведомлений: новые серии больше не теряются', 'Сериалы из Библиотеки отслеживаются сами — о новых сериях приходит уведомление', 'Раздел «Музыка»: только аудиораздачи и плеер прямо в окне; музыка не попадает в Библиотеку', 'Новая тема «Денди 90-х», звёздное небо у «Графита» и варп-прыжок при запуске просмотра (выключается в Настройках → Оформление)']],
   ['2.1.0', ['Карточка фильма: постер, описание, сезоны и серии с отметками просмотра, все раздачи с оценкой качества и числом раздающих, «Смотреть» и «Следить». Открывается с любой карточки названия и с раздач поиска, кроме ТОПа за 24 часа', 'Лучшая раздача считается по качеству, русской дорожке, раздающим и размеру; для сериала выберите сезон — лишние раздачи уйдут', 'Поиск показывает раздачи по мере ответа каждого источника, а зависший отрезается через 12 секунд', 'Главная настраивается: включить, выключить и переставить ряды, свои ряды (подборка TMDB, ТОП раздела, поиск — например «Новинки аниме»), ряд «Детское»; приветствие убрано', 'Любой раздел можно сделать стартовым: правый клик по нему в панели или «Настроить» на Главной', 'Кнопки мыши «назад» и «вперёд» ходят по разделам и карточкам', 'Удаление без окна подтверждения: «Удалено · Вернуть»', 'В библиотеке у раздач — оценка качества и источник/кодек/звук', 'Исправлена кнопка «Смотреть» на постере (вместо значка был синий круг); сердечки — по центру сверху']],
@@ -6877,8 +6877,10 @@ const dz = { cv: null, ctx: null, raf: 0, last: 0, w: 0, h: 0, dpr: 1,
   who: 'reze', b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, prevE: 0, spec: null, bassIx: [1, 6],
   move: 'idle', prevMove: 'idle', moveAt: 0, pose: null, hair: 0, hairV: 0, skirt: 0, skirtV: 0, lastHx: 0, lastPx: 0,
   tail: [], fw: [], stars: [], trees: [], flies: [], lastBurst: -1, flash: 0 };
-const DZ_MOVES = { reze: ['iris', 'clap', 'point', 'hop'], wolf: ['howl', 'stomp', 'shuffle', 'shake'] };
-const DZ_NAMES = { iris: 'IRIS OUT', clap: 'хлопки', point: 'указка', hop: 'прыжки', howl: 'вой', stomp: 'топот', shuffle: 'шаффл', shake: 'тряска', idle: '' };
+// «ихвильнихт» — танец волка из мема, его делают оба; у Резе он любимый
+const DZ_MOVES = { reze: ['ichwill', 'ichwill', 'iris', 'clap', 'point', 'hop'], wolf: ['ichwill', 'howl', 'stomp', 'shuffle', 'shake'] };
+const DZ_LEN = { ichwill: 16 };
+const DZ_NAMES = { iris: 'IRIS OUT', clap: 'хлопки', point: 'указка', hop: 'прыжки', howl: 'вой', ichwill: 'ихвильнихт', stomp: 'топот', shuffle: 'шаффл', shake: 'тряска', idle: '' };
 function dancerOn() { return localStorage.getItem('tc_dancer') !== '0'; }
 function dancerWho() { const v = localStorage.getItem('tc_dancer_who'); return v === 'reze' || v === 'wolf' ? v : 'random'; }
 function dancerHtml() {
@@ -6909,6 +6911,7 @@ function dancerNewTrack() {
   if (who !== dz.who) { dz.who = who; dz.pose = null; dz.tail = []; dz.fw = []; }
   const list = DZ_MOVES[dz.who];
   dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
+  if (dz.move === 'ichwill') dz.ichAt = dz.moveAt;
   dz.onsets = [];
 }
 function dancerStart() {
@@ -6974,12 +6977,32 @@ function dancerListen(dt, now) {
 const TAU = Math.PI * 2;
 function dzPose(m, b, e) {
   const fr = b - Math.floor(b), beat = Math.floor(b), dn = Math.pow(1 - fr, 3), A = 0.55 + e * 0.6;
-  const p = { px: 0, py: dn * 4 * A, tl: 0, ht: 0, lh: [-17, 40], rh: [17, 40], lf: [-12, 0], rf: [12, 0], muz: 0, ring: 0, spark: 0 };
+  const p = { px: 0, py: dn * 4 * A, tl: 0, ht: 0, lh: [-17, 40], rh: [17, 40], lf: [-12, 0], rf: [12, 0], muz: 0, ring: 0, spark: 0, kn: 0.4, mo: 0 };
   const sw = Math.sin(Math.PI * b);
   switch (m) {
     case 'idle':
       p.px = Math.sin(b * Math.PI / 2) * 2; p.py = 1; p.tl = Math.sin(b * Math.PI / 2) * 0.03; p.ht = -p.tl;
       p.lh = [-16, 41]; p.rh = [16, 41]; break;
+    case 'ichwill': { // по мему: подскоки со скрещенной ногой → лапы-мельница → присед-пружинка
+      const rb = ((b - (dz.ichAt || 0)) % 16 + 16) % 16, s = Math.floor(rb) % 2 ? 1 : -1, flop = Math.sin(TAU * b) * 3;
+      p.mo = 0.6 + 0.4 * Math.abs(Math.sin(Math.PI * b));
+      if (rb < 8) { // стоит на одной ноге, другая согнута и заходит за опорную; лапки висят у груди
+        const hop = Math.sin(Math.PI * fr) * 5 * A;
+        p.py = -hop + 2; p.tl = -s * 0.08; p.ht = s * 0.1 - 0.06; p.px = s * 2;
+        if (s > 0) { p.rf = [5, hop]; p.lf = [9, 20 + hop]; } else { p.lf = [-5, hop]; p.rf = [-9, 20 + hop]; }
+        p.lh = [-8, 6 + flop]; p.rh = [8, 6 - flop];
+      } else if (rb < 12) { // лапы машут в стороны по очереди, корпус крутится
+        const a = Math.PI * b, w = Math.sin(a);
+        p.lh = [-14 - 26 * Math.max(0, w), 2 - 12 * w]; p.rh = [14 + 26 * Math.max(0, -w), 2 + 12 * w];
+        p.px = 4 * w; p.tl = 0.1 * w; p.ht = -0.15 * w;
+        if (Math.floor(rb) % 2) p.lf = [-12, Math.sin(Math.PI * fr) * 7]; else p.rf = [12, Math.sin(Math.PI * fr) * 7];
+      } else { // широкий присед, колени в стороны, пружинит на долю
+        p.lf = [-23, 0]; p.rf = [23, 0]; p.kn = 1; p.py = 9 + dn * 6 * A;
+        p.tl = Math.sin(Math.PI * b) * 0.08; p.ht = -p.tl;
+        p.lh = [-9, 8 + flop]; p.rh = [9, 8 - flop];
+      }
+      break;
+    }
     case 'iris': { // кисть кольцом у глаза, другая на бедре; стороны меняются каждые 2 доли
       const s = Math.floor(b / 4) % 2 ? 1 : -1, a = TAU * b;
       const hand = [s * 8 + Math.cos(a) * 2.5 * A, -25 + Math.sin(a) * 2.5 * A];
@@ -7042,9 +7065,10 @@ function dzLerp(a, b, t) {
 }
 function dzChoreo(playing) {
   if (!playing) { if (dz.move !== 'idle') { dz.prevMove = dz.move; dz.move = 'idle'; dz.moveAt = dz.b; } return; }
-  if (dz.move === 'idle' || dz.b - dz.moveAt >= 8) {
+  if (dz.move === 'idle' || dz.b - dz.moveAt >= (DZ_LEN[dz.move] || 8)) {
     const list = DZ_MOVES[dz.who].filter(m => m !== dz.move);
     dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
+    if (dz.move === 'ichwill') dz.ichAt = dz.moveAt;
   }
 }
 
@@ -7071,7 +7095,7 @@ function dzSkeleton(p) {
   g.lhip = dzAdd(pel, dzRot([-9, 4], p.tl * 0.5)); g.rhip = dzAdd(pel, dzRot([9, 4], p.tl * 0.5));
   const ll = dzIK(g.lhip, [p.lf[0], 92 - p.lf[1]], 47, 46, -1), rl = dzIK(g.rhip, [p.rf[0], 92 - p.rf[1]], 47, 46, 1);
   // колени гнутся к зрителю, а не в стороны: боковой вынос сильно сжат
-  const knee = (h, k, a) => { const mx = h[0] + (a[0] - h[0]) * 47 / 93; return [mx + (k[0] - mx) * 0.4, k[1]]; };
+  const knee = (h, k, a) => { const mx = h[0] + (a[0] - h[0]) * 47 / 93; return [mx + (k[0] - mx) * p.kn, k[1]]; };
   g.lk = knee(g.lhip, ll.j, ll.e); g.la = ll.e; g.rk = knee(g.rhip, rl.j, rl.e); g.ra = rl.e;
   return g;
 }
@@ -7135,7 +7159,8 @@ function dzDrawReze(c, g, p, dt) {
     c.fillStyle = 'rgba(255,120,140,.35)'; c.beginPath(); c.ellipse(s * 6, 5, 1.8, 1, 0, 0, TAU); c.fill();
   }
   c.strokeStyle = '#a0505a'; c.lineWidth = 1; c.beginPath();
-  if (dz.energy > 0.5) { c.arc(0, 7, 1.8, 0.1, Math.PI - 0.1); } else { c.moveTo(-1.6, 7.6); c.quadraticCurveTo(0, 8.6, 1.6, 7.6); }
+  if (p.mo > 0.3) { c.closePath(); c.fillStyle = '#7a2a3a'; c.beginPath(); c.ellipse(0, 7.6, 1.6, 1.1 + p.mo * 1.1, 0, 0, TAU); c.fill(); }
+  else if (dz.energy > 0.5) { c.arc(0, 7, 1.8, 0.1, Math.PI - 0.1); } else { c.moveTo(-1.6, 7.6); c.quadraticCurveTo(0, 8.6, 1.6, 7.6); }
   c.stroke();
   // чёлка и боковые пряди на пружинах
   c.beginPath(); c.moveTo(-11.5, -1); c.quadraticCurveTo(-12, -14, 0, -14.5); c.quadraticCurveTo(12, -14, 11.5, -1);
@@ -7189,7 +7214,7 @@ function dzDrawWolf(c, g, p, dt) {
   c.fillStyle = '#26324d'; c.fillRect(-12.5, 40, 25, 6); // пояс джинсов
   c.restore();
   // голова
-  const H = g.head, ha = g.tl + g.ht, m = p.muz;
+  const H = g.head, ha = g.tl + g.ht, m = Math.max(p.muz, p.mo * 0.55);
   c.save(); c.translate(H[0], H[1] - m * 1.5); c.rotate(ha); c.scale(1.2, 1.2);
   for (const s of [-1, 1]) {
     const flick = Math.max(0, Math.sin(TAU * dz.b + s)) * 0.12 * dz.energy;
@@ -7204,7 +7229,7 @@ function dzDrawWolf(c, g, p, dt) {
   const sy = 5 - m * 5;
   c.beginPath(); c.ellipse(0, sy, 6.8 + m, 5.4 + m * 1.5, 0, 0, TAU); dzFill(c, BELLY, OLW, 1.3);
   for (const s of [-1, 1]) {
-    if (m > 0.4) { c.strokeStyle = OLW; c.lineWidth = 1.4; c.beginPath(); c.arc(s * 5, -3, 2, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+    if (p.muz > 0.4) { c.strokeStyle = OLW; c.lineWidth = 1.4; c.beginPath(); c.arc(s * 5, -3, 2, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
     else {
       c.beginPath(); c.ellipse(s * 5, -3.5, 2.5, 2.2, s * 0.25, 0, TAU); dzFill(c, '#ffc93c', OLW, 1);
       c.fillStyle = '#111'; c.beginPath(); c.ellipse(s * 5, -3.3, 0.8, 1.6, 0, 0, TAU); c.fill();
