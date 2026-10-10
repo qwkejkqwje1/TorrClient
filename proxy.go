@@ -146,7 +146,7 @@ func argSafe(s string) string {
 // встроенные файлы на каждый запрос незачем.
 var webAssets = func() map[string][]byte {
 	out := map[string][]byte{}
-	for _, name := range []string{"index.html", "style.css", "app.js"} {
+	for _, name := range []string{"index.html", "style.css", "app.js", "vrm.js"} {
 		if b, err := webFS.ReadFile("web/" + name); err == nil {
 			out[name] = b
 		}
@@ -208,6 +208,9 @@ func (c *Comp) handleRoot(w http.ResponseWriter, r *http.Request) {
 		name, ctype = "style.css", "text/css; charset=utf-8"
 	case "/app.js":
 		name, ctype = "app.js", "application/javascript; charset=utf-8"
+	case "/vrm.js":
+		// three.js и three-vrm одним модулем: грузится, только когда танцор нужен
+		name, ctype = "vrm.js", "application/javascript; charset=utf-8"
 	default:
 		http.NotFound(w, r)
 		return

@@ -111,7 +111,7 @@ async function paintBookOpen(el) {
   hydrateCovers(el);
   if (off && off.jobs) bookDlWatch();
   if (!files) {
-    const st = await waitForFiles({ hash: b.hash, title: b.title });
+    const st = (await audioWaitFiles(b.hash, b.title, true)).st;
     if (st && bk.open === b.hash) { files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(b.hash, files); const ch = $('#bkCh'); if (ch) ch.innerHTML = bookChaptersHtml(b.hash, files); }
   }
 }
@@ -151,7 +151,7 @@ function bookMarkHere() {
 async function bookDownload(hash) {
   const b = bookList().find(x => x.hash === hash); if (!b) return;
   let files = bookFiles(hash);
-  if (!files) { const st = await waitForFiles({ hash, title: b.title }); if (!st) return toast('Раздача не отдаёт список файлов', true); files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(hash, files); }
+  if (!files) { const w = await audioWaitFiles(hash, b.title); if (w.cancel) return; const st = w.st; if (!st) return toast('Аудиокнига не отдаёт: ' + w.dead, true); files = (st.file_stats || []).filter(f => isAudio(f.path)).sort((a, c) => a.path.localeCompare(c.path, 'ru', { numeric: true })); bookKeepFiles(hash, files); }
   const jobs = {};
   for (const f of files) {
     if (bookOfflinePath(hash, f.id)) continue;

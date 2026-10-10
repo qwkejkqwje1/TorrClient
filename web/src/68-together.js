@@ -15,7 +15,7 @@ const TG_BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8
 const TG_REACT = ['😂', '😱', '❤️', '👍', '🔥', '🍿'];
 const tg = { on: false, room: '', key: null, keyB64: '', host: false, me: '', name: '', peers: new Map(), mq: [], seen: new Map(),
   media: null, chat: [], mic: null, screen: null, hostId: '', off: [], st: null, stAt: 0, mine: null, prev: null, adj: false,
-  cmdAt: 0, hold: 0, stall: 0, waitAt: 0, waitFor: '', timers: [], unread: 0, sync: '', lastSt: '', pingN: 0 };
+  cmdAt: 0, hold: 0, web: false, stall: 0, waitAt: 0, waitFor: '', timers: [], unread: 0, sync: '', lastSt: '', pingN: 0 };
 const tgRid = (n = 8) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
 const tgB64e = u8 => { let s = ''; for (const b of u8) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 const tgB64d = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
@@ -151,14 +151,20 @@ async function tgSend(m, viaMqtt) {
   }
   if (mq) { const b = await tgSeal(m); tg.mq.forEach(c => c.pub(b)); }
 }
-function tgHello() { if (tg.on) tgSend({ k: 'hello', media: tg.host ? tg.media : undefined }, true); }
+function tgHello() { if (tg.on) tgSend({ k: 'hello', media: tg.host ? tg.media : undefined, web: tg.web ? 1 : undefined }, true); }
 function tgRecv(m, via) {
   if (!tg.on || !m || !m.id || !m.from || m.from === tg.me || tgSeen(m.id)) return;
   if (m.to && m.to !== tg.me) return;
   if (m.k === 'bye') { const p = tg.peers.get(m.from); if (p) { tgNote(`${p.name} вышел(а)`); tgDropPeer(p); } return; }
   const known = tg.peers.has(m.from);
   const p = tgPeer(m.from, m.name, m.host);
-  if (!known) { tgNote(`${p.name} в комнате`); tgPaint(); if (m.k === 'hello') tgSend({ k: 'hello', to: m.from, media: tg.host ? tg.media : undefined }, true); }
+  if (m.web) p.web = true;
+  if (!known) {
+    tgNote(`${p.name} в комнате${p.web ? ' (из браузера, без TorrClient)' : ''}`);
+    if (p.web && !tg.web && !tg.screen) { tgNote(`🌐 ${p.name} смотрит из браузера — нажмите «Показать экран» и выберите окно плеера (со звуком), чтобы он видел фильм`); if (typeof toast === 'function') toast(`${p.name} зашёл из браузера — покажите ему экран`); }
+    tgPaint();
+    if (m.k === 'hello') tgSend({ k: 'hello', to: m.from, media: tg.host ? tg.media : undefined, web: tg.web ? 1 : undefined }, true);
+  }
   if (m.host && m.media && !tg.host) tg.media = m.media;
   switch (m.k) {
     case 'sig': p.q = p.q.then(() => tgSig(p, m)); break;
@@ -450,7 +456,8 @@ function tgPaint() {
           <div class="card tg-card" id="tgStatus"></div>
           <div class="card tg-card"><div class="tg-h">Пригласить</div>
             <div class="tg-code"><code id="tgCode"></code><button class="btn" data-tg="copy">Скопировать</button></div>
-            <div class="muted sm">Друг вставляет код в «Вместе → Присоединиться». В коде — ключ шифрования, поэтому отправляйте его лично.</div></div>
+            <div class="tg-links"><button class="btn sm" data-tg="link-web" title="Откроется в обычном браузере: друг видит ваш экран, слышит звук и голос, пишет в чат">🌐 Ссылка для друга без TorrClient</button><button class="btn sm" data-tg="link-app" title="У друга есть TorrClient — ссылка откроет комнату в нём">Ссылка для TorrClient</button></div>
+            <div class="muted sm">Друг с TorrClient вставляет код в «Вместе → Присоединиться» или открывает ссылку. Без TorrClient — «Ссылка для друга»: откроется страница в браузере, а вы включите «Показать экран». В коде — ключ шифрования, поэтому отправляйте его лично.</div></div>
         </div>
         <div class="card tg-chatcard">
           <div class="tg-chat" id="tgChat">${raw(tg.chat.map(tgMsgHtml).join(''))}</div>
@@ -491,7 +498,7 @@ function tgPaintStatus() {
   box.innerHTML = html`<div class="tg-h">Комната</div>
     <div class="tg-people">
       <div class="tg-person me"><i>${tg.name.slice(0, 1).toUpperCase()}</i><span>${tg.name}<small>вы${tg.host ? ' · ведущий' : ''}${tg.mic ? ' · 🎤' : ''}${tg.screen ? ' · 🖥' : ''}</small></span></div>
-      ${peers.map(p => raw(html`<div class="tg-person"><i>${p.name.slice(0, 1).toUpperCase()}</i><span>${p.name}<small>${p.host ? 'ведущий · ' : ''}${tgLink(p)}</small></span></div>`))}
+      ${peers.map(p => raw(html`<div class="tg-person"><i>${p.name.slice(0, 1).toUpperCase()}</i><span>${p.name}<small>${p.host ? 'ведущий · ' : ''}${p.web ? '🌐 браузер · ' : ''}${tgLink(p)}</small></span></div>`))}
       ${peers.length ? '' : raw('<div class="muted sm">Пока никого. Отправьте код приглашения.</div>')}
     </div>
     <div class="tg-media">${m && m.h ? raw(html`🎬 <b>${m.t || 'Фильм'}</b>`) : raw('<span class="muted">Фильм не выбран</span>')}</div>
@@ -528,6 +535,7 @@ async function tgOnClick(e) {
     if (!o) { toast('Это не код приглашения — он начинается с TC1.', true); return; }
     await tgStart(o, false);
   }
+  else if (a === 'link-web' || a === 'link-app') { const c = tgLinkFor(a === 'link-web'); try { await navigator.clipboard.writeText(c); toast(a === 'link-web' ? 'Ссылка скопирована — друг откроет её в браузере' : 'Ссылка скопирована'); } catch { prompt('Скопируйте ссылку:', c); } }
   else if (a === 'copy') { const c = tgCode(); try { await navigator.clipboard.writeText(c); toast('Код скопирован'); } catch { prompt('Скопируйте код:', c); } }
   else if (a === 'send') { const i = $('#tgIn'); tgSay(i.value); i.value = ''; i.focus(); }
   else if (a === 'mic') tgMic();
@@ -538,8 +546,16 @@ async function tgOnClick(e) {
 }
 function tgOnChange(e) { const k = e.target.dataset && e.target.dataset.tgSet; if (k) savePref(k, e.target.value.trim()); if (e.target.id === 'tgName') tgSaveName(); }
 function tgSaveName() { const i = $('#tgName'); if (i && i.value.trim()) savePref('tc_tg_name', i.value.trim().slice(0, 40)); }
-// После перезагрузки страницы — обратно в ту же комнату.
+const TG_WEB_URL = 'https://qwkejkqwje1.github.io/TorrClient/watch/';
+// Ссылки-приглашения: код идёт после #, поэтому не уходит ни на GitHub, ни на чей-то сервер.
+function tgLinkFor(web) { return web ? TG_WEB_URL + '#' + tgCode() : 'http://localhost:8099/#join=' + tgCode(); }
+// После перезагрузки страницы — обратно в ту же комнату; ссылка #join=КОД — сразу в комнату гостем.
 function tgBoot() {
+  const h = decodeURIComponent(BOOT_HASH), j = h.match(/^#join=(TC1\.[A-Za-z0-9_-]+)/);
+  if (j) {
+    const o = tgParse(j[1]);
+    if (o) { if (typeof setView === 'function') setView('together'); tgStart(o, false); return; }
+  }
   let s; try { s = JSON.parse(sessionStorage.getItem('tc_tg') || 'null'); } catch {}
   if (s && s.o && !tg.on) tgStart(s.o, !!s.host);
 }
