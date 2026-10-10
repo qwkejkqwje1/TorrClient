@@ -60,3 +60,7 @@ a{color:var(--acc)}
   .w-side{border-left:0; border-top:1px solid var(--line); min-height:420px}
   #wRoot{height:auto}
 }
+.w-adv{font-size:13px; color:var(--mut)}
+.w-adv summary{cursor:pointer}
+.w-adv p{margin:6px 0}
+.w-adv label{margin-top:6px}

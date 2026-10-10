@@ -82,6 +82,7 @@ async function tgUnseal(bytes) {
 function tgCode() {
   const m = tg.media || {};
   const o = { r: tg.room, k: tg.keyB64, h: m.h || '', f: m.f, t: m.t || '', b: localStorage.getItem('tc_tg_broker') || '' };
+  const tu = tgTurn(); if (tu) { o.tu = tu.urls; o.tn = tu.username; o.tp = tu.credential; } // TURN ведущего — и гостю (у гостя-браузера своих настроек нет)
   return 'TC1.' + tgB64e(new TextEncoder().encode(JSON.stringify(o)));
 }
 function tgParse(code) {
@@ -91,10 +92,15 @@ function tgParse(code) {
 }
 
 /* ── вход и выход ── */
+// TURN: свой из «Соединения», иначе — из приглашения. Несколько адресов — через пробел или запятую.
+function tgTurn() {
+  const t = (localStorage.getItem('tc_tg_turn') || '').trim();
+  if (t) return { urls: t.split(/[\s,]+/).filter(Boolean), username: localStorage.getItem('tc_tg_turnu') || '', credential: localStorage.getItem('tc_tg_turnp') || '' };
+  return tg.turn || null;
+}
 function tgIce() {
   const s = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }, { urls: 'stun:stun.cloudflare.com:3478' }];
-  const t = (localStorage.getItem('tc_tg_turn') || '').trim();
-  if (t) s.push({ urls: t, username: localStorage.getItem('tc_tg_turnu') || '', credential: localStorage.getItem('tc_tg_turnp') || '' });
+  const t = tgTurn(); if (t) s.push(t);
   return s;
 }
 function tgCanRun() { return !!(window.crypto && crypto.subtle && window.RTCPeerConnection && window.isSecureContext); }
@@ -103,6 +109,7 @@ async function tgStart(o, host) {
   if (!tgCanRun()) { toast('Браузер разрешает шифрование и звонки только на защищённом адресе — откройте TorrClient на этом компьютере (localhost)', true); return false; }
   if (tg.on) tgLeave(true);
   tg.room = o.r; tg.keyB64 = o.k; tg.host = host; tg.me = tgRid(6); tg.name = tgMyName();
+  tg.turn = o.tu ? { urls: [].concat(o.tu), username: o.tn || '', credential: o.tp || '' } : null;
   try { tg.key = await crypto.subtle.importKey('raw', tgB64d(o.k), 'AES-GCM', false, ['encrypt', 'decrypt']); } catch { toast('Код приглашения повреждён', true); return false; }
   tg.on = true; tg.chat = []; tg.unread = 0; tg.off = []; tg.st = null; tg.mine = null; tg.prev = null; tg.sync = ''; tg.lastSt = '';
   tg.media = o.h ? { h: o.h, f: o.f, t: o.t } : null;
@@ -168,7 +175,11 @@ function tgRecv(m, via) {
   }
   if (m.host && m.media && !tg.host) tg.media = m.media;
   switch (m.k) {
-    case 'sig': p.q = p.q.then(() => tgSig(p, m)); break;
+    case 'sig': {
+      const g = m.g || 0; if (g < (p.gen || 0)) break;           // от старого соединения
+      if (g > (p.gen || 0)) { p.gen = g; p.retryAt = Date.now(); tgRepc(p); } // друг пересоздал соединение — и мы
+      p.q = p.q.then(() => tgSig(p, m)); break;
+    }
     case 'chat': tgChatIn(p, String(m.text || '').slice(0, 500)); break;
     case 'react': if (TG_REACT.includes(m.e)) tgReactIn(p, m.e); break;
     case 'st': if (m.host) tgFollow(m); break;
@@ -178,7 +189,7 @@ function tgRecv(m, via) {
     case 'wait': if (tg.host) tgHostWait(p); break;
     case 'ready': if (tg.host && tg.waitFor === p.id) { tg.waitFor = ''; tgCountdown(); } break;
     case 'cd': if (m.host) tgRunCountdown(m.pos, m.at - tgOffset()); break;
-    case 'screen': if (!m.on) tgHideScreen(p.id); break;
+    case 'screen': if (!m.on) tgHideScreen(p.id); else p.screen = true; break;
   }
 }
 
@@ -186,7 +197,7 @@ function tgRecv(m, via) {
 function tgPeer(id, name, isHost) {
   let p = tg.peers.get(id);
   if (!p) {
-    p = { id, name: 'Гость', last: Date.now(), polite: tg.me > id, making: false, ignore: false, q: Promise.resolve(), cands: [], auds: {} };
+    p = { id, name: 'Гость', last: Date.now(), at: Date.now(), polite: tg.me > id, making: false, ignore: false, q: Promise.resolve(), cands: [], auds: {}, lt: new Set(), rt: new Set(), tries: 0 };
     tg.peers.set(id, p); tgPc(p);
   }
   p.last = Date.now(); if (name) p.name = String(name).slice(0, 40);
@@ -200,12 +211,19 @@ function tgPc(p) {
   p.dc.onopen = () => { tgNote(`С ${p.name} — напрямую (P2P)`); tgPaint(); };
   p.dc.onclose = () => tgPaint();
   p.dc.onmessage = e => { try { tgRecv(JSON.parse(e.data), 'p2p'); } catch {} };
+  // Первое предложение делает только «невежливая» сторона: если оба предложат разом,
+  // откат у вежливой с заранее согласованным каналом данных ломается в Chrome
+  // («Failed to start SCTP transport») — соединение висло, ходил только чат.
   pc.onnegotiationneeded = async () => {
-    try { p.making = true; await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, desc: pc.localDescription.toJSON() }); } catch {} finally { p.making = false; }
+    if (p.polite && !pc.remoteDescription) { p.pendNeg = true; return; }
+    try { p.making = true; await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, desc: pc.localDescription.toJSON() }); } catch {} finally { p.making = false; }
   };
-  pc.onicecandidate = e => { if (e.candidate) tgSend({ k: 'sig', to: p.id, cand: e.candidate.toJSON() }); };
+  pc.onicecandidate = e => { if (e.candidate) { tgCandType(p.lt, e.candidate.candidate); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, cand: e.candidate.toJSON() }); } };
   pc.ontrack = e => tgTrack(p, e);
-  pc.onconnectionstatechange = () => { tgPaint(); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch {} } };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') { p.ok = true; p.warned = false; }
+    tgPaint(); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch {} }
+  };
   for (const s of [tg.mic, tg.screen]) if (s) s.getTracks().forEach(t => { try { pc.addTrack(t, s); } catch {} });
 }
 async function tgSig(p, m) {
@@ -216,13 +234,15 @@ async function tgSig(p, m) {
       p.ignore = !p.polite && collision; if (p.ignore) return;
       await pc.setRemoteDescription(m.desc);
       for (const c of p.cands.splice(0)) { try { await pc.addIceCandidate(c); } catch {} }
-      if (m.desc.type === 'offer') { await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, desc: pc.localDescription.toJSON() }); }
+      if (m.desc.type === 'offer') { await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, desc: pc.localDescription.toJSON() }); }
+      if (p.pendNeg && pc.signalingState === 'stable') { p.pendNeg = false; setTimeout(() => { if (p.pc === pc && pc.signalingState === 'stable') pc.onnegotiationneeded(); }, 300); }
     } else if (m.cand) {
+      tgCandType(p.rt, m.cand.candidate);
       // кандидат мог обогнать предложение (разные брокеры) — подождёт
       if (!pc.remoteDescription) { p.cands.push(m.cand); return; }
       try { await pc.addIceCandidate(m.cand); } catch {}
     }
-  } catch {}
+  } catch (e) { console.warn('tg sig', m.desc ? m.desc.type : 'cand', pc.signalingState, e && e.message); }
 }
 function tgDropPeer(p, quiet) {
   try { p.pc.close(); } catch {}
@@ -233,7 +253,37 @@ function tgDropPeer(p, quiet) {
 }
 function tgLink(p) {
   if (p.dc && p.dc.readyState === 'open') return 'P2P';
-  return tg.mq.some(c => c.ok) ? 'через MQTT' : 'нет связи';
+  const s = p.pc && p.pc.connectionState;
+  if (!tg.mq.some(c => c.ok)) return 'нет связи';
+  return Date.now() - p.at < 20000 && s !== 'failed' ? 'соединяюсь…' : 'только чат (нет прямой связи)';
+}
+function tgCandType(set, c) { const m = / typ (host|srflx|prflx|relay)/.exec(c || ''); if (m) set.add(m[1]); }
+const TG_CT = { host: 'локальный', srflx: 'внешний (STUN)', prflx: 'внешний', relay: 'TURN' };
+function tgCandList(set) { return set.size ? [...set].map(t => TG_CT[t] || t).join(', ') : 'нет'; }
+// Нет прямой связи — чат идёт через брокер, но звук и экран через него не пройдут.
+// Раз в 25 с пересоздаём соединение (до 3 раз) и объясняем, что не так.
+function tgCheckLinks() {
+  const now = Date.now();
+  for (const p of tg.peers.values()) {
+    if (p.dc && p.dc.readyState === 'open') continue;
+    if (now - p.at < 25000) continue;
+    if (!p.warned) {
+      p.warned = true;
+      const relay = p.lt.has('relay') || p.rt.has('relay'), turn = !!tgTurn();
+      const why = !p.rt.size ? `от ${p.name} не дошли данные для соединения`
+        : !turn ? 'между вами строгий NAT или файрвол (часто у мобильного интернета и провайдеров с общим IP)'
+        : !relay ? 'TURN-сервер не ответил — проверьте адрес, логин и пароль' : 'даже через TURN соединиться не вышло';
+      tgNote(`⚠ Прямой связи с ${p.name} нет: ${why}. Чат работает через сервер, а звук и экран — нет. ${turn ? '' : 'Поможет TURN-сервер: «Вместе» → «Соединение» (у ведущего — он попадёт в приглашение). '}Кандидаты: у вас — ${tgCandList(p.lt)}, у ${p.name} — ${tgCandList(p.rt)}.`);
+    }
+    if (p.tries < 3 && now - (p.retryAt || p.at) > 25000 && tg.me < p.id) { // пересоздаёт одна сторона
+      p.tries++; p.retryAt = now; p.gen = (p.gen || 0) + 1; tgRepc(p);
+    }
+  }
+}
+function tgRepc(p) {
+  try { p.pc.close(); } catch {}
+  p.lt = new Set(); p.rt = new Set(); p.cands = []; p.making = false; p.ignore = false; p.q = Promise.resolve();
+  tgPc(p);
 }
 
 /* ── голос и экран ── */

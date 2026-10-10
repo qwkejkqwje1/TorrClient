@@ -38,7 +38,7 @@ import (
 const (
 	updateRepo    = "qwkejkqwje1/TorrClient"
 	updateMaxSize = 200 << 20
-	updateEvery   = 6 * time.Hour
+	updateEvery   = time.Hour
 )
 
 // startExe — путь к программе, каким он был при запуске.

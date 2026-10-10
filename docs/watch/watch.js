@@ -26,9 +26,16 @@ function wJoinView(err) {
     ${o ? '' : `<label>Код приглашения<input id="wCodeIn" placeholder="TC1.…" autocomplete="off" value="${esc(code)}"></label>`}
     ${err ? `<div class="w-err">${esc(err)}</div>` : ''}
     <button class="primary" id="wGo" ${can ? '' : 'disabled'}>Подключиться</button>
+    <details class="w-adv"><summary>Соединение (TURN)</summary>
+      <p>Нужно, только если в чате пишет «нет прямой связи», а ведущий TURN не указал.</p>
+      <label>TURN<input data-k="tc_tg_turn" value="${esc(localStorage.getItem('tc_tg_turn') || '')}" placeholder="turn:relay.example.com:3478"></label>
+      <label>Логин<input data-k="tc_tg_turnu" value="${esc(localStorage.getItem('tc_tg_turnu') || '')}"></label>
+      <label>Пароль<input type="password" data-k="tc_tg_turnp" value="${esc(localStorage.getItem('tc_tg_turnp') || '')}"></label>
+    </details>
     ${o ? `<div class="alt">Есть TorrClient? <a href="http://localhost:8099/#join=${esc(code)}">Открыть в нём</a> — фильм пойдёт с вашей раздачи в хорошем качестве.</div>` : ''}
   </div>`;
   $('#wGo').onclick = wJoin;
+  document.querySelectorAll('.w-adv [data-k]').forEach(i => i.onchange = () => localStorage.setItem(i.dataset.k, i.value.trim()));
   $('#wRoot').onkeydown = e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') wJoin(); };
   const n = $('#wName'); if (n && !n.value) n.focus();
 }
@@ -85,6 +92,7 @@ function wSay(text) {
   text = String(text || '').trim().slice(0, 500); if (!text || !tg.on) return;
   tgSend({ k: 'chat', text }); tgChatPush({ name: tg.name, text, mine: true });
 }
+function wNoLink(p) { return p && !(p.dc && p.dc.readyState === 'open') && Date.now() - p.at > 20000; }
 function wAllAudio() { const o = []; for (const p of tg.peers.values()) o.push(...Object.values(p.auds)); return o; }
 function wApplyVol() { for (const a of wAllAudio()) a.volume = W.vol / 100; }
 function wPaintUnmute() { const b = $('#wUnmute'); if (b) b.hidden = !W.blocked; }
@@ -101,10 +109,12 @@ function tgPaint() {
   const m = tg.media; $('#wTitle').textContent = m && m.t ? '🎬 ' + m.t : '';
   const wait = $('#wWait');
   if (wait) {
-    const on = !!W.screenOf && tg.peers.has(W.screenOf);
+    const sp = W.screenOf && tg.peers.get(W.screenOf), on = !!sp && sp.pc.connectionState === 'connected'; // дорожка приходит ещё до соединения
     wait.hidden = on; wait.style.display = on ? 'none' : '';
     if (!on) wait.innerHTML = !brokers && !peers.length ? '<b>Подключаюсь…</b><span>Ищем комнату через защищённые серверы-посредники</span>'
       : !peers.length ? '<b>В комнате пока никого</b><span>Как только друг появится, вы его увидите</span>'
+      : wNoLink(host || peers[0]) ? `<b>Нет прямой связи с ${esc((host || peers[0]).name)}</b><span>Чат идёт через сервер, а звук и экран так не пройдут: между вами строгий NAT или файрвол. Ведущему нужно указать TURN-сервер в TorrClient («Вместе» → «Соединение») и прислать новую ссылку. Подробности — в чате.</span>`
+      : (host || peers[0]).screen ? `<b>${esc((host || peers[0]).name)} показывает экран…</b><span>Видео вот-вот появится</span>`
       : `<b>Ждём экран от ${esc((host || peers[0]).name)}</b><span>Попросите в чате нажать «Показать экран» в TorrClient и выбрать окно плеера со звуком</span>`;
   }
   wApplyVol();
@@ -140,6 +150,7 @@ function tgTick() {
   if (!tg.on) return;
   const now = Date.now();
   for (const p of [...tg.peers.values()]) if (now - p.last > 45000) { tgNote(`${p.name} пропал(а) из сети`); tgDropPeer(p); }
+  tgCheckLinks();
   const auds = wAllAudio();
   auds.forEach(a => { if (a.srcObject && a.paused) a.play().then(() => { W.blocked = false; wPaintUnmute(); }).catch(() => { W.blocked = true; wPaintUnmute(); }); });
   const v = $('#wVideo'); if (v && v.srcObject && v.srcObject.getVideoTracks().every(t => t.readyState === 'ended')) tgHideScreen();
