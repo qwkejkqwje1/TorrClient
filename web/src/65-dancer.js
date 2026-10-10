@@ -1,52 +1,54 @@
-/* ───────────── музыка: неоновая танцовщица ─────────────
-   Голограмма в духе неонового нуара: живёт в разделе «Музыка» и танцует
-   под трек, который играет в окне. Звук разбирается Web Audio: по басу
-   ищутся удары, из промежутков между ними — темп, к которому подстраивается
-   «внутренний метроном». Фигура — скелет с прямой кинематикой рук и
-   обратной для ног; движения (покачивание, волна, «качок», вог, вращение)
-   меняются каждые 8 долей и зависят от громкости. Рисуется 30 кадров/с
-   только пока раздел открыт и окно не свёрнуто; если звук не получен,
-   она просто ждёт и покачивается. */
-const dz = { cv: null, ctx: null, fig: null, fctx: null, glow: null, gctx: null, raf: 0, last: 0, w: 0, h: 0, dpr: 1,
-  b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, hi: 0, prevE: 0,
-  move: 'sway', prevMove: 'sway', moveAt: 0, spinAt: -99, glitch: 0, hair: 0, hairV: 0, skirt: 0, lastHead: 0,
-  poseA: null, poseB: null, vogueIx: 0, rain: [], city: [], spec: null, cost: 0 };
+/* ───────────── аудио: танцоры ─────────────
+   На сцене раздела «Аудио» танцует персонаж, нарисованный в духе аниме
+   (заливка и тёмный контур): Резе — каре, зелёные глаза, белая рубашка и
+   чокер — или серый волк с хвостом. На каждый трек выбирается случайный
+   танцор и танец (или тот, кого закрепили кнопкой). Слух: удары баса из
+   Web Audio дают темп и фазу «метронома»; если звук прочитать нельзя
+   (радио без CORS), танцор держит свой темп ~118 BPM. Руки и ноги — через
+   обратную кинематику к целям кистей и стоп. Рисуется 30 кадров/с, только
+   пока раздел открыт и окно видно. */
+const dz = { cv: null, ctx: null, raf: 0, last: 0, w: 0, h: 0, dpr: 1,
+  who: 'reze', b: 0, bpm: 118, onsets: [], lastOn: 0, eMean: 0, eVar: 0, energy: 0, prevE: 0, spec: null, bassIx: [1, 6],
+  move: 'idle', prevMove: 'idle', moveAt: 0, pose: null, hair: 0, hairV: 0, skirt: 0, skirtV: 0, lastHx: 0, lastPx: 0,
+  tail: [], fw: [], stars: [], trees: [], flies: [], lastBurst: -1, flash: 0 };
+const DZ_MOVES = { reze: ['iris', 'clap', 'point', 'hop'], wolf: ['howl', 'stomp', 'shuffle', 'shake'] };
+const DZ_NAMES = { iris: 'IRIS OUT', clap: 'хлопки', point: 'указка', hop: 'прыжки', howl: 'вой', stomp: 'топот', shuffle: 'шаффл', shake: 'тряска', idle: '' };
 function dancerOn() { return localStorage.getItem('tc_dancer') !== '0'; }
-function dancerHook() {
-  // Подключаемся к звуку один раз: createMediaElementSource можно вызвать
-  // на элементе лишь однажды, и дальше звук идёт через AudioContext.
-  if (mu.an || !mu.audio || !window.AudioContext) return;
-  try {
-    const ac = new AudioContext();
-    const src = ac.createMediaElementSource(mu.audio);
-    const an = ac.createAnalyser(); an.fftSize = 1024; an.smoothingTimeConstant = 0.5;
-    src.connect(an); an.connect(ac.destination);
-    mu.ac = ac; mu.an = an; dz.spec = new Uint8Array(an.frequencyBinCount);
-    mu.audio.addEventListener('play', () => ac.resume().catch(() => {}));
-    if (!mu.audio.paused) ac.resume().catch(() => {});
-  } catch {}
-}
+function dancerWho() { const v = localStorage.getItem('tc_dancer_who'); return v === 'reze' || v === 'wolf' ? v : 'random'; }
 function dancerHtml() {
-  return html`<aside class="mu-stage${dancerOn() ? '' : ' off'}" id="muStage">
+  const on = dancerOn(), w = dancerWho();
+  return html`<aside class="mu-stage${on ? '' : ' off'}" id="muStage">
     <canvas id="muDance"></canvas>
-    <button class="iconbtn mu-stage-x" id="muDanceX" title="${dancerOn() ? 'Убрать танцовщицу' : 'Позвать танцовщицу'}">${dancerOn() ? '×' : '💃'}</button>
+    ${on ? raw(html`<button class="iconbtn mu-stage-who" id="muDanceWho" title="Кто танцует: ${w === 'random' ? 'случайно на каждый трек' : w === 'reze' ? 'Резе' : 'Волк'}">${w === 'random' ? '🎲' : w === 'reze' ? '💃' : '🐺'}</button>`) : ''}
+    <button class="iconbtn mu-stage-x" id="muDanceX" title="${on ? 'Убрать танцора' : 'Позвать танцора'}">${on ? '×' : '💃'}</button>
     <div class="mu-stage-cap" id="muDanceCap"></div>
   </aside>`;
 }
 function bindDancer() {
   const x = $('#muDanceX'); if (!x) return;
-  x.addEventListener('click', () => {
-    savePref('tc_dancer', dancerOn() ? '0' : '1');
-    const st = $('#muStage'); st.outerHTML = dancerHtml(); bindDancer();
+  const redraw = () => { const st = $('#muStage'); st.outerHTML = dancerHtml(); bindDancer(); };
+  x.addEventListener('click', () => { savePref('tc_dancer', dancerOn() ? '0' : '1'); redraw(); });
+  const w = $('#muDanceWho');
+  if (w) w.addEventListener('click', () => {
+    const order = ['random', 'reze', 'wolf'], next = order[(order.indexOf(dancerWho()) + 1) % 3];
+    savePref('tc_dancer_who', next); dancerNewTrack(); redraw();
+    toast(next === 'random' ? 'Танцор — случайный на каждый трек' : next === 'reze' ? 'Танцует Резе' : 'Танцует волк');
   });
   if (dancerOn()) dancerStart();
 }
+// Новый трек: новый танцор (если не закреплён) и новый танец.
+function dancerNewTrack() {
+  const w = dancerWho();
+  const who = w === 'random' ? (Math.random() < 0.5 ? 'reze' : 'wolf') : w;
+  if (who !== dz.who) { dz.who = who; dz.pose = null; dz.tail = []; dz.fw = []; }
+  const list = DZ_MOVES[dz.who];
+  dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
+  dz.onsets = [];
+}
 function dancerStart() {
   const cv = $('#muDance'); if (!cv) return;
+  if (!dz.who || (dancerWho() !== 'random' && dz.who !== dancerWho())) dz.who = dancerWho() === 'random' ? dz.who : dancerWho();
   dz.cv = cv; dz.ctx = cv.getContext('2d');
-  dz.fig = document.createElement('canvas'); dz.fctx = dz.fig.getContext('2d');
-  dz.glow = document.createElement('canvas'); dz.gctx = dz.glow.getContext('2d');
-  dz.tmp = document.createElement('canvas'); dz.tctx = dz.tmp.getContext('2d');
   dancerResize();
   cancelAnimationFrame(dz.raf); dz.last = 0;
   dz.raf = requestAnimationFrame(dancerFrame);
@@ -55,31 +57,38 @@ function dancerResize() {
   const r = dz.cv.getBoundingClientRect();
   const dpr = Math.min(1.5, window.devicePixelRatio || 1);
   dz.w = Math.max(10, r.width); dz.h = Math.max(10, r.height); dz.dpr = dpr;
-  for (const c of [dz.cv, dz.fig, dz.tmp]) { c.width = Math.round(dz.w * dpr); c.height = Math.round(dz.h * dpr); }
-  dz.glow.width = Math.ceil(dz.w / 4); dz.glow.height = Math.ceil(dz.h / 4);
-  dz.rain = Array.from({ length: 46 }, () => ({ x: Math.random() * dz.w, y: Math.random() * dz.h, l: 8 + Math.random() * 18, v: 260 + Math.random() * 220 }));
-  dz.city = Array.from({ length: 22 }, () => ({ x: Math.random() * dz.w, y: dz.h * (0.18 + Math.random() * 0.5), r: 6 + Math.random() * 22, c: Math.random() < 0.5 ? '255,60,170' : Math.random() < 0.5 ? '60,220,255' : '255,170,60', a: 0.05 + Math.random() * 0.12, f: Math.random() * 6 }));
+  dz.cv.width = Math.round(dz.w * dpr); dz.cv.height = Math.round(dz.h * dpr);
+  const W = dz.w, H = dz.h;
+  dz.stars = Array.from({ length: 60 }, () => ({ x: Math.random() * W, y: Math.random() * H * 0.6, r: Math.random() * 1.2 + 0.3, f: Math.random() * 6 }));
+  dz.trees = Array.from({ length: 16 }, (_, i) => ({ x: (i + Math.random() * 0.8) / 16 * W * 1.1 - W * 0.05, h: H * (0.16 + Math.random() * 0.16), far: i % 2 }));
+  dz.trees.sort((a, b) => b.far - a.far);
+  dz.flies = Array.from({ length: 16 }, () => ({ x: Math.random() * W, y: H * (0.45 + Math.random() * 0.45), a: Math.random() * 6, s: 6 + Math.random() * 12, f: Math.random() * 6 }));
 }
 
 /* ── слух: удары баса и темп ── */
 function dancerListen(dt, now) {
-  const a = mu.audio, playing = a && !a.paused && !a.ended && mu.an;
-  let bass = 0, all = 0, hi = 0;
-  if (playing) {
-    mu.an.getByteFrequencyData(dz.spec);
-    const s = dz.spec, n = s.length;
-    for (let i = 1; i < 7; i++) bass += s[i];
-    for (let i = 0; i < 160; i++) all += s[i];
-    for (let i = 160; i < 380; i++) hi += s[i];
-    bass /= 6 * 255; all /= 160 * 255; hi /= 220 * 255;
+  const playing = typeof auPlaying === 'function' && auPlaying();
+  const an = playing && typeof auAnalyser === 'function' ? auAnalyser() : null;
+  let bass = 0, all = 0;
+  if (an) {
+    if (!dz.spec || dz.spec.length !== an.frequencyBinCount) {
+      dz.spec = new Uint8Array(an.frequencyBinCount);
+      const bw = an.context.sampleRate / an.fftSize;
+      dz.bassIx = [Math.max(1, Math.round(40 / bw)), Math.max(2, Math.round(150 / bw))];
+    }
+    an.getByteFrequencyData(dz.spec);
+    const s = dz.spec, [b0, b1] = dz.bassIx, top = Math.min(s.length, Math.round(s.length * 0.3));
+    for (let i = b0; i <= b1; i++) bass += s[i];
+    for (let i = 0; i < top; i++) all += s[i];
+    bass /= (b1 - b0 + 1) * 255; all /= top * 255;
   }
-  dz.energy += ((playing ? Math.min(1, all * 1.9) : 0) - dz.energy) * Math.min(1, dt * 3);
-  dz.hi += (hi - dz.hi) * Math.min(1, dt * 8);
-  // всплеск баса над скользящим средним — удар
+  // без анализа (радио без CORS) — ровная «внутренняя» энергия
+  const target = !playing ? 0 : an ? Math.min(1, all * 2.2) : 0.6;
+  dz.energy += (target - dz.energy) * Math.min(1, dt * 3);
   const d = bass - dz.eMean;
   dz.eMean += d * Math.min(1, dt * 2.2); dz.eVar += (d * d - dz.eVar) * Math.min(1, dt * 2.2);
   const rise = bass - dz.prevE; dz.prevE = bass;
-  if (playing && bass > 0.32 && d > Math.sqrt(dz.eVar) * 1.15 && rise > 0 && now - dz.lastOn > 260) {
+  if (an && bass > 0.3 && d > Math.sqrt(dz.eVar) * 1.15 && rise > 0 && now - dz.lastOn > 260) {
     const gap = now - dz.lastOn; dz.lastOn = now;
     if (gap < 2000) { dz.onsets.push(gap); if (dz.onsets.length > 24) dz.onsets.shift(); }
     if (dz.onsets.length >= 4) {
@@ -87,260 +96,337 @@ function dancerListen(dt, now) {
       let bpm = 60000 / g; while (bpm < 85) bpm *= 2; while (bpm > 170) bpm /= 2;
       dz.bpm += (bpm - dz.bpm) * 0.25;
     }
-    // подтягиваем фазу метронома к удару
     const fr = dz.b - Math.floor(dz.b);
     dz.b += fr > 0.5 ? (1 - fr) * 0.35 : -fr * 0.35;
-    if (d > Math.sqrt(dz.eVar) * 2.6 && dz.energy > 0.35) dz.glitch = 1;
   }
-  const tempo = playing ? dz.bpm : 46;
-  dz.b += dt * tempo / 60;
-  return playing;
+  if (playing && !an) dz.bpm += (118 - dz.bpm) * Math.min(1, dt);
+  dz.b += dt * (playing ? dz.bpm : 40) / 60;
+  return { playing, heard: !!an };
 }
 
-/* ── хореография ── */
-const DZ_VOGUE = [[2.7, 0.3, 0.4, 2.2], [1.6, 1.6, 1.6, 1.6], [0.3, 2.3, 2.9, 0.2], [2.2, 2.0, 2.2, 2.0], [1.2, 0.2, 2.6, 1.9], [2.9, 0.1, 2.9, 0.1]];
+/* ── хореография: цели кистей (в осях торса от груди), стоп и таза ── */
+const TAU = Math.PI * 2;
 function dzPose(m, b, e) {
-  const s1 = Math.sin(Math.PI * b), fr = b - Math.floor(b), pulse = Math.pow(1 - fr, 3);
-  const p = { hx: 0, hy: 4 * e * (0.5 - 0.5 * Math.cos(2 * Math.PI * b)), tilt: 0, head: 0,
-    hr: 0, lw: 0.2, rw: 0.2, lt: 0.22, lp: 0.3, rt: 0.22, rp: 0.3, lf: [-6, 99], rf: [6, 99] };
-  const amp = 0.35 + e;
-  if (m === 'idle') {
-    p.hx = 4 * s1; p.tilt = -0.04 * s1; p.head = 0.06 * Math.sin(Math.PI * b + 0.6); p.hy = 1.5 * (0.5 - 0.5 * Math.cos(2 * Math.PI * b));
-    p.lt = 0.16 + 0.04 * s1; p.rt = 0.16 - 0.04 * s1; p.lp = 0.22; p.rp = 0.22; p.hr = -0.08 * s1;
-  } else if (m === 'sway') {
-    p.hx = 9 * amp * s1; p.tilt = -0.09 * amp * s1; p.head = 0.12 * Math.sin(Math.PI * b + 0.5);
-    p.lt = 0.35 + 0.35 * amp * Math.max(0, Math.sin(Math.PI * b * 0.5)); p.lp = 0.5 + 0.6 * Math.max(0, s1);
-    p.rt = 0.35 + 0.35 * amp * Math.max(0, -Math.sin(Math.PI * b * 0.5)); p.rp = 0.5 + 0.6 * Math.max(0, -s1);
-    p.hr = -0.16 * amp * s1; p.lw = 0.5 * Math.max(0, s1); p.rw = 0.5 * Math.max(0, -s1);
-    p.lf = [-6 - 3 * Math.max(0, -s1), 99]; p.rf = [6 + 3 * Math.max(0, s1), 99];
-  } else if (m === 'wave') {
-    p.hx = 7 * amp * s1; p.tilt = -0.06 * s1; p.head = -0.15 * s1;
-    p.lt = 2.65 + 0.22 * Math.sin(Math.PI * b * 0.5); p.lp = -0.55 * Math.sin(Math.PI * b);
-    p.rt = 2.65 - 0.22 * Math.sin(Math.PI * b * 0.5 + 1); p.rp = 0.55 * Math.sin(Math.PI * b + 1.2);
-    p.hr = -0.12 * s1; p.lw = 0.8 * Math.sin(Math.PI * b + 0.8); p.rw = -0.8 * Math.sin(Math.PI * b + 2);
-    p.lf = [-8, 99]; p.rf = [8, 99];
-  } else if (m === 'pump') {
-    const odd = Math.floor(b) % 2;
-    p.hy += 3 * pulse * amp; p.hx = 5 * s1; p.head = 0.18 * pulse * (odd ? 1 : -1);
-    p.lt = odd ? 0.9 + 1.3 * pulse * amp : 0.7; p.lp = odd ? 1.9 - 0.6 * pulse : 1.9;
-    p.rt = odd ? 0.7 : 0.9 + 1.3 * pulse * amp; p.rp = odd ? 1.9 : 1.9 - 0.6 * pulse;
-    const st = Math.max(0, Math.sin(Math.PI * b)) * 7 * amp;
-    p.hr = (odd ? -0.1 : 0.1) * pulse; p.lw = p.rw = -0.4;
-    p.lf = odd ? [-6, 99] : [-6 - st, 99 - st * 0.7]; p.rf = odd ? [6 + st, 99 - st * 0.7] : [6, 99];
-  } else if (m === 'vogue') {
-    const A = DZ_VOGUE[Math.floor(b) % DZ_VOGUE.length], B = DZ_VOGUE[(Math.floor(b) + DZ_VOGUE.length - 1) % DZ_VOGUE.length];
-    const k = Math.min(1, fr * 5), q = k * k * (3 - 2 * k);
-    p.lt = B[0] + (A[0] - B[0]) * q; p.lp = B[1] + (A[1] - B[1]) * q; p.rt = B[2] + (A[2] - B[2]) * q; p.rp = B[3] + (A[3] - B[3]) * q;
-    p.hx = (Math.floor(b) % 2 ? 8 : -8) * q * amp; p.tilt = (Math.floor(b) % 2 ? -0.1 : 0.1) * q; p.head = (Math.floor(b) % 2 ? 0.2 : -0.2) * q;
-    p.hr = (Math.floor(b) % 2 ? -0.14 : 0.14) * q; p.lw = 0.5 * q; p.rw = 0.5 * q;
-    p.lf = [-9, 99]; p.rf = [9, 99];
+  const fr = b - Math.floor(b), beat = Math.floor(b), dn = Math.pow(1 - fr, 3), A = 0.55 + e * 0.6;
+  const p = { px: 0, py: dn * 4 * A, tl: 0, ht: 0, lh: [-17, 40], rh: [17, 40], lf: [-12, 0], rf: [12, 0], muz: 0, ring: 0, spark: 0 };
+  const sw = Math.sin(Math.PI * b);
+  switch (m) {
+    case 'idle':
+      p.px = Math.sin(b * Math.PI / 2) * 2; p.py = 1; p.tl = Math.sin(b * Math.PI / 2) * 0.03; p.ht = -p.tl;
+      p.lh = [-16, 41]; p.rh = [16, 41]; break;
+    case 'iris': { // кисть кольцом у глаза, другая на бедре; стороны меняются каждые 2 доли
+      const s = Math.floor(b / 4) % 2 ? 1 : -1, a = TAU * b;
+      const hand = [s * 8 + Math.cos(a) * 2.5 * A, -25 + Math.sin(a) * 2.5 * A];
+      if (s < 0) { p.lh = hand; p.rh = [16, 39]; } else { p.rh = hand; p.lh = [-16, 39]; }
+      p.px = -s * 5 * A; p.tl = s * 0.07; p.ht = s * 0.16 + Math.sin(a) * 0.03;
+      if (s < 0) p.rf = [12, 3]; else p.lf = [-12, 3];
+      p.ring = 1; break;
+    }
+    case 'clap': {
+      const sep = Math.sin(Math.PI * fr), hi = beat % 4 === 3 ? -22 : 12;
+      p.lh = [-3 - 19 * sep, hi + sep * 6]; p.rh = [3 + 19 * sep, hi + sep * 6];
+      p.px = Math.sin(Math.PI * b) * 4 * A; p.tl = -p.px * 0.012;
+      if (beat % 2) p.lf = [-16, 0]; else p.rf = [16, 0];
+      p.spark = fr < 0.18 ? 1 - fr / 0.18 : 0; break;
+    }
+    case 'point': {
+      const s = Math.floor(b / 2) % 2 ? 1 : -1, pop = Math.pow(1 - (b / 2 - Math.floor(b / 2)), 2);
+      const up = [s * (38 + 3 * pop), -36 - 4 * pop];
+      if (s < 0) { p.lh = up; p.rh = [16, 39]; } else { p.rh = up; p.lh = [-16, 39]; }
+      p.px = s * 5 * A * (0.5 + pop); p.tl = -s * 0.06; p.ht = s * 0.12;
+      if (s < 0) p.lf = [-17, 0]; else p.rf = [17, 0];
+      break;
+    }
+    case 'hop': {
+      const h = Math.sin(Math.PI * fr) * 9 * A;
+      p.py = -h + dn * 3; p.lf = [-10, h]; p.rf = [10, h];
+      p.lh = [-22, 30 - 16 * sw]; p.rh = [22, 30 + 16 * sw];
+      p.tl = sw * 0.04; p.ht = -sw * 0.08; break;
+    }
+    case 'howl': { // 2 доли — вой, задрав морду, 2 доли — покачивание
+      const ph = (b / 4 - Math.floor(b / 4)) * 4, hw = ph < 2 ? Math.sin(Math.min(1, ph / 0.4) * Math.PI / 2) * (ph > 1.7 ? (2 - ph) / 0.3 : 1) : 0;
+      p.muz = hw; p.py = 2 + (1 - hw) * dn * 4 * A;
+      p.lh = [-13 - (1 - hw) * 4, -12 + (1 - hw) * 28]; p.rh = [13 + (1 - hw) * 4, -12 + (1 - hw) * 28];
+      p.px = (1 - hw) * Math.sin(Math.PI * b) * 3; p.lf = [-14, 0]; p.rf = [14, 0]; break;
+    }
+    case 'stomp': {
+      const s = beat % 2 ? 1 : -1, lift = Math.sin(Math.PI * Math.min(1, fr * 1.4)) * 20 * A;
+      if (s < 0) p.lf = [-13, lift]; else p.rf = [13, lift];
+      p.px = -s * 3; p.py = 3 + dn * 5 * A; p.tl = s * 0.04;
+      p.lh = [-18, s < 0 ? 26 : 6 - 6 * A]; p.rh = [18, s > 0 ? 26 : 6 - 6 * A]; break;
+    }
+    case 'shuffle': {
+      const k = Math.sin(TAU * b / 2), l = Math.max(0, Math.sin(TAU * b)) * 8 * A;
+      p.lf = [-12 + 9 * k, beat % 2 ? l : 0]; p.rf = [12 + 9 * k, beat % 2 ? 0 : l];
+      p.px = 5 * k; p.py = 3 + dn * 3; p.tl = -k * 0.04;
+      p.lh = [-17, 18 + 10 * sw]; p.rh = [17, 18 - 10 * sw]; break;
+    }
+    case 'shake': {
+      const q = Math.sin(TAU * b * 2);
+      p.px = q * 6 * A; p.tl = -q * 0.06; p.ht = q * 0.08; p.py = 3;
+      p.lh = [-42, -4 + 6 * q]; p.rh = [42, -4 - 6 * q]; p.lf = [-15, 0]; p.rf = [15, 0]; break;
+    }
   }
   return p;
 }
 function dzLerp(a, b, t) {
   const o = {};
-  for (const k in a) o[k] = Array.isArray(a[k]) ? [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t] : a[k] + (b[k] - a[k]) * t;
+  for (const k in b) o[k] = Array.isArray(b[k]) ? [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t] : a[k] + (b[k] - a[k]) * t;
   return o;
 }
 function dzChoreo(playing) {
-  const beat = Math.floor(dz.b);
   if (!playing) { if (dz.move !== 'idle') { dz.prevMove = dz.move; dz.move = 'idle'; dz.moveAt = dz.b; } return; }
-  if (dz.move === 'idle' || beat - Math.floor(dz.moveAt) >= 8 && beat % 4 === 0 && dz.b - beat < 0.2) {
-    const e = dz.energy, pool = e < 0.3 ? ['sway', 'sway', 'wave'] : e < 0.55 ? ['sway', 'wave', 'pump', 'vogue'] : ['pump', 'vogue', 'wave', 'pump'];
-    let n = pool[Math.floor(Math.random() * pool.length)];
-    if (n === dz.move) n = pool[(pool.indexOf(n) + 1) % pool.length];
-    dz.prevMove = dz.move; dz.move = n; dz.moveAt = dz.b;
-    if (e > 0.5 && dz.b - dz.spinAt > 24 && Math.random() < 0.45) dz.spinAt = dz.b;
+  if (dz.move === 'idle' || dz.b - dz.moveAt >= 8) {
+    const list = DZ_MOVES[dz.who].filter(m => m !== dz.move);
+    dz.prevMove = dz.move; dz.move = list[Math.floor(Math.random() * list.length)]; dz.moveAt = Math.floor(dz.b);
   }
 }
 
-/* ── тело ──
-   Пропорции «модельные»: голова маленькая, ноги длинные, песочные часы в
-   корпусе. Конечности — сужающиеся формы с изгибом икры и бедра, на ногах
-   ботфорты на каблуке, длинные волосы — две цепочки с инерцией. */
-function dzRot(p, o, an) { const c = Math.cos(an), s = Math.sin(an), x = p[0] - o[0], y = p[1] - o[1]; return [o[0] + x * c - y * s, o[1] + x * s + y * c]; }
-function dzIK(h, f, l1, l2, side) {
-  let dx = f[0] - h[0], dy = f[1] - h[1], d = Math.hypot(dx, dy);
-  const m = l1 + l2 - 0.4; if (d > m) { dx *= m / d; dy *= m / d; d = m; f = [h[0] + dx, h[1] + dy]; }
-  const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
-  const base = Math.atan2(dy, dx) + side * a;
-  return [[h[0] + Math.cos(base) * l1, h[1] + Math.sin(base) * l1], f];
+/* ── скелет ── */
+function dzRot(v, a) { const c = Math.cos(a), s = Math.sin(a); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; }
+function dzAdd(a, b) { return [a[0] + b[0], a[1] + b[1]]; }
+// Двухзвенная ОК: сустав выбирается «наружу» (out = −1 влево, +1 вправо).
+function dzIK(root, tgt, l1, l2, out) {
+  let dx = tgt[0] - root[0], dy = tgt[1] - root[1], d = Math.hypot(dx, dy) || 0.001;
+  const dm = Math.min(l1 + l2 - 0.01, Math.max(Math.abs(l1 - l2) + 0.01, d));
+  dx *= dm / d; dy *= dm / d; d = dm;
+  const th = Math.atan2(dy, dx), al = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
+  const j1 = [root[0] + Math.cos(th + al) * l1, root[1] + Math.sin(th + al) * l1], j2 = [root[0] + Math.cos(th - al) * l1, root[1] + Math.sin(th - al) * l1];
+  return { j: (j1[0] - j2[0]) * out > 0 ? j1 : j2, e: [root[0] + dx, root[1] + dy] };
 }
-function dzArm(sh, side, t, ph, wr) {
-  const el = [sh[0] + side * Math.sin(t) * 27, sh[1] + Math.cos(t) * 27];
-  const wa = [el[0] + side * Math.sin(t + ph) * 25, el[1] + Math.cos(t + ph) * 25];
-  const ha = [wa[0] + side * Math.sin(t + ph + wr) * 8, wa[1] + Math.cos(t + ph + wr) * 8];
-  return [el, wa, ha];
-}
-// сужающаяся конечность a→b: ширина w0→w1, «мышца» bw на доле at длины
-function dzTaper(c, a, b, w0, w1, bw, at) {
-  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-  const mx = a[0] + dx * at, my = a[1] + dy * at, an = Math.atan2(ny, nx);
-  c.moveTo(a[0] + nx * w0, a[1] + ny * w0);
-  c.quadraticCurveTo(mx + nx * bw * 1.15, my + ny * bw * 1.15, b[0] + nx * w1, b[1] + ny * w1);
-  c.arc(b[0], b[1], w1, an, an + Math.PI, true);
-  c.quadraticCurveTo(mx - nx * bw * 1.15, my - ny * bw * 1.15, a[0] - nx * w0, a[1] - ny * w0);
-  c.arc(a[0], a[1], w0, an + Math.PI, an, true);
-  c.closePath();
-}
-function dzHair(g, dt) {
-  // две пряди-цепочки, привязанные к затылку; Верле с гравитацией
-  const N = 8, seg = 6.4;
-  if (!dz.hc) dz.hc = [-1, 1].map(sd => Array.from({ length: N }, (_, i) => { const q = [g.H[0] + sd * 7, g.H[1] - 75 + i * seg]; return { p: q, o: q.slice() }; }));
-  const k = Math.min(2, dt * 30);
-  dz.hc.forEach((ch, si) => {
-    const sd = si ? 1 : -1, an = g.toHead([sd * 6.8, -2]);
-    ch[0].p = an; ch[0].o = an;
-    for (let i = 1; i < N; i++) {
-      const q = ch[i], vx = (q.p[0] - q.o[0]) * 0.9, vy = (q.p[1] - q.o[1]) * 0.9;
-      q.o = q.p.slice(); q.p = [q.p[0] + vx + sd * 0.05 * k, q.p[1] + vy + 0.55 * k];
-    }
-    for (let it = 0; it < 3; it++) for (let i = 1; i < N; i++) {
-      const A = ch[i - 1].p, B = ch[i].p, dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy) || 1, f = seg / d;
-      ch[i].p = [A[0] + dx * f, A[1] + dy * f];
-      // волосы не проходят сквозь плечи: держатся снаружи шеи
-      const o = ch[i].p, cx0 = g.neck[0], minX = 6 + i * 0.9;
-      if (sd < 0 && o[0] > cx0 - minX) o[0] = cx0 - minX; if (sd > 0 && o[0] < cx0 + minX) o[0] = cx0 + minX;
-    }
-  });
-}
-function dzGeom(p, e, dt) {
-  const H = [p.hx, p.hy];
-  const up = (x, y) => dzRot([H[0] + x, H[1] + y], H, p.tilt);
-  const lo = (x, y) => dzRot([H[0] + x, H[1] + y], H, p.hr);
-  const g = { H, up, lo, tilt: p.tilt, head: p.head, e };
-  g.shL = up(-12.5, -52); g.shR = up(12.5, -52); g.neck = up(0, -58);
-  g.headC = dzRot(up(0, -73), g.neck, p.head); g.neckTop = dzRot(up(0, -65), g.neck, p.head);
-  g.toHead = q => { const r = dzRot(q, [0, 0], p.tilt + p.head); return [g.headC[0] + r[0], g.headC[1] + r[1]]; };
-  const vx = g.headC[0] - (dz.lastHead == null ? g.headC[0] : dz.lastHead); dz.lastHead = g.headC[0];
-  dz.skirt += (-vx * 0.6 - dz.skirt) * 0.2;
-  g.hipL = lo(-7.5, 3); g.hipR = lo(7.5, 3);
-  [g.knL, g.ftL] = dzIK(g.hipL, p.lf, 49, 48, 1); [g.knR, g.ftR] = dzIK(g.hipR, p.rf, 49, 48, -1);
-  [g.elL, g.waL, g.haL] = dzArm(g.shL, -1, p.lt, p.lp, p.lw); [g.elR, g.waR, g.haR] = dzArm(g.shR, 1, p.rt, p.rp, p.rw);
-  dzHair(g, dt);
+function dzSkeleton(p) {
+  const pel = [p.px, p.py], chest = dzAdd(pel, dzRot([0, -46], p.tl));
+  const loc = v => dzAdd(chest, dzRot(v, p.tl));
+  const g = { pel, chest, tl: p.tl, ht: p.ht, neck: loc([0, -6]) };
+  g.head = dzAdd(g.neck, dzRot([0, -16], p.tl + p.ht));
+  g.ls = loc([-14, 2]); g.rs = loc([14, 2]);
+  const la = dzIK(g.ls, loc(p.lh), 28, 27, -1), ra = dzIK(g.rs, loc(p.rh), 28, 27, 1);
+  g.le = la.j; g.lw = la.e; g.re = ra.j; g.rw = ra.e;
+  g.lhip = dzAdd(pel, dzRot([-9, 4], p.tl * 0.5)); g.rhip = dzAdd(pel, dzRot([9, 4], p.tl * 0.5));
+  const ll = dzIK(g.lhip, [p.lf[0], 92 - p.lf[1]], 47, 46, -1), rl = dzIK(g.rhip, [p.rf[0], 92 - p.rf[1]], 47, 46, 1);
+  // колени гнутся к зрителю, а не в стороны: боковой вынос сильно сжат
+  const knee = (h, k, a) => { const mx = h[0] + (a[0] - h[0]) * 47 / 93; return [mx + (k[0] - mx) * 0.4, k[1]]; };
+  g.lk = knee(g.lhip, ll.j, ll.e); g.la = ll.e; g.rk = knee(g.rhip, rl.j, rl.e); g.ra = rl.e;
   return g;
 }
-function dzTorso(c, g) {
-  const u = g.up, l = g.lo;
-  const P = [u(-3.2, -60), u(-9, -57), u(-12.5, -53), u(-11.6, -45), u(-11.8, -37), l(-7.6, -24), l(-13.8, -8), l(-14, -1), l(-10.5, 8), l(0, 10)];
-  c.moveTo(P[0][0], P[0][1]);
-  const side = (pts) => {
-    c.quadraticCurveTo(pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
-    c.lineTo(pts[3][0], pts[3][1]);
-    c.quadraticCurveTo(pts[4][0], pts[4][1], pts[4][0] + (pts[5][0] - pts[4][0]) * 0.5, pts[4][1] + (pts[5][1] - pts[4][1]) * 0.5);
-    c.quadraticCurveTo(pts[5][0], pts[5][1], pts[5][0] + (pts[6][0] - pts[5][0]) * 0.4, pts[5][1] + (pts[6][1] - pts[5][1]) * 0.4);
-    c.quadraticCurveTo(pts[6][0], pts[6][1], pts[7][0], pts[7][1]);
-    c.quadraticCurveTo(pts[8][0], pts[8][1], pts[9][0], pts[9][1]);
-  };
-  side(P);
-  const Q = [u(3.2, -60), u(9, -57), u(12.5, -53), u(11.6, -45), u(11.8, -37), l(7.6, -24), l(13.8, -8), l(14, -1), l(10.5, 8), l(0, 10)].reverse();
-  c.quadraticCurveTo(Q[1][0], Q[1][1], Q[2][0], Q[2][1]);
-  c.quadraticCurveTo(Q[3][0], Q[3][1], Q[3][0] + (Q[4][0] - Q[3][0]) * 0.6, Q[3][1] + (Q[4][1] - Q[3][1]) * 0.6);
-  c.quadraticCurveTo(Q[4][0], Q[4][1], Q[4][0] + (Q[5][0] - Q[4][0]) * 0.5, Q[4][1] + (Q[5][1] - Q[4][1]) * 0.5);
-  c.quadraticCurveTo(Q[5][0], Q[5][1], Q[6][0], Q[6][1]);
-  c.lineTo(Q[7][0], Q[7][1]);
-  c.quadraticCurveTo(Q[8][0], Q[8][1], Q[9][0], Q[9][1]);
-  c.closePath();
+
+/* ── рисование в cel-стиле ── */
+const OL = '#1b1424';
+function dzLimb(c, pts, w, col, ol = OL) {
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+  c.strokeStyle = ol; c.lineWidth = w + 3; c.stroke();
+  c.strokeStyle = col; c.lineWidth = w; c.stroke();
 }
-function dzHeadPath(c, g) {
-  c.save(); c.translate(g.headC[0], g.headC[1]); c.rotate(g.tilt + g.head);
-  c.moveTo(0, -9.6); c.bezierCurveTo(7.8, -9.6, 7.6, 3, 0, 9.4); c.bezierCurveTo(-7.6, 3, -7.8, -9.6, 0, -9.6);
+function dzFill(c, col, ol = OL, lw = 1.6) { c.fillStyle = col; c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke(); }
+function dzDot(c, p, r, col) { c.beginPath(); c.arc(p[0], p[1], r, 0, TAU); dzFill(c, col); }
+function dzShoe(c, a, col, side) {
+  c.beginPath(); c.ellipse(a[0] + side * 3, a[1] + 1.5, 7, 3.6, 0, 0, TAU); dzFill(c, col);
+}
+// Пружинка для волос, юбки и прочего, что догоняет тело.
+function dzSpring(k, v, tgt, dt, stiff = 70, damp = 7) { const a = (tgt - dz[k]) * stiff - dz[v] * damp; dz[v] += a * dt; dz[k] += dz[v] * dt; }
+
+function dzDrawReze(c, g, p, dt) {
+  const SKIN = '#f6dccd', HAIR = '#3a2346', HAIR2 = '#5b3a6e', SHIRT = '#f5f3ef', SKIRT = '#262a3d', SHOE = '#221c28';
+  const hv = (g.head[0] - dz.lastHx) / Math.max(dt, 0.01); dz.lastHx = g.head[0];
+  dzSpring('hair', 'hairV', Math.max(-0.7, Math.min(0.7, -hv * 0.012)), dt);
+  const pv = (g.pel[0] - dz.lastPx) / Math.max(dt, 0.01); dz.lastPx = g.pel[0];
+  dzSpring('skirt', 'skirtV', Math.max(-0.5, Math.min(0.5, -pv * 0.01)), dt, 55, 6);
+  const H = g.head, ha = g.tl + g.ht;
+  // волосы сзади: каре до подбородка
+  c.save(); c.translate(H[0], H[1]); c.rotate(ha); c.scale(1.25, 1.25);
+  c.beginPath(); c.moveTo(-14, -2); c.quadraticCurveTo(-16, -17, 0, -17); c.quadraticCurveTo(16, -17, 14, -2);
+  c.quadraticCurveTo(15 + dz.hair * 4, 10, 12 + dz.hair * 5, 15); c.lineTo(-12 + dz.hair * 5, 15); c.quadraticCurveTo(-15 + dz.hair * 4, 10, -14, -2); dzFill(c, HAIR);
   c.restore();
-}
-function dzBodyPass(c, g, grow) {
-  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  c.beginPath();
-  dzTaper(c, g.hipL, g.knL, 7.2, 3.9, 7.4, 0.28); dzTaper(c, g.knL, g.ftL, 3.9, 2.1, 4.4, 0.3);
-  dzTaper(c, g.hipR, g.knR, 7.2, 3.9, 7.4, 0.28); dzTaper(c, g.knR, g.ftR, 3.9, 2.1, 4.4, 0.3);
-  dzTaper(c, g.shL, g.elL, 3.7, 2.5, 3.6, 0.3); dzTaper(c, g.elL, g.waL, 2.5, 1.7, 2.6, 0.25); dzTaper(c, g.waL, g.haL, 1.8, 1, 2.1, 0.45);
-  dzTaper(c, g.shR, g.elR, 3.7, 2.5, 3.6, 0.3); dzTaper(c, g.elR, g.waR, 2.5, 1.7, 2.6, 0.25); dzTaper(c, g.waR, g.haR, 1.8, 1, 2.1, 0.45);
-  dzTaper(c, g.neck, g.neckTop, 2.8, 2.5, 2.5, 0.5);
-  dzTorso(c, g); dzHeadPath(c, g);
-  fill();
-}
-function dzOutfitPass(c, g, grow) {
-  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  // ботфорты выше колена, каблук-шпилька
-  c.beginPath();
-  for (const [hp, kn, ft, sd] of [[g.hipL, g.knL, g.ftL, -1], [g.hipR, g.knR, g.ftR, 1]]) {
-    const top = [kn[0] + (hp[0] - kn[0]) * 0.22, kn[1] + (hp[1] - kn[1]) * 0.22];
-    dzTaper(c, top, kn, 4.6, 4.1, 4.4, 0.5); dzTaper(c, kn, ft, 4.1, 2.4, 4.6, 0.3);
-    c.moveTo(ft[0] - sd * 2.4, ft[1] - 1); c.lineTo(ft[0] + sd * 4.5, ft[1] + 7.5); c.lineTo(ft[0] + sd * 3, ft[1] + 8); c.lineTo(ft[0] - sd * 0.5, ft[1] + 3.2); c.lineTo(ft[0] - sd * 2.2, ft[1] + 8); c.lineTo(ft[0] - sd * 2.9, ft[1] + 7.8); c.closePath();
+  // ноги
+  dzLimb(c, [g.lhip, g.lk, g.la], 8, SKIN); dzLimb(c, [g.rhip, g.rk, g.ra], 8, SKIN);
+  dzShoe(c, g.la, SHOE, -1); dzShoe(c, g.ra, SHOE, 1);
+  // юбка
+  c.save(); c.translate(g.pel[0], g.pel[1]); c.rotate(g.tl * 0.5);
+  const sk = dz.skirt * 10, fl = 2 + dz.energy * 3;
+  c.beginPath(); c.moveTo(-11, -6); c.lineTo(11, -6); c.lineTo(17 + fl + sk, 24); c.quadraticCurveTo(sk, 27, -17 - fl + sk, 24); c.closePath(); dzFill(c, SKIRT);
+  c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-4, -4); c.lineTo(-6 + sk * 0.6, 23); c.moveTo(5, -4); c.lineTo(7 + sk * 0.6, 23); c.stroke();
+  c.restore();
+  // рубашка
+  c.save(); c.translate(g.chest[0], g.chest[1]); c.rotate(g.tl);
+  c.beginPath(); c.moveTo(-15, 0); c.quadraticCurveTo(0, -5, 15, 0); c.lineTo(11, 41); c.quadraticCurveTo(0, 43, -11, 41); c.closePath(); dzFill(c, SHIRT);
+  c.strokeStyle = '#c9c4cf'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, 2); c.lineTo(0, 40); c.stroke();
+  for (let y = 9; y < 40; y += 9) { c.fillStyle = '#b8b2c0'; c.beginPath(); c.arc(1.8, y, 0.9, 0, TAU); c.fill(); }
+  c.beginPath(); c.moveTo(-6, -3); c.lineTo(0, 5); c.lineTo(6, -3); dzFill(c, SHIRT, OL, 1.2); // воротник
+  c.restore();
+  // шея с чокером
+  dzLimb(c, [g.chest, g.neck], 6, SKIN);
+  c.save(); c.translate(g.neck[0], g.neck[1]); c.rotate(g.tl); c.fillStyle = '#111'; c.fillRect(-4, -1.5, 8, 2.6); c.restore();
+  // голова и лицо
+  c.save(); c.translate(H[0], H[1]); c.rotate(ha); c.scale(1.25, 1.25);
+  c.beginPath(); c.ellipse(0, 0, 10.5, 12.5, 0, 0, TAU); dzFill(c, SKIN);
+  for (const s of [-1, 1]) {
+    c.fillStyle = '#fff'; c.beginPath(); c.ellipse(s * 4.4, 1, 2.6, 2.9, 0, 0, TAU); c.fill();
+    c.fillStyle = '#2f9e6e'; c.beginPath(); c.ellipse(s * 4.2, 1.4, 1.8, 2.4, 0, 0, TAU); c.fill();
+    c.fillStyle = '#0c2a1e'; c.beginPath(); c.arc(s * 4.2, 1.6, 0.9, 0, TAU); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(s * 4.7, 0.6, 0.6, 0, TAU); c.fill();
+    c.strokeStyle = OL; c.lineWidth = 1.3; c.beginPath(); c.moveTo(s * 1.8, -1.2); c.quadraticCurveTo(s * 4.4, -2.6, s * 7.2, -1); c.stroke();
+    c.fillStyle = 'rgba(255,120,140,.35)'; c.beginPath(); c.ellipse(s * 6, 5, 1.8, 1, 0, 0, TAU); c.fill();
   }
-  fill();
-  // бюстье: по силуэту корпуса, низ — дугой под грудью
-  c.save(); c.beginPath(); dzTorso(c, g); c.clip();
-  const u = g.up, l = g.lo;
-  c.beginPath();
-  c.moveTo(...u(-16, -50)); c.quadraticCurveTo(...u(-6, -53), ...u(0, -46)); c.quadraticCurveTo(...u(6, -53), ...u(16, -50));
-  c.lineTo(...u(16, -34)); c.quadraticCurveTo(...u(0, -30), ...u(-16, -34)); c.closePath(); fill();
-  c.restore();
-  // юбка-клёш от талии, подол летит за движением
-  const sk = dz.skirt, fl = 3 + 5 * g.e;
-  c.beginPath();
-  c.moveTo(...l(-9.5, -19)); c.quadraticCurveTo(...l(0, -17.5), ...l(9.5, -19));
-  c.quadraticCurveTo(...l(15, -6), ...l(19 + fl + sk, 17));
-  c.quadraticCurveTo(...l(sk * 0.5, 21), ...l(-19 - fl + sk, 17));
-  c.quadraticCurveTo(...l(-15, -6), ...l(-9.5, -19)); c.closePath(); fill();
-  // чокер
-  c.beginPath(); const n1 = dzRot(g.up(0, -60.6), g.neck, g.head); c.ellipse(n1[0], n1[1], 2.9, 0.55, g.tilt, 0, Math.PI * 2); fill();
-}
-function dzHairBackPass(c, g, grow) {
-  const [L, R] = dz.hc, fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  c.beginPath();
-  c.moveTo(L[0].p[0], L[0].p[1]);
-  for (let i = 1; i < L.length; i++) { const m = [(L[i - 1].p[0] + L[i].p[0]) / 2 - 2.2, (L[i - 1].p[1] + L[i].p[1]) / 2]; c.quadraticCurveTo(L[i - 1].p[0] - 2.4, L[i - 1].p[1], m[0], m[1]); }
-  const lt = L[L.length - 1].p, rt = R[R.length - 1].p;
-  c.quadraticCurveTo((lt[0] + rt[0]) / 2, Math.max(lt[1], rt[1]) + 4, rt[0] + 2, rt[1]);
-  for (let i = R.length - 1; i > 0; i--) { const m = [(R[i - 1].p[0] + R[i].p[0]) / 2 + 2.2, (R[i - 1].p[1] + R[i].p[1]) / 2]; c.quadraticCurveTo(R[i].p[0] + 2.4, R[i].p[1], m[0], m[1]); }
-  c.lineTo(R[0].p[0], R[0].p[1]);
-  const h = g.toHead; c.bezierCurveTo(...h([10, -9]), ...h([6, -12.5]), ...h([0, -12])); c.bezierCurveTo(...h([-6, -12.5]), ...h([-10, -9]), L[0].p[0], L[0].p[1]);
-  c.closePath(); fill();
-}
-function dzHairFrontPass(c, g, grow) {
-  const fill = () => { c.fill(); if (grow) { c.lineWidth = grow; c.stroke(); } };
-  c.save(); c.translate(g.headC[0], g.headC[1]); c.rotate(g.tilt + g.head);
-  // косая чёлка и пряди у лица
-  c.beginPath();
-  c.moveTo(-8.4, 4); c.bezierCurveTo(-11, -14, 9, -16, 8.4, 1);
-  c.quadraticCurveTo(8.8, 7, 7.6, 12); c.quadraticCurveTo(6.4, 4, 6.2, -2.5);
-  c.quadraticCurveTo(1, -2.4, -4.5, -6.2); c.quadraticCurveTo(-6.3, -1, -6.4, 6);
-  c.quadraticCurveTo(-7, 9, -7.8, 12); c.quadraticCurveTo(-8.6, 8, -8.4, 4); c.closePath(); fill();
-  c.restore();
-}
-function dzGroup(tc, setT, g, pass, col, inner) {
-  tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalCompositeOperation = 'source-over'; const [bx, by, bw, bh] = dz.bb; tc.clearRect(bx, by, bw, bh);
-  setT(tc); tc.lineCap = 'round'; tc.lineJoin = 'round';
-  tc.fillStyle = tc.strokeStyle = col; pass(tc, g, 2.2);
-  tc.globalCompositeOperation = 'destination-out'; tc.fillStyle = tc.strokeStyle = `rgba(0,0,0,${1 - inner})`; pass(tc, g, 0);
-  tc.globalCompositeOperation = 'source-over';
-}
-function dzBodyGrad(c) { const gr = c.createLinearGradient(0, -85, 0, 100); gr.addColorStop(0, '#a8f7ff'); gr.addColorStop(0.45, '#7fd8ff'); gr.addColorStop(1, '#a98bff'); return gr; }
-function dzPinkGrad(c) { const gr = c.createLinearGradient(0, -85, 0, 100); gr.addColorStop(0, '#ff5fcf'); gr.addColorStop(1, '#ff3d8b'); return gr; }
-function dzDrawFigure(f, setT, p, e, dt) {
-  const g = dzGeom(p, e, dt), tc = dz.tctx;
-  const [bx, by, bw, bh] = dz.bb;
-  const put = () => { f.setTransform(1, 0, 0, 1, 0, 0); f.drawImage(dz.tmp, bx, by, bw, bh, bx, by, bw, bh); };
-  setT(tc); const hairG = (() => { const gr = tc.createLinearGradient(0, -85, 0, -20); gr.addColorStop(0, '#ff5fd2'); gr.addColorStop(1, '#8f6bff'); return gr; })();
-  dzGroup(tc, setT, g, dzHairBackPass, hairG, 0.42); put();
-  dzGroup(tc, setT, g, dzBodyPass, dzBodyGrad(tc), 0.22); put();
-  dzGroup(tc, setT, g, dzOutfitPass, dzPinkGrad(tc), 0.3); put();
-  dzGroup(tc, setT, g, dzHairFrontPass, hairG, 0.55); put();
-  // лицо: миндалевидные глаза с ресницами, брови, губы
-  setT(f); f.save(); f.translate(g.headC[0], g.headC[1]); f.rotate(g.tilt + g.head);
-  f.lineCap = 'round';
-  const blink = (dz.b % 7) > 6.85 ? 0.15 : 1;
-  for (const sd of [-1, 1]) {
-    f.save(); f.scale(sd, 1);
-    f.beginPath(); f.moveTo(1.3, 0.6); f.quadraticCurveTo(3, -1.3 * blink, 5, 0.1); f.quadraticCurveTo(3.1, 1.3 * blink, 1.3, 0.6);
-    f.fillStyle = 'rgba(235,255,255,.95)'; f.fill();
-    f.strokeStyle = 'rgba(255,255,255,.9)'; f.lineWidth = 0.55; f.beginPath(); f.moveTo(4.8, 0); f.lineTo(6, -1.1); f.stroke();
-    f.strokeStyle = 'rgba(200,240,255,.55)'; f.lineWidth = 0.5; f.beginPath(); f.moveTo(1.4, -2.2); f.quadraticCurveTo(3.4, -3.3, 5.2, -2); f.stroke();
-    f.restore();
+  c.strokeStyle = '#a0505a'; c.lineWidth = 1; c.beginPath();
+  if (dz.energy > 0.5) { c.arc(0, 7, 1.8, 0.1, Math.PI - 0.1); } else { c.moveTo(-1.6, 7.6); c.quadraticCurveTo(0, 8.6, 1.6, 7.6); }
+  c.stroke();
+  // чёлка и боковые пряди на пружинах
+  c.beginPath(); c.moveTo(-11.5, -1); c.quadraticCurveTo(-12, -14, 0, -14.5); c.quadraticCurveTo(12, -14, 11.5, -1);
+  c.lineTo(8, -5); c.lineTo(5.5, -1.5); c.lineTo(3, -6); c.lineTo(0, -2.5); c.lineTo(-3, -6.5); c.lineTo(-5.5, -2); c.lineTo(-8.5, -5.5); c.closePath(); dzFill(c, HAIR);
+  c.strokeStyle = HAIR2; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-6, -11); c.quadraticCurveTo(0, -13, 5, -11); c.stroke();
+  for (const s of [-1, 1]) {
+    const sw = dz.hair * 6;
+    c.beginPath(); c.moveTo(s * 11, -4); c.quadraticCurveTo(s * 13 + sw * 0.5, 6, s * 11 + sw, 15); c.lineTo(s * 8 + sw * 0.8, 12); c.quadraticCurveTo(s * 9, 4, s * 8.5, -3); c.closePath(); dzFill(c, HAIR);
   }
-  f.strokeStyle = 'rgba(200,240,255,.35)'; f.lineWidth = 0.5; f.beginPath(); f.moveTo(0.2, 1.5); f.quadraticCurveTo(0.9, 3.4, 0, 3.9); f.stroke();
-  f.fillStyle = 'rgba(255,90,180,.95)'; f.beginPath(); f.moveTo(-2.3, 5.7); f.quadraticCurveTo(-1, 4.7, 0, 5.2); f.quadraticCurveTo(1, 4.7, 2.3, 5.7); f.quadraticCurveTo(0, 7.4, -2.3, 5.7); f.fill();
-  f.restore();
+  c.restore();
+  // руки: рукав до локтя, дальше кожа
+  for (const [s, e, w] of [[g.ls, g.le, g.lw], [g.rs, g.re, g.rw]]) {
+    dzLimb(c, [s, e], 8, SHIRT); dzLimb(c, [e, w], 6, SKIN);
+    dzDot(c, w, 3.4, SKIN);
+  }
+  // «IRIS OUT»: кольцо из пальцев у глаза
+  if (p.ring > 0.5) {
+    const dl = Math.hypot(g.lw[0] - H[0], g.lw[1] - H[1]), dr = Math.hypot(g.rw[0] - H[0], g.rw[1] - H[1]);
+    const hand = dl < dr ? g.lw : g.rw;
+    if (Math.min(dl, dr) < 18) {
+    c.strokeStyle = OL; c.lineWidth = 2.6; c.beginPath(); c.arc(hand[0], hand[1], 4.2, 0, TAU); c.stroke();
+    c.strokeStyle = SKIN; c.lineWidth = 1.4; c.stroke(); }
+  }
+  if (p.spark > 0) {
+    const m = [(g.lw[0] + g.rw[0]) / 2, (g.lw[1] + g.rw[1]) / 2];
+    c.strokeStyle = `rgba(255,230,140,${p.spark})`; c.lineWidth = 1.4; c.beginPath();
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU, r0 = 6, r1 = 6 + 7 * p.spark; c.moveTo(m[0] + Math.cos(a) * r0, m[1] + Math.sin(a) * r0); c.lineTo(m[0] + Math.cos(a) * r1, m[1] + Math.sin(a) * r1); }
+    c.stroke();
+  }
+}
+
+function dzDrawWolf(c, g, p, dt) {
+  const FUR = '#8e97a8', FUR2 = '#6c7486', BELLY = '#dfe3ea', JEANS = '#34466b', SHOE = '#f2f2f2', OLW = '#1a1d27';
+  // хвост — цепочка звеньев, каждое догоняет предыдущее: так и виляет
+  const wag = Math.sin(TAU * dz.b * (dz.move === 'shake' ? 2 : 1)) * (0.35 + dz.energy * 0.55);
+  if (dz.tail.length !== 8) dz.tail = Array(8).fill(-0.4);
+  dz.tail[0] = -0.3 + wag;
+  for (let i = 1; i < 8; i++) dz.tail[i] += (dz.tail[i - 1] - dz.tail[i]) * Math.min(1, dt * 14);
+  const pts = []; let q = dzAdd(g.pel, [6, 6]);
+  for (let i = 0; i < 8; i++) { pts.push(q); const a = dz.tail[i] - i * 0.12; q = dzAdd(q, [Math.cos(a) * 6.5, -Math.sin(a) * 6.5]); }
+  const rr = i => 8.5 - i * 0.5;
+  c.fillStyle = OLW; pts.forEach((t, i) => { c.beginPath(); c.arc(t[0], t[1], rr(i) + 1.6, 0, TAU); c.fill(); });
+  pts.forEach((t, i) => { c.fillStyle = i > 5 ? BELLY : FUR; c.beginPath(); c.arc(t[0], t[1], rr(i), 0, TAU); c.fill(); });
+  // ноги в джинсах, кроссовки
+  dzLimb(c, [g.lhip, g.lk, g.la], 11, JEANS, OLW); dzLimb(c, [g.rhip, g.rk, g.ra], 11, JEANS, OLW);
+  dzShoe(c, g.la, SHOE, -1); dzShoe(c, g.ra, SHOE, 1);
+  // торс: мех, светлая грудь
+  c.save(); c.translate(g.chest[0], g.chest[1]); c.rotate(g.tl);
+  c.beginPath(); c.moveTo(-17, 0); c.quadraticCurveTo(0, -6, 17, 0); c.quadraticCurveTo(15, 24, 12, 46); c.quadraticCurveTo(0, 49, -12, 46); c.quadraticCurveTo(-15, 24, -17, 0); dzFill(c, FUR, OLW);
+  c.beginPath(); c.moveTo(-8, 1); c.lineTo(-4, 6); c.lineTo(0, 2); c.lineTo(4, 6); c.lineTo(8, 1); c.quadraticCurveTo(9, 26, 0, 34); c.quadraticCurveTo(-9, 26, -8, 1); c.fillStyle = BELLY; c.fill();
+  c.fillStyle = '#26324d'; c.fillRect(-12.5, 40, 25, 6); // пояс джинсов
+  c.restore();
+  // голова
+  const H = g.head, ha = g.tl + g.ht, m = p.muz;
+  c.save(); c.translate(H[0], H[1] - m * 1.5); c.rotate(ha); c.scale(1.2, 1.2);
+  for (const s of [-1, 1]) {
+    const flick = Math.max(0, Math.sin(TAU * dz.b + s)) * 0.12 * dz.energy;
+    c.save(); c.translate(s * 7.5, -8); c.rotate(s * (0.18 + flick));
+    c.beginPath(); c.moveTo(-4.5, 2); c.lineTo(0, -13); c.lineTo(4.5, 2); c.closePath(); dzFill(c, FUR2, OLW);
+    c.beginPath(); c.moveTo(-2.3, 0.5); c.lineTo(0, -8.5); c.lineTo(2.3, 0.5); c.fillStyle = '#d99aa8'; c.fill();
+    c.restore();
+  }
+  c.beginPath(); c.moveTo(-12, -4); c.quadraticCurveTo(-12, -14, 0, -14); c.quadraticCurveTo(12, -14, 12, -4);
+  c.lineTo(15, 3); c.lineTo(11, 4); c.lineTo(13, 9); c.quadraticCurveTo(0, 16, -13, 9); c.lineTo(-11, 4); c.lineTo(-15, 3); c.closePath(); dzFill(c, FUR, OLW);
+  // морда: при вое уходит вверх, глаза закрываются
+  const sy = 5 - m * 5;
+  c.beginPath(); c.ellipse(0, sy, 6.8 + m, 5.4 + m * 1.5, 0, 0, TAU); dzFill(c, BELLY, OLW, 1.3);
+  for (const s of [-1, 1]) {
+    if (m > 0.4) { c.strokeStyle = OLW; c.lineWidth = 1.4; c.beginPath(); c.arc(s * 5, -3, 2, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+    else {
+      c.beginPath(); c.ellipse(s * 5, -3.5, 2.5, 2.2, s * 0.25, 0, TAU); dzFill(c, '#ffc93c', OLW, 1);
+      c.fillStyle = '#111'; c.beginPath(); c.ellipse(s * 5, -3.3, 0.8, 1.6, 0, 0, TAU); c.fill();
+    }
+    c.strokeStyle = OLW; c.lineWidth = 1.3; c.beginPath(); c.moveTo(s * 2.4, -6.6 - m); c.lineTo(s * 7.6, -7.4 + m); c.stroke();
+  }
+  c.fillStyle = '#15161c'; c.beginPath(); c.ellipse(0, sy - 2.6 - m, 2.6, 1.8, 0, 0, TAU); c.fill();
+  if (m > 0.3) { c.fillStyle = '#5b1f2c'; c.beginPath(); c.ellipse(0, sy + 2.2, 2 * m + 0.6, 2.4 * m, 0, 0, TAU); c.fill(); }
+  else { c.strokeStyle = OLW; c.lineWidth = 1; c.beginPath(); c.moveTo(0, sy - 1); c.lineTo(0, sy + 1.5); c.moveTo(-2.5, sy + 2.5); c.quadraticCurveTo(0, sy + 3.6, 2.5, sy + 2.5); c.stroke(); }
+  c.restore();
+  // руки в меху, лапы темнее
+  for (const [s, e, w] of [[g.ls, g.le, g.lw], [g.rs, g.re, g.rw]]) {
+    dzLimb(c, [s, e, w], 8.5, FUR, OLW); dzDot(c, w, 4, FUR2);
+  }
+  if (m > 0.6) {
+    c.save(); c.globalAlpha = (m - 0.6) / 0.4; c.fillStyle = '#e8eefc'; c.font = 'italic 700 9px sans-serif'; c.textAlign = 'center';
+    c.fillText('А-у-у-у!', H[0] + 26, H[1] - 26 - (dz.b % 4) * 3); c.restore();
+  }
+}
+
+/* ── сцены ── */
+function dzSceneReze(c, W, H, dt, pl, t, floorY) {
+  const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0a0f2e'); bg.addColorStop(0.55, '#2b1a4d'); bg.addColorStop(1, '#4a2550');
+  c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  if (dz.flash > 0) { c.fillStyle = `rgba(255,200,230,${dz.flash * 0.12})`; c.fillRect(0, 0, W, H); dz.flash = Math.max(0, dz.flash - dt * 2.5); }
+  for (const s of dz.stars) { c.fillStyle = `rgba(255,255,255,${0.35 + 0.35 * Math.sin(t * 1.3 + s.f)})`; c.fillRect(s.x, s.y, s.r, s.r); }
+  // фейерверк на каждую четвёртую долю (без музыки — изредка)
+  const bar = Math.floor(dz.b / 4);
+  if ((pl && bar !== dz.lastBurst) || (!pl && Math.random() < dt * 0.15)) {
+    dz.lastBurst = bar;
+    const x = W * (0.15 + Math.random() * 0.7), y = H * (0.1 + Math.random() * 0.25), hue = Math.floor(Math.random() * 360);
+    for (let i = 0; i < 46; i++) { const a = i / 46 * TAU, v = 50 + Math.random() * 60; dz.fw.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, hue: hue + Math.random() * 40 }); }
+    if (dz.fw.length > 400) dz.fw.splice(0, dz.fw.length - 400);
+    dz.flash = 1;
+  }
+  c.globalCompositeOperation = 'lighter'; c.lineWidth = 1.6;
+  for (const f of dz.fw) {
+    f.vy += 38 * dt; f.vx *= 1 - dt * 0.9; f.vy *= 1 - dt * 0.9; f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt * 0.65;
+    if (f.life <= 0) continue;
+    c.strokeStyle = `hsla(${f.hue},100%,65%,${f.life})`; c.beginPath(); c.moveTo(f.x, f.y); c.lineTo(f.x - f.vx * 0.06, f.y - f.vy * 0.06); c.stroke();
+  }
+  dz.fw = dz.fw.filter(f => f.life > 0);
+  c.globalCompositeOperation = 'source-over';
+  // гирлянда фонариков
+  c.strokeStyle = 'rgba(30,15,30,.8)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, H * 0.42);
+  c.quadraticCurveTo(W / 2, H * 0.5, W, H * 0.4); c.stroke();
+  for (let i = 1; i < 7; i++) {
+    const u = i / 7, x = W * u, y = (1 - u) * (1 - u) * H * 0.42 + 2 * (1 - u) * u * H * 0.5 + u * u * H * 0.4 + 6, sw = Math.sin(t * 1.5 + i) * 2;
+    const glow = 0.6 + 0.4 * (pl ? Math.pow(1 - (dz.b % 1), 2) : 0.4);
+    c.fillStyle = `rgba(255,120,60,${0.15 * glow})`; c.beginPath(); c.arc(x + sw, y, 13, 0, TAU); c.fill();
+    c.fillStyle = i % 2 ? '#e8463a' : '#f29a3a'; c.beginPath(); c.ellipse(x + sw, y, 5, 6.5, 0, 0, TAU); c.fill();
+  }
+  // холмы и крыши
+  c.fillStyle = '#1b1030'; c.beginPath(); c.moveTo(0, floorY - 40);
+  c.quadraticCurveTo(W * 0.3, floorY - 70, W * 0.55, floorY - 45); c.quadraticCurveTo(W * 0.8, floorY - 25, W, floorY - 55); c.lineTo(W, H); c.lineTo(0, H); c.fill();
+  c.fillStyle = '#130a22'; c.fillRect(0, floorY - 6, W, H - floorY + 6);
+}
+function dzSceneWolf(c, W, H, dt, pl, t, floorY) {
+  const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#050b18'); bg.addColorStop(0.6, '#0f2238'); bg.addColorStop(1, '#0b1a28');
+  c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  for (const s of dz.stars) { c.fillStyle = `rgba(220,235,255,${0.3 + 0.3 * Math.sin(t + s.f)})`; c.fillRect(s.x, s.y, s.r, s.r); }
+  const mx = W * 0.27, my = H * 0.16, mr = Math.min(W, H) * 0.09, howl = dz.move === 'howl' && dz.pose ? dz.pose.muz : 0;
+  const gl = c.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * (3.2 + howl));
+  gl.addColorStop(0, `rgba(220,230,255,${0.25 + howl * 0.2})`); gl.addColorStop(1, 'rgba(220,230,255,0)');
+  c.fillStyle = gl; c.fillRect(0, 0, W, H * 0.6);
+  c.fillStyle = '#eef1f8'; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill();
+  c.fillStyle = 'rgba(160,170,195,.35)'; for (const [dx, dy, r] of [[-0.3, -0.2, 0.22], [0.25, 0.15, 0.16], [-0.05, 0.35, 0.12]]) { c.beginPath(); c.arc(mx + dx * mr, my + dy * mr, r * mr, 0, TAU); c.fill(); }
+  // ели в два ряда
+  for (const tr of dz.trees) {
+    c.fillStyle = tr.far ? '#0d1d2e' : '#081320';
+    const base = floorY - (tr.far ? 22 : 0), h = tr.h * (tr.far ? 0.8 : 1);
+    for (let k = 0; k < 3; k++) {
+      const y0 = base - h * k * 0.28, w = h * (0.32 - k * 0.07);
+      c.beginPath(); c.moveTo(tr.x - w, y0); c.lineTo(tr.x, y0 - h * 0.48); c.lineTo(tr.x + w, y0); c.fill();
+    }
+  }
+  c.fillStyle = '#0a1622'; c.fillRect(0, floorY - 4, W, H - floorY + 4);
+  // светлячки — вспыхивают на долю
+  const pulse = pl ? Math.pow(1 - (dz.b % 1), 2) : 0.3;
+  c.globalCompositeOperation = 'lighter';
+  for (const f of dz.flies) {
+    f.a += dt * 0.6; f.x += Math.cos(f.a + f.f) * f.s * dt; f.y += Math.sin(f.a * 1.3) * f.s * 0.5 * dt;
+    if (f.x < 0) f.x += W; if (f.x > W) f.x -= W;
+    const al = 0.25 + 0.5 * Math.max(0, Math.sin(t * 2 + f.f)) + 0.3 * pulse;
+    const gr = c.createRadialGradient(f.x, f.y, 0, f.x, f.y, 7); gr.addColorStop(0, `rgba(210,255,120,${al})`); gr.addColorStop(1, 'rgba(210,255,120,0)');
+    c.fillStyle = gr; c.fillRect(f.x - 7, f.y - 7, 14, 14);
+  }
+  c.globalCompositeOperation = 'source-over';
 }
 
 /* ── кадр ── */
@@ -349,81 +435,28 @@ function dancerFrame(now) {
   dz.raf = requestAnimationFrame(dancerFrame);
   if (document.hidden || now - dz.last < 32) return;
   const dt = dz.last ? Math.min(0.1, (now - dz.last) / 1000) : 0.033; dz.last = now;
-  const t0 = performance.now();
   const r = dz.cv.getBoundingClientRect();
   if (Math.abs(r.width - dz.w) > 1 || Math.abs(r.height - dz.h) > 1) dancerResize();
-  dancerHook();
-  const playing = dancerListen(dt, now);
+  const { playing, heard } = dancerListen(dt, now);
   dzChoreo(playing);
-  const e = dz.energy, t = now / 1000, W = dz.w, Hh = dz.h, c = dz.ctx, dpr = dz.dpr;
+  const W = dz.w, H = dz.h, c = dz.ctx, dpr = dz.dpr, t = now / 1000;
   const cap = $('#muDanceCap');
-  if (cap) cap.textContent = playing ? Math.round(dz.bpm) + ' BPM' : mu.audio && !mu.audio.paused ? '' : 'включите трек — потанцую';
-  // фон: ночной город под дождём
-  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-  const bg = c.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#05030f'); bg.addColorStop(0.6, '#0a0b22'); bg.addColorStop(1, '#030308');
-  c.fillStyle = bg; c.fillRect(0, 0, W, Hh);
-  c.globalCompositeOperation = 'lighter';
-  for (const o of dz.city) { c.fillStyle = `rgba(${o.c},${o.a * (0.75 + 0.25 * Math.sin(t * 0.7 + o.f))})`; c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill(); }
-  // спектр полукругом за спиной
-  const S = Math.min(W / 175, Hh / 290), cx = W / 2, floorY = Hh * 0.88, hipY = floorY - 106 * S;
-  if (playing && dz.spec) {
-    const n = 48, R = 62 * S;
-    for (let i = 0; i < n; i++) {
-      const v = dz.spec[2 + i * 3] / 255, an = Math.PI + (i + 0.5) / n * Math.PI;
-      const x1 = cx + Math.cos(an) * R, y1 = hipY - 20 * S + Math.sin(an) * R, L = 4 + v * 34 * S;
-      c.strokeStyle = `hsla(${300 - i * 2.5},100%,60%,${0.15 + v * 0.5})`; c.lineWidth = 2.2;
-      c.beginPath(); c.moveTo(x1, y1); c.lineTo(x1 + Math.cos(an) * L, y1 + Math.sin(an) * L); c.stroke();
-    }
-  }
-  c.strokeStyle = 'rgba(150,190,255,.22)'; c.lineWidth = 1;
-  c.beginPath();
-  for (const d of dz.rain) { d.y += d.v * dt; if (d.y > Hh) { d.y = -d.l; d.x = Math.random() * W; } c.moveTo(d.x, d.y); c.lineTo(d.x - d.l * 0.12, d.y + d.l); }
-  c.stroke();
-  // пол: светящийся круг, пульсирует на долю
-  const fr = dz.b - Math.floor(dz.b), pulse = playing ? Math.pow(1 - fr, 2) : 0.2;
-  c.save(); c.translate(cx, floorY); c.scale(1, 0.22);
-  const ring = c.createRadialGradient(0, 0, 10, 0, 0, 70 * S);
-  ring.addColorStop(0, `rgba(0,240,255,${0.18 + 0.25 * pulse})`); ring.addColorStop(0.7, `rgba(255,43,214,${0.08 + 0.14 * pulse})`); ring.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = ring; c.beginPath(); c.arc(0, 0, 70 * S, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = `rgba(0,240,255,${0.35 + 0.4 * pulse})`; c.lineWidth = 2 / 0.22 * 0.6; c.beginPath(); c.arc(0, 0, (46 + 8 * pulse) * S, 0, Math.PI * 2); c.stroke();
-  c.restore();
-  // фигура — на отдельном холсте, чтобы наложить развёртку и свечение
-  const f = dz.fctx;
-  // рамка фигуры: всё тяжёлое делается только внутри неё
-  { const x0 = Math.max(0, Math.floor((cx - 95 * S) * dpr)), y0 = Math.max(0, Math.floor((hipY - 110 * S) * dpr));
-    dz.bb = [x0, y0, Math.min(dz.fig.width - x0, Math.ceil(190 * S * dpr)), Math.min(dz.fig.height - y0, Math.ceil(225 * S * dpr))]; }
-  const [bx, by, bw, bh] = dz.bb;
-  f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(bx, by, bw, bh);
-  // смена движения — плавно, за одну долю
-  const k = Math.min(1, (dz.b - dz.moveAt) / 1);
-  let pose = dzPose(dz.move, dz.b, e);
-  if (k < 1) pose = dzLerp(dzPose(dz.prevMove, dz.b, e), pose, k * k * (3 - 2 * k));
-  // сглаживание: тело догоняет цель, а не прыгает за ней
-  dz.pose = dz.pose ? dzLerp(dz.pose, pose, 1 - Math.exp(-dt * 16)) : pose; pose = dz.pose;
-  const sp = dz.b - dz.spinAt, spin = sp >= 0 && sp < 2 ? Math.cos(Math.PI * sp) : 1;
-  const sx = dpr * S * (Math.abs(spin) < 0.08 ? 0.08 * Math.sign(spin || 1) : spin);
-  dzDrawFigure(f, c2 => c2.setTransform(sx, 0, 0, dpr * S, cx * dpr, hipY * dpr), pose, e, dt);
-  // развёртка голограммы
-  f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'destination-out'; f.fillStyle = 'rgba(0,0,0,.35)';
-  const step = 3 * dpr, off = (t * 30 * dpr) % step;
-  for (let y = by + off; y < by + bh; y += step) f.fillRect(bx, y, bw, dpr);
-  f.globalCompositeOperation = 'source-over';
-  dz.glitch *= Math.pow(0.04, dt);
-  const flick = 0.82 + 0.18 * Math.sin(t * 37) * Math.sin(t * 13.3) + (Math.random() < 0.015 ? -0.4 : 0);
-  // свечение: уменьшенная копия, растянутая обратно
-  const g = dz.gctx; g.clearRect(0, 0, dz.glow.width, dz.glow.height); g.drawImage(dz.fig, bx, by, bw, bh, bx / 4 / dpr, by / 4 / dpr, bw / 4 / dpr, bh / 4 / dpr);
-  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter';
-  c.globalAlpha = 0.9 * flick * (0.7 + e * 0.6); c.drawImage(dz.glow, 0, 0, dz.cv.width, dz.cv.height);
-  c.globalAlpha = Math.max(0.3, flick);
-  if (dz.glitch > 0.25) {
-    const bands = 6, bh = dz.cv.height / bands;
-    for (let i = 0; i < bands; i++) { const dx = (Math.random() - 0.5) * 18 * dpr * dz.glitch; c.drawImage(dz.fig, 0, i * bh, dz.fig.width, bh, dx, i * bh, dz.fig.width, bh); }
-    c.globalAlpha = 0.35 * dz.glitch; c.drawImage(dz.fig, 5 * dpr * dz.glitch, 0);
-  } else c.drawImage(dz.fig, bx, by, bw, bh, bx, by, bw, bh);
-  // отражение в мокром полу
-  c.globalAlpha = 0.16 * flick; c.save(); c.translate(0, floorY * dpr * 2); c.scale(1, -1); c.drawImage(dz.fig, bx, by, bw, bh, bx, by, bw, bh); c.restore();
-  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
-  const fade = c.createLinearGradient(0, floorY * dpr, 0, dz.cv.height); fade.addColorStop(0, 'rgba(3,3,8,0)'); fade.addColorStop(1, 'rgba(3,3,8,.9)');
-  c.fillStyle = fade; c.fillRect(0, floorY * dpr, dz.cv.width, dz.cv.height);
-  dz.cost = dz.cost * 0.95 + (performance.now() - t0) * 0.05;
+  if (cap) cap.textContent = !playing ? 'включите трек — потанцуем'
+    : `${dz.who === 'reze' ? 'Резе' : 'Волк'} · ${DZ_NAMES[dz.move] || ''} · ${heard ? '' : '≈'}${Math.round(dz.bpm)} BPM`;
+  const S = Math.min(W / 150, H / 255), cx = W / 2, floorY = H * 0.87, hipY = floorY - 92 * S;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (dz.who === 'reze') dzSceneReze(c, W, H, dt, playing, t, floorY); else dzSceneWolf(c, W, H, dt, playing, t, floorY);
+  // поза: смена движения за долю, тело догоняет цель
+  const k = Math.min(1, Math.max(0, dz.b - dz.moveAt));
+  let pose = dzPose(dz.move, dz.b, dz.energy);
+  if (k < 1) pose = dzLerp(dzPose(dz.prevMove, dz.b, dz.energy), pose, k * k * (3 - 2 * k));
+  dz.pose = dz.pose ? dzLerp(dz.pose, pose, 1 - Math.exp(-dt * 16)) : pose;
+  const g = dzSkeleton(dz.pose);
+  // тень: меньше, когда ноги в воздухе
+  const lift = Math.min(dz.pose.lf[1], dz.pose.rf[1]);
+  c.fillStyle = `rgba(0,0,0,${0.4 - Math.min(0.25, lift / 60)})`;
+  c.beginPath(); c.ellipse(cx + dz.pose.px * S * 0.5, floorY + 2, (30 - Math.min(14, lift)) * S, 5 * S, 0, 0, TAU); c.fill();
+  c.setTransform(dpr * S, 0, 0, dpr * S, cx * dpr, hipY * dpr);
+  if (dz.who === 'reze') dzDrawReze(c, g, dz.pose, dt); else dzDrawWolf(c, g, dz.pose, dt);
+  c.setTransform(1, 0, 0, 1, 0, 0);
 }
