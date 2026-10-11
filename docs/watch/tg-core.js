@@ -225,6 +225,7 @@ function tgPc(p) {
     tgPaint(); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch {} }
   };
   for (const s of [tg.mic, tg.screen]) if (s) s.getTracks().forEach(t => { try { tgTune(pc.addTrack(t, s), s); } catch {} });
+  tgCodecs(pc);
 }
 async function tgSig(p, m) {
   const pc = p.pc;
@@ -293,13 +294,26 @@ function tgTrack(p, e) {
   let a = p.auds[s.id]; if (!a) { a = p.auds[s.id] = new Audio(); a.autoplay = true; }
   a.srcObject = s; a.play().catch(() => {});
 }
-function tgAddTracks(s) { for (const p of tg.peers.values()) s.getTracks().forEach(t => { try { tgTune(p.pc.addTrack(t, s), s); } catch {} }); }
+function tgAddTracks(s) { for (const p of tg.peers.values()) { s.getTracks().forEach(t => { try { tgTune(p.pc.addTrack(t, s), s); } catch {} }); tgCodecs(p.pc); } }
 /* ── качество показа экрана ──
    По умолчанию WebRTC шлёт экран как «звонок»: ~1–2,5 Мбит/с, звук — моно
    ~32 кбит/с с обработкой для голоса. Для фильма: разрешение держим, битрейт
    поднимаем до выбранного, звук — стерео до 256 кбит/с без шумодава. */
-const TG_Q = { eco: { h: 720, br: 2500e3, fps: 30, name: 'Экономно · 720p' }, good: { h: 1080, br: 6000e3, fps: 30, name: 'Хорошо · 1080p' }, max: { h: 1080, br: 12000e3, fps: 60, name: 'Максимум · 1080p, 60 к/с' } };
+const TG_Q = { eco: { h: 720, br: 2500e3, fps: 30, name: 'Экономно · 720p' }, good: { h: 1080, br: 6000e3, fps: 30, name: 'Хорошо · 1080p' }, max: { h: 1080, br: 12000e3, fps: 60, name: 'Максимум · 1080p, 60 к/с' },
+  qhd: { h: 1440, br: 24000e3, fps: 60, hw: 1, name: '2K · 1440p, 60 к/с (от 30 Мбит/с)' },
+  uhd: { h: 2160, br: 45000e3, fps: 30, hw: 1, name: '4K · 2160p (эксперимент, от 60 Мбит/с)' } };
 function tgQ() { return TG_Q[localStorage.getItem('tc_tg_q')] || TG_Q.good; }
+// 2K/4K: H.264 — его видеокарта сжимает аппаратно; VP8 в 4K программно не вытянет.
+function tgCodecs(pc) {
+  if (!window.RTCRtpSender || !RTCRtpSender.getCapabilities || !tg.screen) return;
+  const caps = RTCRtpSender.getCapabilities('video'); if (!caps) return;
+  const rank = c => tgQ().hw ? (/h264/i.test(c.mimeType) ? 0 : /vp9/i.test(c.mimeType) ? 1 : /vp8/i.test(c.mimeType) ? 2 : 3) : (/vp8/i.test(c.mimeType) ? 0 : /h264/i.test(c.mimeType) ? 1 : /vp9/i.test(c.mimeType) ? 2 : 3);
+  const list = caps.codecs.slice().sort((a, b) => rank(a) - rank(b));
+  for (const t of pc.getTransceivers()) {
+    const tr = t.sender && t.sender.track;
+    if (tr && tr.kind === 'video' && tg.screen.getTracks().includes(tr) && t.setCodecPreferences) { try { t.setCodecPreferences(list); } catch {} }
+  }
+}
 function tgTune(sender, s) {
   if (!sender || !sender.track || !sender.getParameters) return;
   const t = sender.track, screen = s && s === tg.screen, q = tgQ();
@@ -344,6 +358,8 @@ async function tgScreenToggle() {
   catch (e) { if (e.name !== 'NotAllowedError') toast('Показ экрана недоступен: ' + (e.message || e.name), true); return; }
   tg.screen.getVideoTracks().forEach(t => { t.onended = tgStopScreen; try { t.contentHint = 'motion'; } catch {} });
   tg.screen.getAudioTracks().forEach(t => { try { t.contentHint = 'music'; } catch {} });
+  { const vt = tg.screen.getVideoTracks()[0], hh = vt && vt.getSettings ? vt.getSettings().height : 0;
+    if (hh && hh < q.h * 0.9) toast(`Экран отдаёт ${hh}p — для «${q.name.split(' ·')[0]}» нужен монитор с таким разрешением (или Windows-масштаб 100 %)`); }
   if (!tg.screen.getAudioTracks().length) toast('Звук не захвачен: при выборе окна или экрана включите «Поделиться звуком»', true);
   tgAddTracks(tg.screen); tgSend({ k: 'screen', on: true }); tgPaint();
 }
