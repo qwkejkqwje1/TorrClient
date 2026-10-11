@@ -216,15 +216,15 @@ function tgPc(p) {
   // («Failed to start SCTP transport») — соединение висло, ходил только чат.
   pc.onnegotiationneeded = async () => {
     if (p.polite && !pc.remoteDescription) { p.pendNeg = true; return; }
-    try { p.making = true; await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, desc: pc.localDescription.toJSON() }); } catch {} finally { p.making = false; }
+    try { p.making = true; await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, desc: tgSdp(pc.localDescription.toJSON()) }); } catch {} finally { p.making = false; }
   };
   pc.onicecandidate = e => { if (e.candidate) { tgCandType(p.lt, e.candidate.candidate); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, cand: e.candidate.toJSON() }); } };
   pc.ontrack = e => tgTrack(p, e);
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'connected') { p.ok = true; p.warned = false; }
+    if (pc.connectionState === 'connected') { p.ok = true; p.warned = false; pc.getSenders().forEach(x => { if (x.track) tgTune(x, tg.screen && tg.screen.getTracks().includes(x.track) ? tg.screen : null); }); }
     tgPaint(); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch {} }
   };
-  for (const s of [tg.mic, tg.screen]) if (s) s.getTracks().forEach(t => { try { pc.addTrack(t, s); } catch {} });
+  for (const s of [tg.mic, tg.screen]) if (s) s.getTracks().forEach(t => { try { tgTune(pc.addTrack(t, s), s); } catch {} });
 }
 async function tgSig(p, m) {
   const pc = p.pc;
@@ -234,7 +234,7 @@ async function tgSig(p, m) {
       p.ignore = !p.polite && collision; if (p.ignore) return;
       await pc.setRemoteDescription(m.desc);
       for (const c of p.cands.splice(0)) { try { await pc.addIceCandidate(c); } catch {} }
-      if (m.desc.type === 'offer') { await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, desc: pc.localDescription.toJSON() }); }
+      if (m.desc.type === 'offer') { await pc.setLocalDescription(); tgSend({ k: 'sig', to: p.id, g: p.gen || 0, desc: tgSdp(pc.localDescription.toJSON()) }); }
       if (p.pendNeg && pc.signalingState === 'stable') { p.pendNeg = false; setTimeout(() => { if (p.pc === pc && pc.signalingState === 'stable') pc.onnegotiationneeded(); }, 300); }
     } else if (m.cand) {
       tgCandType(p.rt, m.cand.candidate);
@@ -293,7 +293,40 @@ function tgTrack(p, e) {
   let a = p.auds[s.id]; if (!a) { a = p.auds[s.id] = new Audio(); a.autoplay = true; }
   a.srcObject = s; a.play().catch(() => {});
 }
-function tgAddTracks(s) { for (const p of tg.peers.values()) s.getTracks().forEach(t => { try { p.pc.addTrack(t, s); } catch {} }); }
+function tgAddTracks(s) { for (const p of tg.peers.values()) s.getTracks().forEach(t => { try { tgTune(p.pc.addTrack(t, s), s); } catch {} }); }
+/* ── качество показа экрана ──
+   По умолчанию WebRTC шлёт экран как «звонок»: ~1–2,5 Мбит/с, звук — моно
+   ~32 кбит/с с обработкой для голоса. Для фильма: разрешение держим, битрейт
+   поднимаем до выбранного, звук — стерео до 256 кбит/с без шумодава. */
+const TG_Q = { eco: { h: 720, br: 2500e3, fps: 30, name: 'Экономно · 720p' }, good: { h: 1080, br: 6000e3, fps: 30, name: 'Хорошо · 1080p' }, max: { h: 1080, br: 12000e3, fps: 60, name: 'Максимум · 1080p, 60 к/с' } };
+function tgQ() { return TG_Q[localStorage.getItem('tc_tg_q')] || TG_Q.good; }
+function tgTune(sender, s) {
+  if (!sender || !sender.track || !sender.getParameters) return;
+  const t = sender.track, screen = s && s === tg.screen, q = tgQ();
+  try {
+    const prm = sender.getParameters();
+    if (!prm.encodings || !prm.encodings.length) prm.encodings = [{}];
+    const e = prm.encodings[0];
+    if (t.kind === 'video') { e.maxBitrate = q.br; e.maxFramerate = q.fps; e.scaleResolutionDownBy = 1; prm.degradationPreference = 'maintain-resolution'; }
+    else if (screen) { e.maxBitrate = 256000; }
+    sender.setParameters(prm).catch(() => {});
+  } catch {}
+}
+// Что мы готовы принимать: Opus стерео с высоким битрейтом и быстрый разгон видео —
+// отправитель читает это из нашего описания.
+function tgSdp(d) {
+  if (!d || !d.sdp) return d;
+  let sdp = d.sdp;
+  const opus = /a=rtpmap:(\d+) opus\/48000/i.exec(sdp);
+  if (opus) sdp = sdp.replace(new RegExp('a=fmtp:' + opus[1] + ' ([^\r\n]*)'), (m, a) => 'a=fmtp:' + opus[1] + ' ' + a.split(';').filter(x => !/^(stereo|sprop-stereo|maxaveragebitrate)=/.test(x)).concat(['stereo=1', 'sprop-stereo=1', 'maxaveragebitrate=256000']).join(';'));
+  const vids = [...sdp.matchAll(/a=rtpmap:(\d+) (VP8|VP9|H264|AV1)\/90000/gi)].map(m => m[1]);
+  for (const pt of vids) {
+    const re = new RegExp('a=fmtp:' + pt + ' ([^\r\n]*)');
+    if (re.test(sdp)) sdp = sdp.replace(re, (m, a) => /x-google-start-bitrate/.test(a) ? m : m + ';x-google-start-bitrate=2500');
+    else sdp = sdp.replace(new RegExp('(a=rtpmap:' + pt + ' [^\r\n]*\r?\n)'), '$1a=fmtp:' + pt + ' x-google-start-bitrate=2500\r\n');
+  }
+  return { type: d.type, sdp };
+}
 function tgDropTracks(s) {
   const ids = new Set(s.getTracks().map(t => t.id));
   for (const p of tg.peers.values()) p.pc.getSenders().forEach(x => { if (x.track && ids.has(x.track.id)) { try { p.pc.removeTrack(x); } catch {} } });
@@ -306,9 +339,12 @@ async function tgMic() {
 }
 async function tgScreenToggle() {
   if (tg.screen) { tgStopScreen(); return; }
-  try { tg.screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true }); }
+  const q = tgQ();
+  try { tg.screen = await navigator.mediaDevices.getDisplayMedia({ video: { height: { ideal: q.h }, frameRate: { ideal: q.fps } }, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }, systemAudio: 'include' }); }
   catch (e) { if (e.name !== 'NotAllowedError') toast('Показ экрана недоступен: ' + (e.message || e.name), true); return; }
   tg.screen.getVideoTracks().forEach(t => { t.onended = tgStopScreen; try { t.contentHint = 'motion'; } catch {} });
+  tg.screen.getAudioTracks().forEach(t => { try { t.contentHint = 'music'; } catch {} });
+  if (!tg.screen.getAudioTracks().length) toast('Звук не захвачен: при выборе окна или экрана включите «Поделиться звуком»', true);
   tgAddTracks(tg.screen); tgSend({ k: 'screen', on: true }); tgPaint();
 }
 function tgStopScreen() {
